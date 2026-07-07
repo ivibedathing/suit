@@ -227,6 +227,8 @@ extension AppDelegate {
             PaletteCommand(title: "Claude: Prompt Session…", shortcut: nil) { [weak self] in self?.promptClaudeSession(nil) },
             PaletteCommand(title: "Claude: Continue Session", shortcut: nil) { [weak self] in self?.continueClaudeSession(nil) },
             PaletteCommand(title: "Claude: Compact Session (/compact)", shortcut: nil) { [weak self] in self?.compactClaudeSession(nil) },
+            PaletteCommand(title: "Claude: Compact Focused Session (/compact)", shortcut: "⌃⌘K") { [weak self] in self?.compactFocusedSession(nil) },
+            PaletteCommand(title: "Claude: Slash Command Menu…", shortcut: "⌃⌘/") { [weak self] in self?.showSlashCommandMenu(nil) },
             PaletteCommand(title: "Claude: Interrupt Session (Esc)", shortcut: nil) { [weak self] in self?.interruptClaudeSession(nil) },
             PaletteCommand(title: "Set Selection as Claude Goal", shortcut: nil) { [weak self] in self?.setSelectionAsGoalFromFocused(nil) },
             PaletteCommand(title: "Go to Line…", shortcut: "⌘L") { NSApp.sendAction(#selector(ViewerTextView.goToLine(_:)), to: nil, from: nil) },

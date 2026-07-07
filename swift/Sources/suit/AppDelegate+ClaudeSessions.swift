@@ -117,6 +117,46 @@ extension AppDelegate {
         }
     }
 
+    // MARK: - Live slash-command menu (ROADMAP Phase 27)
+
+    // The command menu: pick a session (picker when several are live), then a
+    // palette of that session's available slash commands — built-ins plus the
+    // discovered custom commands and skills — each injected into its pty.
+    @objc func showSlashCommandMenu(_ sender: Any?) {
+        withSession(placeholder: "Slash command in session…") { [weak self] session in
+            self?.presentSlashCommands(for: session)
+        }
+    }
+
+    private func presentSlashCommands(for session: ClaudeSession) {
+        guard let terminal = terminalContent(forSessionId: session.id) else {
+            NSSound.beep()
+            return
+        }
+        let catalog = SlashCommandCatalog.forSession(cwd: session.cwd)
+        let project = (session.cwd as NSString?)?.lastPathComponent ?? session.displayName
+        paletteFileIndex = nil
+        commandPalette.show(
+            relativeTo: activeWindowController()?.window,
+            commands: catalog.map { command in
+                PaletteCommand(title: command.menuTitle, shortcut: command.source.rawValue) { [weak terminal] in
+                    guard let terminal else { NSSound.beep(); return }
+                    SessionControl.send(text: command.name, to: terminal, submit: true)
+                }
+            },
+            placeholder: "Slash command → \(project)"
+        )
+    }
+
+    // The context bar action (Phase 27): /compact the focused pane's session
+    // directly (no picker) — the keyboard binding behind the title-bar meter tap.
+    @objc func compactFocusedSession(_ sender: Any?) {
+        guard let pane = activeWindowController()?.focusedPane(), pane.compactContextSession() else {
+            NSSound.beep()
+            return
+        }
+    }
+
     // Runs `body` on the one session, or shows a session-picker palette when
     // several are live. Only sessions whose pty is actually hosted by some
     // pane are offered — the others can't be written to.

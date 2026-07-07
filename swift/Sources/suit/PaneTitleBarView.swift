@@ -40,6 +40,14 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         addSubview(contextLabel)
     }
 
+    // Phase 27 — the context meter reads as a one-tap /compact whenever a live
+    // session is shown here; a pointing-hand cursor advertises the affordance.
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard !contextLabel.isHidden, pane?.canCompactContextSession == true else { return }
+        addCursorRect(contextLabel.frame.insetBy(dx: -4, dy: -4), cursor: .pointingHand)
+    }
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -82,6 +90,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
             }
             needsLayout = true
             setFrameSize(frame.size)
+            window?.invalidateCursorRects(for: self)
         }
     }
 
@@ -135,6 +144,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
 
         let left = iconView.frame.maxX + 6
         label.frame = NSRect(x: left, y: (bounds.height - 14) / 2, width: max(0, right - left), height: 14)
+        window?.invalidateCursorRects(for: self)
     }
 
     // MARK: - Pane drag source
@@ -154,6 +164,14 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
     override func mouseUp(with event: NSEvent) {
         defer { mouseDownLocation = nil }
         guard mouseDownLocation != nil, let pane else { return }
+        // Phase 27 — a click on the context meter fires /compact instead of
+        // focusing, when there's a live session to compact.
+        let local = convert(event.locationInWindow, from: nil)
+        if !contextLabel.isHidden,
+           contextLabel.frame.insetBy(dx: -4, dy: -4).contains(local),
+           pane.compactContextSession() {
+            return
+        }
         window?.makeFirstResponder(pane.focusTarget)
     }
 

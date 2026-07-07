@@ -213,6 +213,24 @@ final class Pane: NSObject {
         host?.dropTab(withId: id, onto: self, drop: target) ?? false
     }
 
+    // Phase 27 — the context meter is a one-tap /compact. Fires when this pane
+    // shows a terminal tab with a live Claude session, injecting the command
+    // over its pty. Returns whether it fired (false = nothing to compact, so
+    // the title bar falls back to a plain focus click).
+    @discardableResult
+    func compactContextSession() -> Bool {
+        guard let terminal = terminalContent, tab.claudeSession != nil else { return false }
+        SessionControl.send(text: "/compact", to: terminal, submit: true)
+        return true
+    }
+
+    // Whether the context meter should read as a tappable /compact button —
+    // there's a live session in a terminal tab here (the title bar uses this to
+    // add the pointing-hand cursor over the meter).
+    var canCompactContextSession: Bool {
+        terminalContent != nil && tab.claudeSession != nil
+    }
+
     // Purely visual; the window controller derives who's focused from
     // window.firstResponder and repaints every pane (firstResponderDidChange).
     func setFocused(_ focused: Bool) {
