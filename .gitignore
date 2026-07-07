@@ -1,0 +1,29 @@
+# Build output
+/build/
+/go/tui
+
+# Compiled Swift artifacts
+*.o
+*.swiftmodule
+*.swiftdoc
+*.swiftsourceinfo
+
+# Go
+*.test
+*.out
+/go/vendor/
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Editor / IDE
+*.swp
+*~
+.idea/
+.vscode/
+
+# Claude task worktrees
+/.claude/worktrees/
