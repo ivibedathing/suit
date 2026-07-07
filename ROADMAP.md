@@ -549,7 +549,7 @@ of copy-paste-retype. The steer-Claude pillar at its most direct.
   `/goal` + the exact selection reaches the chosen pty as one bracketed-paste unit; an empty
   selection disables the menu item.
 
-### Phase 19 — Markdown & image/PDF preview tabs
+### Phase 19 — Markdown & image/PDF preview tabs — ✅ shipped
 
 Viewer-first, extended past source code. The monorepo has READMEs and design PNGs too — Suit
 already renders `design/*.png` in its own workflow — and reviewing them shouldn't mean a trip to
