@@ -661,7 +661,7 @@ same as "this task cost $4 and isn't done, and which session is the runaway."
   per-task rollups and the chart totals match; the history file round-trips and survives a
   session-file cleanup.
 
-### Phase 24 — "What changed while I was away" marker
+### Phase 24 — "What changed while I was away" marker — ✅ shipped
 
 The async-delegation review. You start sessions, step away, and come back wanting *one* diff of
 everything that moved across the fleet — not to re-inspect each worktree. Directly serves "verify

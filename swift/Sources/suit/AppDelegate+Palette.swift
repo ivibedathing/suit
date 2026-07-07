@@ -33,6 +33,15 @@ extension AppDelegate {
         activeWindowController()?.showBookmarks()
     }
 
+    // ROADMAP Phase 24 — "what changed while I was away" markers.
+    @objc func markAwayPoint(_ sender: Any?) {
+        activeWindowController()?.markAwayPoint()
+    }
+
+    @objc func showCatchUpDiff(_ sender: Any?) {
+        activeWindowController()?.openCatchUpDiff()
+    }
+
     // Routed through the responder chain to the focused file viewer (like
     // Go to Line); a beep when nothing focused is a viewer.
     @objc func toggleBookmark(_ sender: Any?) {
@@ -253,6 +262,8 @@ extension AppDelegate {
             PaletteCommand(title: "Show Notes", shortcut: nil) { [weak self] in self?.showNotes(nil) },
             PaletteCommand(title: "Show Git", shortcut: nil) { [weak self] in self?.showGit(nil) },
             PaletteCommand(title: "Show Bookmarks", shortcut: nil) { [weak self] in self?.showBookmarks(nil) },
+            PaletteCommand(title: "Mark Now (checkpoint for “what changed”)", shortcut: nil) { [weak self] in self?.markAwayPoint(nil) },
+            PaletteCommand(title: "What Changed Since Mark", shortcut: nil) { [weak self] in self?.showCatchUpDiff(nil) },
             PaletteCommand(title: "Toggle Bookmark", shortcut: "⇧⌘L") { [weak self] in self?.toggleBookmark(nil) },
             PaletteCommand(title: "Increase Font Size", shortcut: "⌘=") { [weak self] in self?.increaseFontSize(nil) },
             PaletteCommand(title: "Decrease Font Size", shortcut: "⌘-") { [weak self] in self?.decreaseFontSize(nil) },

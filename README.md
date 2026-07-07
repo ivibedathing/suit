@@ -86,6 +86,16 @@ each shell running directly over a real pty
   the branch, body from its commits), **Open on GitHub**, and **Checkout**. When a PR exists it
   shows a `#N` badge with a ✓/✕/• checks glyph. Everything degrades gracefully without the `gh`
   CLI — the menu still checks out, and shows a hint to install gh.
+- **"What changed while I was away"** — start Claude sessions across a repo's worktrees, step
+  away, and come back to *one* diff of everything that moved. The Git tab's ⚑ button (or the
+  palette's **Mark Now**) records a per-repo checkpoint — every worktree's HEAD plus a timestamp,
+  in `~/.suit/markers.json`; the flag fills once a mark is set. **What Changed Since Mark**
+  (⚑ menu or palette) then composes an aggregate diff across *all* the repo's worktrees — each
+  worktree's commits, staged, unstaged, and newly-created files since the mark — into one review
+  set in the diff tab, walkable with the usual `n`/`p`/`o`/`c`. A summary header leads it:
+  files-touched and `+ins −del` per worktree, and which Claude session (matched by cwd) is
+  working there, so the catch-up reads as "session X changed these 6 files". Worktrees created
+  after the mark diff from their merge-base, so only their new work shows.
 - **Notes** — a free-text scratch tab in the sidebar backed by `~/.suit/notes.txt`;
   right-click a terminal selection to append it as a note.
 
