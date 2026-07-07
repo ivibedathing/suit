@@ -139,6 +139,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate, NSTextFieldDel
         effect.addSubview(separator)
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("command"))
+        // Grow the single column to fill the table's width — without this it keeps
+        // the tiny default width, collapsing each row's title label to zero width
+        // (max(0, columnWidth - shortcut - padding)) so command/shortcut text never
+        // shows. Every other themed table here sets the same mask.
+        column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
         tableView.headerView = nil
         tableView.rowHeight = 28
