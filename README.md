@@ -25,6 +25,11 @@ each shell running directly over a real pty
   most recent background tab, or right-click a tab ▸ Split Screen, or drag a tab to a screen
   edge). Unsplit with ⌥⌘W, walk splits with ⌥⌘arrows. Closing a visible tab falls back to the
   most recent background tab; background tabs keep their processes running.
+- **Drop to replace (Chrome-parity)** — dragging a strip tab onto a viewport — anywhere,
+  the header included — *replaces* what that viewport shows (the displaced tab backgrounds,
+  its process untouched). Only a slim band along each edge (≤ 60pt) still splits the tab out
+  into a new pane, so splitting stays available but deliberate. Reordering within the strip,
+  moving a tab to another window, and tearing off a new one are unchanged.
 - **Exit status** — a clean shell exit closes its tab; a failure leaves it open with a red dot
   (hover for the signal/exit reason). Bells flash the pane, pulse a backgrounded tab's strip
   item, and bounce the Dock icon while the app is inactive.
@@ -44,7 +49,10 @@ each shell running directly over a real pty
   palette over every app command plus your prompt library.
 - **File viewer** — files open as read-only tabs (deduped by path) with syntax highlighting, a
   minimap, line numbers, go-to-line (⌘L), and orange marks on lines changed since HEAD.
-  Cmd-click a path in any terminal (with optional `:line`) to jump straight to it.
+  Cmd-click a path in any terminal (with optional `:line`) to jump straight to it. Files are
+  first-class tabs: every open (sidebar click, ⌘P, search hit, Cmd-click link) opens the
+  file's own tab or re-activates it if the path is already open — files never load one on top
+  of another, so opening three files leaves three tabs.
 - **Blame gutter** — Toggle Blame (⌃⌘B) shows a per-line column of the last-touching commit
   (short sha + author, tinted by age) beside the line numbers; the full commit subject is on
   hover, and clicking a line's sha opens that commit's diff.
@@ -169,9 +177,12 @@ each shell running directly over a real pty
   blinking, bell responses (pane flash, Dock bounce); word wrap for file viewers; Claude
   session arguments and whether "Set as Goal" prepends the source location. Everything
   persists across launches.
-- **Per-pane looks** — right-click a pane for background presets (Midnight, Dracula, Nord,
-  Solarized Dark, …) or a custom color, per-pane font size (⌘= / ⌘-), and a decorative ASCII
-  screensaver overlay (waves/stars) with its own colors and speed.
+- **Per-pane looks** — right-click a pane for background presets or a custom color, per-pane
+  font size (⌘= / ⌘-), and a decorative ASCII screensaver overlay (waves/stars) with its own
+  colors and speed. Terminals ground a step darker than the chrome: "Midnight" (#0E1013) is the
+  default terminal background, giving shell output its own deeper layer, while "Slate" keeps the
+  one-surface chrome ground (#17191D) available per pane. Dracula, Nord, Solarized Dark and more
+  round out the presets.
 
 ### Safety
 
