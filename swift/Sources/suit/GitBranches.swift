@@ -109,14 +109,27 @@ struct GitPRInfo {
     let checks: Checks?
 }
 
+// One PR's detail from `gh pr view` (see GitHubCLI.prState): its state plus
+// the merge timestamp and body the Autopilot flow reads trailers from.
+struct GitPRDetail {
+    let state: GitPRInfo.State
+    let mergedAt: Date?
+    let body: String
+}
+
 // The optional GitHub layer. Every entry point is a no-op / graceful failure
 // when `gh` isn't installed, so the Git tab works identically without it.
 enum GitHubCLI {
     // gh lives in Homebrew's bin, which isn't on a GUI app's minimal PATH — so
     // probe the known install locations directly rather than trusting $PATH.
+    // SUIT_GH_PATH overrides for tests/dev runs (mirrors SUIT_RG_PATH).
     // Resolved once (nil = not installed); the result is stable for a session.
     private static let resolvedPath: String? = {
-        for candidate in ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh", "/run/current-system/sw/bin/gh"] {
+        var candidates = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh", "/run/current-system/sw/bin/gh"]
+        if let envPath = ProcessInfo.processInfo.environment["SUIT_GH_PATH"], !envPath.isEmpty {
+            candidates.insert(envPath, at: 0)
+        }
+        for candidate in candidates {
             if FileManager.default.isExecutableFile(atPath: candidate) { return candidate }
         }
         // Last resort: let the login shell resolve it.
@@ -183,7 +196,7 @@ enum GitHubCLI {
     }
 
     // The repo's default branch ("main"/"master"), from origin/HEAD when set.
-    private static func defaultBranch(root: String) -> String? {
+    static func defaultBranch(root: String) -> String? {
         if let head = runProcess("/usr/bin/git", ["-C", root, "symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"])?
             .trimmingCharacters(in: .whitespacesAndNewlines), !head.isEmpty {
             return (head as NSString).lastPathComponent
@@ -219,6 +232,48 @@ enum GitHubCLI {
         case .failure(let error):
             return .failure(error)
         }
+    }
+
+    // `gh pr merge <n> --merge` for the PR. Deliberately *not* `--delete-branch`:
+    // the branch is checked out in a task worktree, so gh's local delete would
+    // fail — worktree + branch cleanup is the caller's job (WorktreeTasks).
+    // Success carries gh's stdout; failure gh's own error text (branch
+    // protection, "not mergeable", …) verbatim so the caller can react to it.
+    static func mergePR(root: String, number: Int) -> Result<String, WorktreeTaskError> {
+        guard let gh = resolvedPath else { return .failure(WorktreeTaskError(message: "The gh CLI isn’t installed.")) }
+        return run(gh, cwd: root, ["pr", "merge", "\(number)", "--merge"])
+    }
+
+    // One PR's current state/mergedAt/body from `gh pr view` — used to confirm
+    // a merge actually landed (state == MERGED), to adopt an in-flight run on
+    // relaunch, and to read trailer lines out of the body.
+    static func prState(root: String, number: Int) -> Result<GitPRDetail, WorktreeTaskError> {
+        guard let gh = resolvedPath else { return .failure(WorktreeTaskError(message: "The gh CLI isn’t installed.")) }
+        switch run(gh, cwd: root, ["pr", "view", "\(number)", "--json", "state,mergedAt,body"]) {
+        case .failure(let error):
+            return .failure(error)
+        case .success(let output):
+            guard let data = output.data(using: .utf8),
+                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let stateRaw = object["state"] as? String,
+                  let state = GitPRInfo.State(rawValue: stateRaw)
+            else { return .failure(WorktreeTaskError(message: "Couldn’t parse gh pr view output.")) }
+            var mergedAt: Date?
+            if let mergedRaw = object["mergedAt"] as? String {
+                mergedAt = ISO8601DateFormatter().date(from: mergedRaw)
+            }
+            return .success(GitPRDetail(
+                state: state, mergedAt: mergedAt, body: object["body"] as? String ?? ""
+            ))
+        }
+    }
+
+    // Whether gh has credentials for the repo's host (`gh auth status` exits 0).
+    // False when gh isn't installed.
+    static func isAuthenticated(root: String) -> Bool {
+        guard let gh = resolvedPath else { return false }
+        if case .success = run(gh, cwd: root, ["auth", "status"]) { return true }
+        return false
     }
 
     // Opens the branch on GitHub: the PR page when one exists, otherwise the
