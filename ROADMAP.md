@@ -57,6 +57,12 @@ outside the split tree; the split tree stays the content area.
 
 ## Phases
 
+Since Phase 32 this file is also **Autopilot's steering interface**, re-parsed at every
+scheduling decision: **priority = document order** (reordering phases is the priority UI),
+`✅` anywhere in a phase heading = shipped, `⏸` anywhere in a heading = skipped. A running
+worker holds a snapshot of its phase's spec taken at spawn, so mid-run edits only affect the
+next scheduling decision.
+
 ### Phase 0 — Foundations (enables everything else) — ✅ shipped
 
 - `PaneContent` protocol refactor; terminal panes ported onto it.
@@ -818,6 +824,75 @@ legible instead of scattering anonymous checkouts.
 - **Verification.** Harness creates a task with isolation on and off (asserts the right checkout
   is used), seeds a session with two subagent worktrees, asserts they render nested under the
   parent and disappear from the tree when their worktrees are removed.
+
+### Phase 32 — Autopilot (autonomous roadmap execution) — ✅ shipped
+
+Landed as `AutopilotEngine.swift` (the main-queue state machine ticked from AppDelegate's 3 s
+timer — preflight → spawn → completion verification → gates → merge → cleanup — plus relaunch
+adoption that re-resolves a persisted run against worktree/PR reality), `AutopilotScheduler.swift`
+(pure budget math), `RoadmapParser.swift` (this file as the input), `AutopilotGates.swift`
+(build.sh + headless-review runners), `AutopilotPrompts.swift` (worker / nudge / rejection /
+conflict prompts) and `AutopilotStore.swift` (`~/.suit/autopilot/` persistence), with plumbing
+extensions: `GitHubCLI` merge/PR-state/auth calls + `SUIT_GH_PATH`, `ClaudeUsage` `resets_at`
+parsing + an ungated snapshot reader, `WorktreeTasks.removeAfterRemoteMerge`, and
+`SessionControl.send(submitDelay:)`.
+
+Use every bit of the Claude Code token limits autonomously. Whenever budget allows, Suit spins
+up a Claude session that implements the next unshipped phase of this file end-to-end —
+worktree → implementation → build → README → ✅ heading mark → commit → push → PR — then the
+app gates and auto-merges the PR and loops to the next phase. One run at a time; the user
+steers only by editing ROADMAP.md.
+
+- **Scheduler + modes**: `AutopilotScheduler.mayStartRun` gates run *starts* (an in-flight run
+  always finishes) on the statusline's usage snapshot — `resets_at` now parsed, a percentage
+  past its reset counts as zero, and the model-scoped weekly can bind before the global one.
+  Three user-switchable modes — *Pace to reset* (spend the weekly window evenly toward a target
+  %), *Max out* (run whenever under the ceilings), *Night shift* (max-out inside configurable
+  hours, midnight wrap) — under hard 5h/weekly ceilings, all in the Settings "Autopilot"
+  section along with project root, gate attempts, stall minutes, extra claude args, review
+  model, and a keep-the-Mac-awake toggle held across runs.
+- **Worker contract**: after preflight (gh installed + authed, main checkout on a clean
+  up-to-date default branch, no leftover task worktree), the engine creates the task worktree
+  (`WorktreeTasks.createTask`), opens a visible `⚙ Phase <N> — <Title>` terminal tab running
+  `claude --dangerously-skip-permissions` (never focus-stealing), and — once the session file
+  appears and is pinned to the run — sends the worker prompt with the phase spec embedded
+  verbatim (snapshotted at spawn, immune to concurrent roadmap edits). Session `done` only
+  *triggers* verification — the Stop hook fires at every turn end, so world state is the truth:
+  commits ahead of default, branch pushed, PR open with the `Autopilot-Phase` trailer, worktree
+  clean, heading marked ✅. Misses nudge the live session with the specific gaps (capped,
+  spaced); dead-worker respawn with `--continue` and a wall-clock watchdog back it up.
+- **Review gate + merge**: the build gate runs first (`build.sh` in the worktree, log captured,
+  timeout), then a headless `claude -p` reviewer judges CLAUDE.md rules + the spec snapshot +
+  the full PR diff and must answer `VERDICT: APPROVE|REJECT` alone on the final line — never
+  auto-approve on ambiguity. Failures feed the build-log tail / numbered findings back into the
+  live session (attempts capped, phase blocked past the cap); approve → `gh pr merge --merge`,
+  confirmed `MERGED`, main fast-forwarded, worktree + branch removed, history appended,
+  notification posted, run tab closed, loop.
+- **Steering conventions** (also stated in the preamble above): priority = document order,
+  `✅` in a heading = shipped, `⏸` = skipped; re-parsed at every scheduling decision; the one
+  sanctioned engine write to this file is `Skip Current Phase` appending `⏸`. Roadmap drift
+  (already-implemented but unmarked phases) resolves as cheap docs-only PRs via the worker
+  prompt's drift clause.
+- **UI surfaces**: an Autopilot row in the sidebar footer (state · phase · next-run ETA;
+  click → run tab while running, log otherwise), palette verbs — Enable/Disable, Run Next Phase
+  Now, Pause After Current Run/Resume, Retry, Skip Current Phase, Show Log, Open Run Tab
+  (palette-reachable = keyboard-complete; no new bindings) — and notifications for merged /
+  blocked / all-phases-done with click-through to the run tab or log.
+- **Observability**: everything under `~/.suit/autopilot/` — `state.json` (the current run,
+  rewritten on every stage transition; the relaunch-adoption input), `history.jsonl` (one row
+  per finished run: outcome, PR, attempts, cost), `autopilot.log` (human-readable event lines;
+  "Show Log" opens it as a viewer tab), and `logs/<slug>/build-N.log` / `review-N.log`.
+- **Verification.** Standalone logic tests (sandboxed `$HOME`): parser fixtures (`✅ shipped`
+  with/without parentheticals, `⏸`, malformed headings, all-shipped → nil, spec body stops at
+  the next heading), scheduler math (pace at 0/50/100% elapsed, ceilings, hard stop, night
+  wrap across midnight, stale/missing snapshots, `resets_at` epoch + ISO forms, model-weekly
+  binding), prompt composition (verbatim spec, exact trailer lines, diff-truncation header),
+  verdict parsing (final-line rule, verdict-shaped text mid-output ignored, garbage never
+  approves), the adoption truth table, and a store round-trip. A pipeline harness drives a
+  fixture repo with fake `claude`/`gh` (injected via `SUIT_CLAUDE_PATH`/`SUIT_GH_PATH`) through
+  spawn → nudge → reject → approve → merge → cleanup, asserting the merge argv, worktree/branch
+  removal, the history row, and `⏸` honored on the next pass; plus full `./build.sh` and a
+  manual smoke of the footer row, run tab, and notification click-throughs.
 
 ## Cross-cutting principles ("works for the user")
 

@@ -11,11 +11,13 @@ enum SessionControl {
     // Claude Code (and modern shells) run with bracketed paste on; wrapping
     // the payload keeps embedded newlines as literal input-box newlines
     // instead of submitting at the first \n.
-    static func send(text: String, to terminal: TerminalPaneContent, submit: Bool) {
+    // submitDelay: how long the TUI gets to consume the paste before the CR;
+    // Autopilot passes 0.5 s for its multi-KB worker prompts.
+    static func send(text: String, to terminal: TerminalPaneContent, submit: Bool, submitDelay: TimeInterval = 0.15) {
         terminal.terminalView.send(txt: "\u{1b}[200~" + text + "\u{1b}[201~")
         if submit {
             // A beat later, so the TUI has consumed the paste before Enter.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak terminal] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + submitDelay) { [weak terminal] in
                 terminal?.terminalView.send(txt: "\r")
             }
         }

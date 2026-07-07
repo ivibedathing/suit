@@ -37,6 +37,62 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
     private let claudeArgsField = NSTextField(string: "")
     private let goalProvenanceCheckbox = NSButton(checkboxWithTitle: "Prepend source location to goals (From file:lines:)", target: nil, action: nil)
 
+    // Autopilot (ROADMAP Phase 32, §2.9): every control writes through
+    // appDelegate.autopilotXChanged(...) and is re-read in show().
+    private let autopilotEnabledCheckbox = NSButton(checkboxWithTitle: "Work through ROADMAP.md autonomously", target: nil, action: nil)
+    private let autopilotProjectField = NSTextField(string: "")
+    private let autopilotModePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let autopilotNightStartStepper = LabeledStepper(min: 0, max: 23, suffix: "h")
+    private let autopilotNightEndStepper = LabeledStepper(min: 0, max: 23, suffix: "h")
+    private let autopilotFiveHourStepper = LabeledStepper(min: 0, max: 100, suffix: "%")
+    private let autopilotWeeklyStepper = LabeledStepper(min: 0, max: 100, suffix: "%")
+    private let autopilotHardStopStepper = LabeledStepper(min: 0, max: 100, suffix: "%")
+    private let autopilotPaceStepper = LabeledStepper(min: 1, max: 100, suffix: "%")
+    private let autopilotAttemptsStepper = LabeledStepper(min: 1, max: 9, suffix: "")
+    private let autopilotStallStepper = LabeledStepper(min: 5, max: 240, suffix: " min")
+    private let autopilotExtraArgsField = NSTextField(string: "")
+    private let autopilotReviewModelField = NSTextField(string: "")
+    private let autopilotKeepAwakeCheckbox = NSButton(checkboxWithTitle: "Keep the Mac awake during runs", target: nil, action: nil)
+
+    // A stepper with its value label, the fontSizeStepper pattern factored out
+    // for the Autopilot section's many numeric settings.
+    private final class LabeledStepper {
+        let valueLabel = NSTextField(labelWithString: "")
+        let stepper = NSStepper(frame: NSRect(x: 0, y: 0, width: 19, height: 27))
+        private let suffix: String
+
+        init(min: Double, max: Double, suffix: String) {
+            self.suffix = suffix
+            stepper.minValue = min
+            stepper.maxValue = max
+            stepper.increment = 1
+            valueLabel.font = .systemFont(ofSize: 12)
+            valueLabel.textColor = Theme.textPrimary
+        }
+
+        var intValue: Int {
+            get { Int(stepper.doubleValue) }
+            set {
+                stepper.doubleValue = Double(newValue)
+                refreshLabel()
+            }
+        }
+
+        func refreshLabel() {
+            valueLabel.stringValue = "\(Int(stepper.doubleValue))\(suffix)"
+        }
+
+        var isEnabled: Bool {
+            get { stepper.isEnabled }
+            set {
+                stepper.isEnabled = newValue
+                valueLabel.textColor = newValue ? Theme.textPrimary : Theme.textFaint
+            }
+        }
+
+        var views: [NSView] { [valueLabel, stepper] }
+    }
+
     convenience init(appDelegate: AppDelegate) {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 560),
@@ -73,6 +129,23 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
             wordWrapCheckbox.state = appDelegate.wordWrapEnabled ? .on : .off
             claudeArgsField.stringValue = appDelegate.claudeSessionArgs
             goalProvenanceCheckbox.state = appDelegate.goalPrependProvenanceEnabled ? .on : .off
+            autopilotEnabledCheckbox.state = appDelegate.autopilotEnabled ? .on : .off
+            autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot
+            if let index = AutopilotBudgetMode.allCases.firstIndex(of: appDelegate.autopilotMode) {
+                autopilotModePopup.selectItem(at: index)
+            }
+            autopilotNightStartStepper.intValue = appDelegate.autopilotNightStart
+            autopilotNightEndStepper.intValue = appDelegate.autopilotNightEnd
+            autopilotFiveHourStepper.intValue = appDelegate.autopilotFiveHourCeiling
+            autopilotWeeklyStepper.intValue = appDelegate.autopilotWeeklyCeiling
+            autopilotHardStopStepper.intValue = appDelegate.autopilotWeeklyHardStop
+            autopilotPaceStepper.intValue = appDelegate.autopilotPaceTargetPct
+            autopilotAttemptsStepper.intValue = appDelegate.autopilotMaxGateAttempts
+            autopilotStallStepper.intValue = appDelegate.autopilotStallMinutes
+            autopilotExtraArgsField.stringValue = appDelegate.autopilotExtraArgs
+            autopilotReviewModelField.stringValue = appDelegate.autopilotReviewModel
+            autopilotKeepAwakeCheckbox.state = appDelegate.autopilotPreventSleep ? .on : .off
+            updateAutopilotNightEnabled()
         }
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -191,6 +264,67 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
         goalProvenanceCheckbox.action = #selector(goalProvenanceChanged)
         let goalProvenanceRow = row(label: "Goals:", controls: [goalProvenanceCheckbox])
 
+        // Autopilot (ROADMAP Phase 32, §2.9).
+        autopilotEnabledCheckbox.target = self
+        autopilotEnabledCheckbox.action = #selector(autopilotEnabledToggled)
+        let autopilotEnabledRow = row(label: "", controls: [autopilotEnabledCheckbox])
+
+        autopilotProjectField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        autopilotProjectField.placeholderString = "git repo containing ROADMAP.md"
+        autopilotProjectField.delegate = self
+        autopilotProjectField.translatesAutoresizingMaskIntoConstraints = false
+        autopilotProjectField.widthAnchor.constraint(equalToConstant: 200).isActive = true
+        let autopilotChooseButton = NSButton(title: "Choose…", target: self, action: #selector(autopilotChooseProject))
+        let autopilotProjectRow = row(label: "Project:", controls: [autopilotProjectField, autopilotChooseButton])
+
+        autopilotModePopup.addItems(withTitles: AutopilotBudgetMode.allCases.map(\.displayName))
+        autopilotModePopup.target = self
+        autopilotModePopup.action = #selector(autopilotModePicked)
+        let autopilotModeRow = row(label: "Mode:", controls: [autopilotModePopup])
+
+        let nightToLabel = NSTextField(labelWithString: "to")
+        nightToLabel.font = .systemFont(ofSize: 12)
+        nightToLabel.textColor = Theme.textDim
+        let autopilotNightRow = row(
+            label: "Night:",
+            controls: autopilotNightStartStepper.views + [nightToLabel] + autopilotNightEndStepper.views
+        )
+
+        for labeled in autopilotSteppers {
+            labeled.stepper.target = self
+            labeled.stepper.action = #selector(autopilotStepperChanged)
+        }
+        let autopilotFiveHourRow = row(label: "5h Cap:", controls: autopilotFiveHourStepper.views)
+        let autopilotWeeklyRow = row(label: "Weekly Cap:", controls: autopilotWeeklyStepper.views)
+        let autopilotHardStopRow = row(label: "Hard Stop:", controls: autopilotHardStopStepper.views)
+        let autopilotPaceRow = row(label: "Pace To:", controls: autopilotPaceStepper.views)
+        let attemptsHint = NSTextField(labelWithString: "max attempts per phase")
+        attemptsHint.font = .systemFont(ofSize: 10)
+        attemptsHint.textColor = Theme.textDim
+        let autopilotAttemptsRow = row(label: "Attempts:", controls: autopilotAttemptsStepper.views + [attemptsHint])
+        let autopilotStallRow = row(label: "Stall:", controls: autopilotStallStepper.views)
+
+        autopilotExtraArgsField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        autopilotExtraArgsField.delegate = self
+        autopilotExtraArgsField.translatesAutoresizingMaskIntoConstraints = false
+        autopilotExtraArgsField.widthAnchor.constraint(equalToConstant: 220).isActive = true
+        let autopilotArgsRow = row(label: "Arguments:", controls: [autopilotExtraArgsField])
+        let autopilotArgsHint = NSTextField(labelWithString: "Appended to claude for Autopilot runs (--dangerously-skip-permissions is always set)")
+        autopilotArgsHint.font = .systemFont(ofSize: 10)
+        autopilotArgsHint.textColor = Theme.textDim
+        let autopilotArgsHintRow = row(label: "", controls: [autopilotArgsHint])
+
+        autopilotReviewModelField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        autopilotReviewModelField.placeholderString = "empty = default model"
+        autopilotReviewModelField.delegate = self
+        autopilotReviewModelField.translatesAutoresizingMaskIntoConstraints = false
+        autopilotReviewModelField.widthAnchor.constraint(equalToConstant: 220).isActive = true
+        let autopilotReviewModelRow = row(label: "Reviewer:", controls: [autopilotReviewModelField])
+
+        autopilotKeepAwakeCheckbox.target = self
+        autopilotKeepAwakeCheckbox.action = #selector(autopilotKeepAwakeChanged)
+        let autopilotKeepAwakeRow = row(label: "", controls: [autopilotKeepAwakeCheckbox])
+
         let stack = NSStackView(views: [
             sectionHeader("Appearance"),
             fontRow, fontSizeRow, textColorRow, backgroundRow, opacityRow, blurRow,
@@ -200,6 +334,12 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
             wordWrapRow,
             sectionHeader("Claude"),
             claudeArgsRow, claudeHintRow, goalProvenanceRow,
+            sectionHeader("Autopilot"),
+            autopilotEnabledRow, autopilotProjectRow, autopilotModeRow, autopilotNightRow,
+            autopilotFiveHourRow, autopilotWeeklyRow, autopilotHardStopRow, autopilotPaceRow,
+            autopilotAttemptsRow, autopilotStallRow,
+            autopilotArgsRow, autopilotArgsHintRow,
+            autopilotReviewModelRow, autopilotKeepAwakeRow,
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -208,19 +348,39 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
         // extra air before their headers.
         stack.setCustomSpacing(4, after: bellFlashRow)
         stack.setCustomSpacing(4, after: claudeArgsRow)
+        stack.setCustomSpacing(4, after: autopilotArgsRow)
         stack.setCustomSpacing(22, after: blurRow)
         stack.setCustomSpacing(22, after: bellBounceRow)
         stack.setCustomSpacing(22, after: wordWrapRow)
+        stack.setCustomSpacing(22, after: goalProvenanceRow)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let container = NSView()
-        container.addSubview(stack)
+        // The Autopilot section pushed the form past the window height, so the
+        // whole tab scrolls (same FlippedView + width-pinned document pattern
+        // as the Shortcuts tab).
+        let documentView = FlippedView()
+        documentView.translatesAutoresizingMaskIntoConstraints = false
+        documentView.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 20),
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -24),
+            stack.topAnchor.constraint(equalTo: documentView.topAnchor, constant: 20),
+            stack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: documentView.trailingAnchor, constant: -24),
+            stack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor, constant: -20),
         ])
-        return container
+        let scroll = NSScrollView()
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = false
+        scroll.documentView = documentView
+        NSLayoutConstraint.activate([
+            documentView.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
+        ])
+        return scroll
+    }
+
+    private var autopilotSteppers: [LabeledStepper] {
+        [autopilotNightStartStepper, autopilotNightEndStepper, autopilotFiveHourStepper,
+         autopilotWeeklyStepper, autopilotHardStopStepper, autopilotPaceStepper,
+         autopilotAttemptsStepper, autopilotStallStepper]
     }
 
     // The Docs tab: a scrollable, read-only reference of every keyboard shortcut,
@@ -385,6 +545,28 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
             claudeArgsField.stringValue = appDelegate.claudeSessionArgs
             return
         }
+        // Autopilot fields: the project path is validated like the shell path
+        // (git repo with a ROADMAP.md — invalid beeps and snaps back), the
+        // extra args and review model are free-form (args get newline-stripped).
+        if (notification.object as? NSTextField) === autopilotProjectField {
+            let entered = autopilotProjectField.stringValue.trimmingCharacters(in: .whitespaces)
+            if entered != appDelegate.autopilotProjectRoot,
+               !appDelegate.autopilotProjectRootChanged(entered) {
+                NSSound.beep()
+            }
+            autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot
+            return
+        }
+        if (notification.object as? NSTextField) === autopilotExtraArgsField {
+            appDelegate.autopilotExtraArgsChanged(autopilotExtraArgsField.stringValue)
+            autopilotExtraArgsField.stringValue = appDelegate.autopilotExtraArgs
+            return
+        }
+        if (notification.object as? NSTextField) === autopilotReviewModelField {
+            appDelegate.autopilotReviewModelChanged(autopilotReviewModelField.stringValue)
+            autopilotReviewModelField.stringValue = appDelegate.autopilotReviewModel
+            return
+        }
         guard (notification.object as? NSTextField) === shellField else { return }
         let entered = shellField.stringValue.trimmingCharacters(in: .whitespaces)
         if !entered.isEmpty, entered != appDelegate.shellPath, !appDelegate.shellPathChanged(entered) {
@@ -414,5 +596,93 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
 
     @objc private func goalProvenanceChanged(_ sender: NSButton) {
         appDelegate?.goalProvenanceChanged(sender.state == .on)
+    }
+
+    // MARK: - Autopilot actions (ROADMAP Phase 32)
+
+    // Enabling runs the §2.3 enable-time checks in AppDelegate (Claude
+    // integration installed, gh hint); a refusal snaps the checkbox back.
+    @objc private func autopilotEnabledToggled(_ sender: NSButton) {
+        guard let appDelegate else { return }
+        if !appDelegate.autopilotEnabledChanged(sender.state == .on) {
+            sender.state = appDelegate.autopilotEnabled ? .on : .off
+        }
+    }
+
+    @objc private func autopilotChooseProject(_ sender: Any?) {
+        guard let appDelegate else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose"
+        panel.message = "Choose a git repository containing ROADMAP.md"
+        if !appDelegate.autopilotProjectRoot.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: appDelegate.autopilotProjectRoot)
+        }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if appDelegate.autopilotProjectRootChanged(url.path) {
+            autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot
+        } else {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Not an Autopilot project"
+            alert.informativeText = "\(url.path) isn’t usable: Autopilot needs a git repository whose root contains ROADMAP.md."
+            alert.runModal()
+        }
+    }
+
+    @objc private func autopilotModePicked(_ sender: Any?) {
+        let modes = AutopilotBudgetMode.allCases
+        let index = autopilotModePopup.indexOfSelectedItem
+        guard modes.indices.contains(index) else { return }
+        appDelegate?.autopilotModeChanged(modes[index])
+        updateAutopilotNightEnabled()
+    }
+
+    // The night-hours steppers only matter in night mode.
+    private func updateAutopilotNightEnabled() {
+        let night = appDelegate?.autopilotMode == .nightShift
+        autopilotNightStartStepper.isEnabled = night
+        autopilotNightEndStepper.isEnabled = night
+    }
+
+    // One selector for all eight numeric settings, dispatched by identity;
+    // the label re-reads the (clamped) value AppDelegate actually took.
+    @objc private func autopilotStepperChanged(_ sender: NSStepper) {
+        guard let appDelegate else { return }
+        let value = Int(sender.doubleValue)
+        switch sender {
+        case autopilotNightStartStepper.stepper:
+            appDelegate.autopilotNightStartChanged(value)
+            autopilotNightStartStepper.intValue = appDelegate.autopilotNightStart
+        case autopilotNightEndStepper.stepper:
+            appDelegate.autopilotNightEndChanged(value)
+            autopilotNightEndStepper.intValue = appDelegate.autopilotNightEnd
+        case autopilotFiveHourStepper.stepper:
+            appDelegate.autopilotFiveHourCeilingChanged(value)
+            autopilotFiveHourStepper.intValue = appDelegate.autopilotFiveHourCeiling
+        case autopilotWeeklyStepper.stepper:
+            appDelegate.autopilotWeeklyCeilingChanged(value)
+            autopilotWeeklyStepper.intValue = appDelegate.autopilotWeeklyCeiling
+        case autopilotHardStopStepper.stepper:
+            appDelegate.autopilotWeeklyHardStopChanged(value)
+            autopilotHardStopStepper.intValue = appDelegate.autopilotWeeklyHardStop
+        case autopilotPaceStepper.stepper:
+            appDelegate.autopilotPaceTargetChanged(value)
+            autopilotPaceStepper.intValue = appDelegate.autopilotPaceTargetPct
+        case autopilotAttemptsStepper.stepper:
+            appDelegate.autopilotMaxGateAttemptsChanged(value)
+            autopilotAttemptsStepper.intValue = appDelegate.autopilotMaxGateAttempts
+        case autopilotStallStepper.stepper:
+            appDelegate.autopilotStallMinutesChanged(value)
+            autopilotStallStepper.intValue = appDelegate.autopilotStallMinutes
+        default:
+            break
+        }
+    }
+
+    @objc private func autopilotKeepAwakeChanged(_ sender: NSButton) {
+        appDelegate?.autopilotPreventSleepChanged(sender.state == .on)
     }
 }

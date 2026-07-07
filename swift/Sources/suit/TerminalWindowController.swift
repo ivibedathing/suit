@@ -248,6 +248,14 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.usageFooter.onOpenSettings = { [weak self] in
             self?.appDelegate.installClaudeIntegration(nil)
         }
+        // The Autopilot status row (ROADMAP Phase 32): running → the run tab,
+        // idle/blocked → the log (a regular viewer tab).
+        sidebar.usageFooter.onAutopilotFocusRunTab = { [weak self] in
+            self?.appDelegate.focusAutopilotRunTab()
+        }
+        sidebar.usageFooter.onAutopilotOpenLog = { [weak self] in
+            self?.appDelegate.openAutopilotLog()
+        }
         // Restore a previously pinned root (one key across windows, like
         // sidebarWidth); a vanished directory silently unpins.
         if let pinned = UserDefaults.standard.string(forKey: "sidebarPinnedRoot") {
@@ -593,6 +601,13 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     func tabProcessDidExit(_ tab: Tab) {
         reloadStrip()
         tab.pane?.refreshChrome()
+        // Autopilot's worker tab (ROADMAP Phase 32): the engine owns what a
+        // death means (§2.7 one --continue respawn, then blocked) and the
+        // scrollback must survive for debugging — skip the clean-exit close.
+        if AutopilotEngine.shared.ownsTab(withId: tab.id) {
+            AutopilotEngine.shared.workerTabExited(tab)
+            return
+        }
         guard tab.exitStatus?.isClean == true else { return }
         DispatchQueue.main.async { [weak self, weak tab] in
             guard let self, let tab, self.store.tab(withId: tab.id) != nil else { return }
@@ -1575,6 +1590,69 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     // the whole task's fate in the finish dialog.
     func paneFinishedTask(_ pane: Pane) {
         forceCloseTab(pane.tab)
+    }
+
+    // Autopilot cleanup (ROADMAP Phase 32, §2.8 item 4): a merged run's worker
+    // tab closes without the running-process confirmation — the merge already
+    // decided the run's fate (the paneFinishedTask trust, but tab-addressed:
+    // the worker tab is usually backgrounded with no pane).
+    func closeAutopilotRunTab(_ tab: Tab) {
+        guard store.tab(withId: tab.id) != nil else { return }
+        // The run tab as the window's only tab (torn off into its own window,
+        // or every other tab closed overnight): forceCloseTab's count==1
+        // branch would close the window — quitting the app when it's the last
+        // one — killing the Autopilot loop mid-sequence. Open a replacement
+        // shell tab first so the window (and the loop) survives; the pane's
+        // MRU fallback then displays it.
+        if store.tabs.count == 1 {
+            let content = TerminalPaneContent()
+            let replacement = Tab(content: content)
+            store.insert(replacement)
+            let root = appDelegate.autopilotProjectRoot
+            content.start(in: root.isEmpty ? NSHomeDirectory() : root)
+        }
+        forceCloseTab(tab)
+    }
+
+    // Autopilot run tab (ROADMAP Phase 32, §2.5 launch stage): the
+    // startClaudeTask recipe minus worktree creation — the engine already made
+    // the worktree. Inserted WITHOUT stealing focus (attention is signaled via
+    // the strip/footer, never forced); only a window with no tab at all
+    // activates it, since there is nothing to steal focus from then.
+    // `continueSession` is the §2.7 watchdog respawn: `claude --continue`
+    // resumes the dead worker's conversation.
+    @discardableResult
+    func openAutopilotRunTab(directory: String, title: String, continueSession: Bool = false) -> Tab {
+        let wasEmpty = store.tabs.isEmpty
+        let content = TerminalPaneContent()
+        let tab = Tab(content: content)
+        tab.customTitle = title
+        // MRU tail, not head: a background-spawned run must not hijack the
+        // ⌃Tab quick-toggle or become the ⌘W close-tab fallback (keystrokes
+        // would land in the autonomous worker's input box).
+        store.insert(tab, background: true)
+        content.start(in: directory)
+        if wasEmpty {
+            activate(tab)
+        }
+        reloadStrip(animated: true)
+        // One short line typed into zsh; the multi-KB instructions arrive
+        // separately once the session file appears (§2.5 two-stage delivery,
+        // which avoids every shell-quoting hazard). The extra args are kept
+        // newline-free by the settings setter; strip again defensively — a
+        // stray newline here would submit a truncated command line.
+        var command = "claude --dangerously-skip-permissions"
+        if continueSession { command += " --continue" }
+        let extraArgs = appDelegate.autopilotExtraArgs
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        if !extraArgs.isEmpty { command += " " + extraArgs }
+        // The pty input queue holds this until zsh is ready to read it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
+            content?.terminalView.send(txt: command + "\n")
+        }
+        return tab
     }
 
     // MARK: - Panes

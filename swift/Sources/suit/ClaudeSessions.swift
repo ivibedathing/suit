@@ -71,6 +71,11 @@ struct ClaudeSession {
 struct ClaudeUsage {
     let fiveHourPct: Double?
     let sevenDayPct: Double?
+    // When each window rolls over, from rate_limits.*.resets_at — the
+    // statusline mirrors Claude Code's JSON verbatim, so the value is parsed
+    // defensively (epoch seconds or an ISO8601 string). Nil when absent.
+    let fiveHourResetsAt: Date?
+    let sevenDayResetsAt: Date?
     // Model-scoped weekly limits beyond the all-models one: every other
     // rate_limits key shaped `seven_day_<model>` (e.g. seven_day_fable →
     // "Fable"), so new per-model limits show up without a parser change.
@@ -92,8 +97,13 @@ final class ClaudeSessionMonitor {
     private(set) var sessions: [ClaudeSession] = []
     private(set) var usage: ClaudeUsage?
 
-    private let sessionsDirectory = NSHomeDirectory() + "/.suit/sessions"
-    private let statusFile = NSHomeDirectory() + "/.suit/claude-status.json"
+    // $HOME rather than NSHomeDirectory(), same as ClaudeIntegration: the
+    // hook/statusline scripts that produce these files write to "$HOME/.suit",
+    // and an overridden $HOME sandboxes both sides for harness runs.
+    private static let suitDirectory =
+        (ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) + "/.suit"
+    private let sessionsDirectory = ClaudeSessionMonitor.suitDirectory + "/sessions"
+    private let statusFile = ClaudeSessionMonitor.suitDirectory + "/claude-status.json"
 
     private var directorySource: DispatchSourceFileSystemObject?
     private var parentSource: DispatchSourceFileSystemObject?
@@ -187,15 +197,31 @@ final class ClaudeSessionMonitor {
     }
 
     private static func readUsage(path: String) -> ClaudeUsage? {
+        guard let usage = parseUsage(path: path) else { return nil }
+        // A snapshot from a long-dead session shouldn't show as live usage.
+        guard Date().timeIntervalSince(usage.capturedAt) < 30 * 60 else { return nil }
+        return usage
+    }
+
+    // The ungated reader (ROADMAP Phase 32): the Autopilot scheduler applies
+    // its own staleness policy (a stale snapshot still carries resets_at, which
+    // tells it *when* the window rolls over), so it reads the raw values +
+    // capturedAt and decides for itself. The UI keeps the gated `usage`.
+    func readUsageSnapshot() -> ClaudeUsage? {
+        Self.parseUsage(path: statusFile)
+    }
+
+    private static func parseUsage(path: String) -> ClaudeUsage? {
         guard let data = FileManager.default.contents(atPath: path),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         let limits = object["rate_limits"] as? [String: Any]
         func pct(_ key: String) -> Double? {
             (limits?[key] as? [String: Any])?["used_percentage"] as? Double
         }
+        func resetsAt(_ key: String) -> Date? {
+            parseResetsAt((limits?[key] as? [String: Any])?["resets_at"])
+        }
         let captured = Date(timeIntervalSince1970: (object["captured_at"] as? Double) ?? 0)
-        // A snapshot from a long-dead session shouldn't show as live usage.
-        guard Date().timeIntervalSince(captured) < 30 * 60 else { return nil }
         var modelWeeklies: [(name: String, pct: Double)] = []
         for key in (limits ?? [:]).keys where key.hasPrefix("seven_day_") {
             guard let value = pct(key) else { continue }
@@ -206,8 +232,27 @@ final class ClaudeSessionMonitor {
         modelWeeklies.sort { $0.name < $1.name }
         return ClaudeUsage(
             fiveHourPct: pct("five_hour"), sevenDayPct: pct("seven_day"),
+            fiveHourResetsAt: resetsAt("five_hour"), sevenDayResetsAt: resetsAt("seven_day"),
             modelWeeklies: modelWeeklies, capturedAt: captured
         )
+    }
+
+    // resets_at is upstream's field, not ours — accept whatever shape it
+    // arrives in: epoch seconds (number or numeric string) or an ISO8601
+    // timestamp, with or without fractional seconds.
+    static func parseResetsAt(_ value: Any?) -> Date? {
+        if let number = value as? NSNumber {
+            return Date(timeIntervalSince1970: number.doubleValue)
+        }
+        guard let string = (value as? String)?.trimmingCharacters(in: .whitespaces),
+              !string.isEmpty else { return nil }
+        if let epoch = Double(string) {
+            return Date(timeIntervalSince1970: epoch)
+        }
+        let iso = ISO8601DateFormatter()
+        if let date = iso.date(from: string) { return date }
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return iso.date(from: string)
     }
 
     // Snapshot of pane→session mapping state; build once per refresh pass so

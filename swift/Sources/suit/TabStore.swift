@@ -150,7 +150,11 @@ final class TabStore {
     }
 
     // Inserts at `index` (nil = append), clamped so pinned tabs stay a prefix.
-    func insert(_ tab: Tab, at index: Int? = nil) {
+    // `background: true` joins the MRU order at the tail instead of the head —
+    // for tabs opened without stealing focus (Autopilot's run tab): a quick
+    // ⌃Tab toggle and the close-tab fallback must never land the user in a
+    // tab they have not visited.
+    func insert(_ tab: Tab, at index: Int? = nil, background: Bool = false) {
         tab.store = self
         // At most one preview tab per window.
         if tab.isPreview, let old = tabs.first(where: { $0.isPreview }) {
@@ -163,7 +167,12 @@ final class TabStore {
             clamped = max(clamped, pinnedCount)
         }
         tabs.insert(tab, at: clamped)
-        touchMRU(tab)
+        if background {
+            mruIds.removeAll { $0 == tab.id }
+            mruIds.append(tab.id)
+        } else {
+            touchMRU(tab)
+        }
     }
 
     // Removes without teardown — the caller owns what happens to the content
