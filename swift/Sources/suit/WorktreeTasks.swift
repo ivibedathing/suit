@@ -105,6 +105,34 @@ enum WorktreeTasks {
         return nil
     }
 
+    // Cleanup after a *remote* merge (Autopilot's PR flow, ROADMAP Phase 32):
+    // the branch already landed via gh, so nothing merges locally — just
+    // remove the worktree (--force: the build gate leaves an untracked build/
+    // dir that a plain remove refuses; safe post-merge), delete the local
+    // branch, and best-effort delete the remote one. Returns nil on success,
+    // an error message otherwise.
+    static func removeAfterRemoteMerge(worktreePath: String) -> String? {
+        guard isTaskWorktree(worktreePath) else {
+            return "\(worktreePath) is not a task worktree."
+        }
+        guard let root = mainRoot(ofWorktree: worktreePath) else {
+            return "Could not find the main checkout for this worktree."
+        }
+        guard let branch = currentBranch(worktreePath), branch != "HEAD" else {
+            return "Could not determine the worktree's branch."
+        }
+        if case .failure(let error) = runGit(root, ["worktree", "remove", "--force", worktreePath]) {
+            return "Could not remove the worktree: \(error.message)"
+        }
+        if case .failure(let error) = runGit(root, ["branch", "-D", branch]) {
+            return "Worktree removed, but deleting branch \(branch) failed: \(error.message)"
+        }
+        // The remote branch may already be gone (gh's auto-delete, a manual
+        // cleanup) or there may be no remote at all — not worth surfacing.
+        _ = runGit(root, ["push", "origin", "--delete", branch])
+        return nil
+    }
+
     // git with stderr captured, since every failure path here is worth
     // showing. Internal: the Git tab's branch checkout reuses it.
     static func runGit(_ root: String, _ arguments: [String]) -> Result<String, WorktreeTaskError> {

@@ -114,6 +114,54 @@ each shell running directly over a real pty
 - **Worktree tasks** — "New Claude Task…" (⌃⌘T) creates a git worktree on a task branch and
   opens a pane running `claude` in it; finishing the task merges or discards the worktree.
 
+### Autopilot
+
+- **Autonomous roadmap execution** — Autopilot works through a project's `ROADMAP.md` on its
+  own: whenever the token budget allows, it creates a git worktree for the next unshipped
+  phase and opens a visible tab running `claude` in it; the worker implements the phase,
+  builds, updates the docs, pushes, and opens a PR. Suit then gates the PR — `./build.sh` must
+  exit 0 and a headless Claude review must approve — auto-merges it, cleans up the worktree,
+  and loops to the next phase. Gate failures feed the build-log tail or review findings back
+  into the live session for another attempt (capped by the Attempts setting); anything
+  unrecoverable blocks Autopilot with a notification, keeping the worktree, branch, PR and
+  logs for inspection (the palette's Retry resumes). One run at a time; merged phases post a
+  notification too. Needs the `gh` CLI (installed and authenticated) and the Claude Code
+  integration.
+- **Budget modes** — three switchable modes decide when a run may *start* (a run in flight
+  always finishes): **Pace to reset** spreads the weekly budget evenly across the rate-limit
+  window, **Max out** runs whenever usage is under the ceilings, **Night shift** is max-out
+  restricted to the configured night hours (default 22–7, wrapping midnight). All modes
+  respect the 5h cap and the weekly hard stop; the weekly cap additionally bounds Max out
+  and Night shift (Pace to reset follows its own pace line instead).
+- **Settings** (⌘, ▸ Autopilot) — the enable checkbox ("Work through ROADMAP.md
+  autonomously"), the project (a git repo containing ROADMAP.md, with a Choose… picker), the
+  mode and night hours, the 5h / Weekly / Hard Stop / Pace To percentages, max gate attempts
+  per phase, the needs-input stall minutes, extra `claude` arguments for worker runs
+  (`--dangerously-skip-permissions` is always set), the review-gate model (empty = default),
+  and "Keep the Mac awake during runs".
+- **Status row** — a one-line status in the sidebar footer, above the usage rows: `Autopilot ·
+  next run ~03:40`, `⚙ Phase 23 · running 41m`, `⚙ Phase 23 · gate: build`, `⚙ Phase 23 ·
+  merging PR #142`, `⚠ Phase 23 blocked — …`. Clicking it focuses the run tab while a run is
+  active, otherwise opens the log; the tooltip carries the full reason.
+- **Palette commands** — `Autopilot: Enable`/`Disable` (the title flips) and `Autopilot: Show
+  Log` are always there; while enabled, also `Run Next Phase Now` (bypasses the budget gate
+  once), `Pause After Current Run`/`Resume`, `Skip Current Phase`, and `Open Run Tab`, plus
+  `Retry` while blocked. No new keyboard bindings — palette-reachable is keyboard-complete.
+- **The run tab** — the worker is an ordinary terminal tab titled `⚙ Phase N — <Title>`,
+  opened without stealing focus; watch it, split it, or type into it (the session dot pulses
+  on needs-input as usual). A worker exit never auto-closes the tab, so the scrollback
+  survives for debugging.
+- **Steering = editing ROADMAP.md** — phase priority is document order; `✅` anywhere in a
+  phase heading means shipped, `⏸` means skipped ("Skip Current Phase" appends it — the
+  engine's one write to the file). When every phase is shipped or skipped, Autopilot idles
+  until the roadmap changes again.
+- **On disk** — `~/.suit/autopilot/` holds `state.json` (the current run — it survives a
+  relaunch, and Autopilot resumes it at the right stage), `history.jsonl` (one row per
+  finished run: outcome, PR URL, attempts, cost), `autopilot.log` (the human-readable event
+  log Show Log opens as a viewer tab), and `logs/<slug>/build-N.log` / `review-N.log` (gate
+  output). A `~/.suit/autopilot-prompt.md`, when present, overrides the worker prompt
+  template.
+
 ### Appearance & settings
 
 - **Settings** (⌘,) — a sectioned defaults form: font and default size, text color, default
