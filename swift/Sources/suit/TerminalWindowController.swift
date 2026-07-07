@@ -456,7 +456,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         let content = tab.content as? TerminalPaneContent
         // The pty input queue holds this until zsh is ready to read it.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
-            content?.terminalView.send(txt: command + "\n")
+            content?.terminalView.send(txt: command + "\r")
         }
     }
 
@@ -1580,7 +1580,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
             activate(tab)
             // The pty input queue holds this until zsh is ready to read it.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
-                content?.terminalView.send(txt: "claude\n")
+                content?.terminalView.send(txt: "claude\r")
             }
         }
     }
