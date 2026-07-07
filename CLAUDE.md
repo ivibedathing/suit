@@ -33,6 +33,13 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     task) use `OverlayPrompt.swift`, the palette-style panel (Phase 15), not NSAlert. Also the cross-window
     tab plumbing: `controllerAndTab(withId:)` resolves a dragged tab across windows, and
     `tearOffTab(withId:at:)` turns a tab dragged outside every window into its own window.
+    Also Autopilot's host (Phase 32): the `autopilot*` settings (enabled, project root, budget
+    mode, night hours, ceilings, attempt/stall caps, extra args, review model, keep-awake)
+    persist like the rest with `autopilotXChanged(...)` write-throughs — enabling refuses until
+    the Claude Code integration is installed; the state-dependent `Autopilot: …` palette
+    entries; `AutopilotEngine.shared.tick()` on the existing 3 s session heartbeat plus
+    `adoptOnLaunch()` at startup; and `focusAutopilotRunTab()` / `openAutopilotLog()` behind
+    footer clicks and notification click-through.
   - `TabStore.swift` — the browser-tab model (the tabs rebuild): `Tab` wraps any `PaneContent`
     plus its strip state (id, kind → SF Symbol icon, content/custom title, exit status,
     preview/pinned flags, Claude session) and receives the content callbacks
@@ -67,7 +74,8 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     rules (the browser model): clicking a background strip tab shows it in the focused pane;
     clicking one visible elsewhere focuses that pane; closing a visible tab falls back to the
     most recent background tab or dissolves the pane; a clean shell exit closes its tab (the
-    window when it's the last), a failure leaves it red. Showing a second tab is a tab
+    window when it's the last; Autopilot's worker tab is exempt — its exits route to the
+    engine and the scrollback survives), a failure leaves it red. Showing a second tab is a tab
     operation (Phase 13): strip right-click ▸ Split Screen puts a background tab beside the
     active one (Unsplit dissolves its viewport). Files are regular tabs (Phase 14): every
     openFile (sidebar click, ⌘P, search, Cmd-click link) opens or re-activates the file's own
@@ -109,6 +117,10 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     the statusline reports, e.g. Fable — see `ClaudeUsage.modelWeeklies`), color-coded by
     `Theme.usageLevelColor`, "—" while no fresh `claude-status.json` exists; its gear button
     opens the Claude Code integration installer (`AppDelegate.installClaudeIntegration`).
+    An `AutopilotRowView` (Phase 32) sits above the usage rows while Autopilot is enabled —
+    state dot + the engine's composed status ("Autopilot · next run ~03:40",
+    "⚙ Phase 23 · gate: build", …), full reason as tooltip; clicking focuses the run tab
+    while a run is active, opens the log otherwise.
   - `GitView.swift` — the sidebar's Git tab: the review-workflow surface merged with worktree
     orchestration. Lists the shown project's working-tree state from `GitStatusMonitor`, split
     Staged / Changes (letter-badged rows; click opens the diff tab scoped to that file via
@@ -124,8 +136,11 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     branch renders in accent. Clicking a branch checks it out (or switches to its worktree);
     right-click offers gh actions — Create PR… / Open on GitHub / Checkout — plus a `#N` PR
     badge with a check-rollup glyph when one exists. The branch/PR data (and the graceful
-    no-gh degradation) lives in `GitBranches.swift` (`GitBranchList`, `GitHubCLI`), loaded off
-    the main thread. Follows/pins with the Files tab: every place the window controller
+    no-gh degradation) lives in `GitBranches.swift` (`GitBranchList`, `GitHubCLI` — grown
+    Phase 32 Autopilot verbs: `mergePR` = `gh pr merge --merge`, deliberately no
+    `--delete-branch` since the branch is checked out in a worktree; `prState` = one PR's
+    state/mergedAt/body for merge confirmation and trailer reads; `isAuthenticated`; a
+    `SUIT_GH_PATH` test override; `defaultBranch` made internal), loaded off the main thread. Follows/pins with the Files tab: every place the window controller
     reconfigures the browser also calls `gitView.configure(displayRoot:)`. Phase 17 File History
     section (`showFileHistory(absolutePath:)`, from the viewer's Show File History): a "File
     History — <name>" section of `GitFileHistory` commits (sha + subject + author·age rows) below
@@ -145,7 +160,12 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     stale files, and posts `didUpdate`. `ClaudeSessionAssigner` maps sessions onto panes: pid
     ancestry first (one sysctl read of the process table; the hook-recorded claude pid must
     descend from the pane's shell), cwd match as fallback. AppDelegate drives remapping on
-    session updates plus a 3 s heartbeat.
+    session updates plus a 3 s heartbeat. Phase 32: `ClaudeUsage` also carries
+    `rate_limits.*.resets_at` (parsed defensively — epoch seconds or ISO8601), and
+    `readUsageSnapshot()` returns the raw values without the UI's 30-min staleness gate —
+    the Autopilot scheduler applies its own policy (a stale snapshot still says *when* the
+    window rolls over); the `~/.suit` paths resolve `$HOME` first so harnesses can sandbox
+    both the scripts and the monitor.
   - Session state surfaces in pane chrome (the sidebar's Sessions tab was removed; quick
     actions live on in the palette's `Claude: …Session` entries and the composer):
     Pane title bars show session state via `PaneTitleBarView.sessionState`
@@ -173,7 +193,8 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     (each pane's tabs flatten into the window list, its selected tab becomes the leaf).
   - `PromptComposer.swift` — talk-back (ROADMAP Phase 8): `SessionControl` sends text into a
     session's pty via `terminalView.send` (bracketed-paste-wrapped so multi-line payloads stay
-    one input-box unit; a trailing `\r` a beat later submits; Esc interrupts), used by
+    one input-box unit; a trailing `\r` submits `submitDelay` later — 0.15 s default, 0.5 s
+    for Autopilot's multi-KB prompts so the paste is consumed first; Esc interrupts), used by
     the `Claude: …Session` palette entries (session picker when
     several are live), the prompt library (`~/.suit/prompts/*.md` as "Prompt: <name>" palette
     entries sent into the focused terminal tab), and `PromptComposerController` — a floating
@@ -186,7 +207,12 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     (click → activate + focus that pane via `AppDelegate.focusSession(withId:)`); Dock badge =
     needs-input count; delivered notifications are withdrawn when their session is answered.
     Guarded behind `Bundle.main.bundleIdentifier != nil` — the bare swiftc dev-run binary has no
-    bundle identity and UNUserNotificationCenter would trap.
+    bundle identity and UNUserNotificationCenter would trap. Also carries Autopilot's
+    notifications (Phase 32) — it already owns the UNUserNotificationCenter delegate, a second
+    one would fight it: `postAutopilotEvent(title:body:identifier:)` posts merged/blocked/idle
+    events under stable `autopilot-*` identifiers (a newer same-kind event replaces the last;
+    `autopilot-blocked` presents even while the app is active — always news), and clicks route
+    by identifier prefix to `onAutopilotEvent` (run tab when open, else the log).
   - `scripts/claude/` (repo root) — the producer side: `suit-statusline.sh` (Claude Code
     statusLine command: prints model + 5h/weekly %, mirrors usage to claude-status.json, enriches
     the session file with model/cwd plus transcript_path, session_name, context_pct and cost_usd
@@ -279,10 +305,94 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     over ~2 years (log scale), amber for uncommitted — shared by the blame gutter and history rows.
   - `WorktreeTasks.swift` — worktree orchestration (ROADMAP Phase 5): `createTask` makes
     `.claude/worktrees/<slug>` on branch `task/<slug>`; `finish` merges (refusing on uncommitted
-    changes) or discards, then removes worktree + branch. UI: View ▸ New Claude Task…
-    (Ctrl-Cmd-T, palette) prompts for a name and opens a pane running `claude` in the new
+    changes) or discards, then removes worktree + branch. `removeAfterRemoteMerge` (Phase 32)
+    cleans up after Autopilot's PR flow, where the merge already happened on GitHub: force
+    worktree removal (the build gate leaves an untracked `build/` that a plain remove refuses),
+    local `branch -D`, best-effort remote branch delete — `finish` stays untouched and unused
+    by Autopilot. UI: View ▸ New Claude Task… (Ctrl-Cmd-T,
+    palette) prompts for a name and opens a pane running `claude` in the new
     worktree (title = task name); right-click ▸ Finish Claude Task… (only shown inside a task
     worktree) offers Merge & Remove / Discard & Remove and closes the pane.
+  - `AutopilotEngine.swift` — Autopilot (ROADMAP Phase 32): the app works through `ROADMAP.md`
+    autonomously, one run at a time. A main-queue state machine (off / idle / running / paused /
+    blocked(reason) / doneAllPhases — the last auto-recovers when ROADMAP.md's mtime changes)
+    ticked from AppDelegate's 3 s session heartbeat, throttled internally (budget math every
+    tick from the cached usage snapshot, roadmap mtime ~10 s, git/gh polls ≥30 s, one
+    `inFlight` flag; a monotonic `generation` token drops stale background callbacks). A run:
+    preflight (ordered — project root set, eligible phase, gh installed + authenticated, main
+    checkout on the default branch / clean / ff-synced, no leftover task worktree; each failure
+    a distinct `AutopilotBlockReason`) → `WorktreeTasks.createTask` → a visible `⚙ Phase N`
+    run tab (`TerminalWindowController.openAutopilotRunTab`, the startClaudeTask recipe minus
+    worktree creation, inserted without stealing focus, typing
+    `claude --dangerously-skip-permissions` + the extra args) → two-stage prompt delivery (the
+    multi-KB worker prompt is pasted via `SessionControl.send` only once the run's session file
+    appears, which also pins the session; 20 s timeout covers the one-time permissions dialog)
+    → `working`, where session `done` only *triggers* verification against world state —
+    commits ahead + branch pushed + PR with the `Autopilot-Phase` trailer + clean worktree +
+    ✅ heading; the Stop hook is never trusted, and misses are nudged back into the live
+    session (≥2 min apart, max 5) → build gate → review gate (failures/rejections feed the log
+    tail / findings back into the session and return to `working`, attempts capped) →
+    `GitHubCLI.mergePR` confirmed against `prState == MERGED` ("not mergeable" feeds conflict
+    instructions back) → cleanup (main-checkout ff-sync, `removeAfterRemoteMerge`, history row,
+    notification, tab close) → idle, looping to the next phase. Watchdogs: a dead worker
+    respawns once with `--continue` (tab exits route here via a `tabProcessDidExit` intercept
+    that also skips the clean-exit auto-close so the scrollback survives), a needs-input stall
+    gets one best-judgment nudge then blocks, 90-min wall clock per attempt. Any block halts
+    Autopilot (worktree/branch/PR/logs kept); palette Retry clears it, Skip Current Phase
+    appends ⏸ to the heading — the engine's one sanctioned ROADMAP.md write.
+    `adoptOnLaunch()` resumes a persisted run at the right stage after a relaunch (pure
+    `adoptionStage` truth table over worktree existence + PR state). Holds
+    `idleSystemSleepDisabled` across runs when keep-awake is on.
+  - `AutopilotScheduler.swift` — the engine's budget math, pure and standalone-compilable for
+    the scratch logic tests: `mayStartRun(mode:snapshot:now:config:)` returns `.go` or
+    `.wait(until:why:)` (both feed the footer row) from a `UsageSnapshot` — raw percentages
+    plus parsed `resets_at`, deliberately without the UI's 30-min staleness gate;
+    `effectivePct` treats never-measured as 0 (optimistic — the interactive worker refreshes
+    usage within ~1 min) and zeroes a percentage whose window rolled over since capture.
+    Modes (`AutopilotBudgetMode`, Settings ▸ Autopilot): pace-to-reset (usage must trail the
+    elapsed-fraction-of-week × target pace line; no resets_at falls back to max-out), max-out
+    (go while under the weekly ceiling) and night-shift (max-out inside the midnight-wrapping
+    [start, end) hour window). The 5h ceiling and weekly hard stop gate all modes, and the
+    model-scoped weeklies bind via max() with the all-models weekly. Budget gates *starting*
+    only — an in-flight run always finishes.
+  - `RoadmapParser.swift` — ROADMAP.md as Autopilot's steering interface (pure static, no app
+    dependencies): parses `### Phase N — Title` headings into `RoadmapPhase`s (body up to the
+    next `##`/`###`; `slug`/`branch` kept a fixed point of `WorktreeTasks.slug`, so the
+    worktree/branch the engine creates match the phase's identity). ✅ anywhere in a heading =
+    shipped (covers the "(…)" parenthetical variants), ⏸ = skipped, `eligiblePhase` = the
+    first phase that is neither, in document order — reordering phases is the priority UI.
+    `specText` (heading + body) is what gets snapshotted into the worker prompt and review
+    gate; `markingPhaseSkipped` is the text transform behind Skip Current Phase.
+  - `AutopilotStore.swift` — Autopilot persistence under `~/.suit/autopilot/`, the
+    FavoritesStore pattern (`$HOME`-resolved paths, atomic writes, `didUpdate`) but
+    Foundation-only: `state.json` holds the current `AutopilotRun` (stage, attempt counters,
+    pinned session, the verbatim spec snapshot, cost/context sampled from the session file
+    because session files get pruned) plus the block/pause flags and last usage snapshot,
+    rewritten on every transition; `history.jsonl` appends snake_case `CompletedRun` rows
+    (outcome merged/blocked/skipped/aborted); `autopilot.log` is the human-readable event log
+    ("Autopilot: Show Log" opens it as a regular viewer tab); `logs/<slug>/build-N.log` /
+    `review-N.log` capture gate output. Tab ids are per-launch UUIDs and never persisted —
+    relaunch adoption re-resolves or respawns.
+  - `AutopilotGates.swift` — the two pre-merge checks, background-queue `Process` wrappers
+    (Foundation-only) that stream stdout+stderr into the attempt's log file and
+    watchdog-terminate overruns (SIGTERM, SIGKILL 10 s later): `AutopilotBuildGate` runs the
+    worktree's own `build.sh` (15-min timeout); `AutopilotReviewGate` runs headless
+    `claude -p --output-format text` (10-min timeout) with the review prompt fed on stdin —
+    never argv, so no quoting/length hazards — and the claude binary resolved via
+    `SUIT_CLAUDE_PATH` → known install paths → login-shell `command -v`, mirroring
+    GitHubCLI's gh probing. `ReviewVerdict.parse` reads only the output's final non-blank line
+    and demands `VERDICT: APPROVE|REJECT` exactly; anything else is a parse failure —
+    ambiguity is never an approve.
+  - `AutopilotPrompts.swift` — pure prompt/message composition for the runs: the worker
+    instruction block (the phase spec embedded verbatim; the template is overridable via
+    `~/.suit/autopilot-prompt.md` with `<N>`/`<TITLE>`/`<SLUG>`/`<WORKTREE_PATH>`/`<SPEC>`
+    placeholders, `<SPEC>` substituted last so placeholder-shaped spec text is never
+    re-substituted), the resume prompt for `--continue` respawns/adoption, the feedback
+    messages typed back into the live session (missing-output nudges, the stall nudge,
+    build-failure log tails — fenced so bracketed paste keeps them one input unit —
+    review-rejection findings, merge-conflict instructions), and the review-gate prompt:
+    CLAUDE.md capped at 40 KB and the PR diff at 150 KB with explicit truncation headers,
+    clipped on UTF-8 boundaries.
   - `FileBrowserView.swift` — the Files tab's tree (shown below the search input while no search
     is running): an `NSOutlineView` over `FileNode` trees built from
     the index (so it's gitignore-consistent with Cmd-P), sub-project badges, git-status letters
@@ -304,12 +414,17 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
   - `SettingsWindowController.swift` — the Cmd-, settings window, a sectioned defaults form:
     Appearance (font + default size, text color, default pane background with Reset, opacity,
     blur), Terminal (shell path — validated executable, new tabs only; cursor shape + blinking;
-    bell responses: pane flash, Dock bounce), File Viewer (word wrap) and Claude (default
+    bell responses: pane flash, Dock bounce), File Viewer (word wrap), Claude (default
     session arguments — appended verbatim to `claude` by the quick-access launchers, e.g.
-    "--continue" or "--model opus"). Controls write through
+    "--continue" or "--model opus") and Autopilot (Phase 32: the enable checkbox — snapped
+    back if `autopilotEnabledChanged` refuses; a validated project root field + Choose…
+    NSOpenPanel; budget mode popup with night-hour steppers enabled only in night mode; the
+    5h/weekly/hard-stop/pace percentage steppers; attempt and stall caps; extra worker args —
+    kept newline-free; review model; keep-awake). Controls write through
     to `AppDelegate`, which applies them to every window and persists; `show()` re-reads all
     state so palette/shortcut changes stay in sync. Built with `NSStackView` rather than the
-    split/pane tree since its view hierarchy is never touched by `NSSplitView`'s frame management.
+    split/pane tree since its view hierarchy is never touched by `NSSplitView`'s frame
+    management (the form scrolls now — the Autopilot section pushed it past the window height).
   - `Notes.swift` — the user's notes, a list (newest first) backed by `~/.suit/notes.json`
     (path resolves `$HOME` first so harnesses can sandbox it; a pre-list `notes.txt` is
     imported once as the first note). `NotesStore` owns the `Note` list (id + text; title =

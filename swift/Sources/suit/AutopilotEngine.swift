@@ -137,8 +137,25 @@ final class AutopilotEngine: NSObject {
     // MARK: - Tick throttles (§2.4 last paragraph)
 
     // The one flag preventing overlapping background work (preflight,
-    // verification, gates, merge, cleanup, adoption).
+    // verification, gates, merge, cleanup, adoption). Token-owned: every job
+    // takes a fresh token at start, and a completion releases the flag only
+    // while it still holds the newest one — a stale callback (about to be
+    // dropped by the generation check anyway) must never free a hold a newer
+    // job acquired after it, e.g. a mid-verification block → palette Retry →
+    // adoption, whose gh lookup would otherwise race a second verification.
     private var inFlight = false
+    private var backgroundJobToken = 0
+
+    private func beginBackgroundJob() -> Int {
+        inFlight = true
+        backgroundJobToken += 1
+        return backgroundJobToken
+    }
+
+    private func endBackgroundJob(_ token: Int) {
+        if token == backgroundJobToken { inFlight = false }
+    }
+
     // §2.2 adoption in flight: the persisted run's true stage is still being
     // resolved against GitHub, so the per-tick stage dispatcher must not
     // drive the (possibly stale) persisted stage meanwhile.
@@ -167,6 +184,11 @@ final class AutopilotEngine: NSObject {
     // The next session-ready delivery sends the resume prompt (post-respawn)
     // instead of the full worker instructions.
     private var deliverResumePrompt = false
+    // Gate feedback that couldn't reach a live session (the shell died during
+    // the gates, or an adopted run never had a tab): delivered on the next
+    // session-ready in place of the resume prompt — `--continue` restores the
+    // conversation, so the feedback itself is the resume.
+    private var pendingFeedbackMessage: String?
     // §2.7 watchdogs: one respawn with --continue per run, a second death
     // blocks; each attempt gets its own 90-min wall clock.
     private var respawnCount = 0
@@ -190,6 +212,9 @@ final class AutopilotEngine: NSObject {
     // A broken review gate (timeout / unparseable verdict / failed diff) gets
     // exactly one retry, then a global block — never an auto-approve.
     private var reviewGateBrokenCount = 0
+    // The running gate's process handle (build.sh / claude -p), so Skip
+    // Current Phase can kill it before force-removing the worktree it runs in.
+    private var activeGateHandle: AutopilotGateHandle?
     // `gh pr merge` succeeded but the PR hasn't read MERGED yet (merge queue):
     // subsequent merge-stage ticks only re-poll prState, never re-merge.
     private var mergeConfirmedPending = false
@@ -398,14 +423,14 @@ final class AutopilotEngine: NSObject {
            Date().timeIntervalSince(last) < Self.gitPollInterval { return }
         lastPreflightAt = Date()
         budgetBypassOnce = false
-        inFlight = true
+        let job = beginBackgroundJob()
         let gen = generation
         let root = appDelegate?.autopilotProjectRoot ?? ""
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let result = AutopilotEngine.runPreflight(root: root)
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.inFlight = false
+                self.endBackgroundJob(job)
                 // Stale: the state moved on (disabled, paused, …) while the
                 // git/gh work ran.
                 guard gen == self.generation, case .idle = self.state else { return }
@@ -443,7 +468,7 @@ final class AutopilotEngine: NSObject {
     private func spawnRun(for phase: RoadmapPhase) {
         guard !inFlight, let app = appDelegate else { return }
         let root = app.autopilotProjectRoot
-        inFlight = true
+        let job = beginBackgroundJob()
         // §2.9: the sleep hold spans spawning…cleanup. Spawning happens while
         // the state is still `idle`, so it's taken explicitly here;
         // updateSleepHold (run on every state transition) keeps it through
@@ -456,7 +481,7 @@ final class AutopilotEngine: NSObject {
             let result = WorktreeTasks.createTask(projectRoot: root, name: phase.slug)
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.inFlight = false
+                self.endBackgroundJob(job)
                 guard gen == self.generation, case .idle = self.state else { return }
                 switch result {
                 case .failure(let error):
@@ -632,20 +657,28 @@ final class AutopilotEngine: NSObject {
             block(.noProject, "No Autopilot project is configured — choose one in Settings ▸ Autopilot.", phaseId: nil)
             return
         }
-        // §2.2: without gh the PR's state is unknowable — blocked(.ghMissing),
-        // run kept; Retry adopts it once gh is installed.
-        guard GitHubCLI.isAvailable else {
-            block(.ghMissing,
-                  "Install the gh CLI — brew install gh, then gh auth login. The persisted Phase \(run.phaseId) run is kept and resumes once gh is available.",
-                  phaseId: nil)
-            return
-        }
         store.log("\(context): adopting the persisted Phase \(run.phaseId) run (stage \(run.stage))")
         setState(.running)
         adopting = true
-        inFlight = true
+        let job = beginBackgroundJob()
         let gen = generation
         DispatchQueue.global(qos: .utility).async { [weak self] in
+            // §2.2: without gh the PR's state is unknowable — blocked(.ghMissing),
+            // run kept; Retry adopts it once gh is installed. Probed here, not
+            // on main: the first isAvailable touch can fall back to a login
+            // shell, and adoption runs inside applicationDidFinishLaunching.
+            guard GitHubCLI.isAvailable else {
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.endBackgroundJob(job)
+                    self.adopting = false
+                    guard gen == self.generation, case .running = self.state else { return }
+                    self.block(.ghMissing,
+                               "Install the gh CLI — brew install gh, then gh auth login. The persisted Phase \(run.phaseId) run is kept and resumes once gh is available.",
+                               phaseId: nil)
+                }
+                return
+            }
             // The PR's state on GitHub: by number when the run recorded one
             // (gh pr view sees merged/closed PRs and distinguishes "couldn't
             // reach GitHub" from "no PR"), else by branch from the all-state
@@ -665,7 +698,7 @@ final class AutopilotEngine: NSObject {
             let worktreeExists = FileManager.default.fileExists(atPath: run.worktreePath)
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.inFlight = false
+                self.endBackgroundJob(job)
                 self.adopting = false
                 guard gen == self.generation, case .running = self.state,
                       let current = self.store.run, current.id == run.id else { return }
@@ -764,7 +797,12 @@ final class AutopilotEngine: NSObject {
         }
         sessionReadyDeadline = nil
         let prompt: String
-        if deliverResumePrompt {
+        if let pending = pendingFeedbackMessage {
+            // Held gate feedback (returnRunToWorking had no live session):
+            // `--continue` restored the conversation, so the feedback itself
+            // is the resume.
+            prompt = pending
+        } else if deliverResumePrompt {
             prompt = AutopilotPrompts.resumePrompt(
                 phase: run.phaseId, title: run.title, slug: run.slug,
                 worktreePath: run.worktreePath
@@ -775,6 +813,7 @@ final class AutopilotEngine: NSObject {
                 worktreePath: run.worktreePath, specSnapshot: run.specSnapshot
             )
         }
+        pendingFeedbackMessage = nil
         deliverResumePrompt = false
         // 0.5 s submit delay: the multi-KB bracketed paste must be fully
         // consumed before the CR (§2.5).
@@ -815,13 +854,13 @@ final class AutopilotEngine: NSObject {
         guard let run = store.run, let root = appDelegate?.autopilotProjectRoot,
               !root.isEmpty else { return }
         lastVerificationAt = Date()
-        inFlight = true
+        let job = beginBackgroundJob()
         let gen = generation
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let outcome = AutopilotEngine.runCompletionVerification(root: root, run: run)
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.inFlight = false
+                self.endBackgroundJob(job)
                 guard gen == self.generation, case .running = self.state,
                       let current = self.store.run, current.id == run.id,
                       AutopilotRunStage(rawValue: current.stage) == .working else { return }
@@ -1003,12 +1042,16 @@ final class AutopilotEngine: NSObject {
         store.updateRun { $0.buildAttempts = attempt }
         let logURL = store.buildLogURL(slug: run.slug, attempt: attempt)
         store.log("build gate: attempt \(attempt)/\(maxAttempts) — running ./build.sh in \(run.worktreePath)")
-        inFlight = true
+        let job = beginBackgroundJob()
         let gen = generation
-        AutopilotBuildGate.run(worktree: run.worktreePath, logPath: logURL.path) { [weak self] outcome in
+        let handle = AutopilotGateHandle()
+        activeGateHandle = handle
+        AutopilotBuildGate.run(worktree: run.worktreePath, logPath: logURL.path,
+                               handle: handle) { [weak self] outcome in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.inFlight = false
+                self.endBackgroundJob(job)
+                if self.activeGateHandle === handle { self.activeGateHandle = nil }
                 guard gen == self.generation, case .running = self.state,
                       let current = self.store.run, current.id == run.id,
                       AutopilotRunStage(rawValue: current.stage) == .gatingBuild else { return }
@@ -1061,12 +1104,6 @@ final class AutopilotEngine: NSObject {
     // an approve: a broken gate retries once, then blocks globally.
     private func maybeStartReviewGate(_ run: AutopilotRun) {
         guard !inFlight, let app = appDelegate else { return }
-        guard AutopilotReviewGate.isAvailable else {
-            block(.reviewGateBroken,
-                  "The review gate needs the claude CLI, which couldn't be found (set SUIT_CLAUDE_PATH or install claude).",
-                  phaseId: nil)
-            return
-        }
         let attempt = run.reviewAttempts + 1
         let maxAttempts = app.autopilotMaxGateAttempts
         store.updateRun { $0.reviewAttempts = attempt }
@@ -1074,9 +1111,29 @@ final class AutopilotEngine: NSObject {
         let root = app.autopilotProjectRoot
         let model = app.autopilotReviewModel
         store.log("review gate: attempt \(attempt)/\(maxAttempts) — headless claude review of \(run.branch)")
-        inFlight = true
+        let job = beginBackgroundJob()
         let gen = generation
+        let handle = AutopilotGateHandle()
+        activeGateHandle = handle
         DispatchQueue.global(qos: .utility).async { [weak self] in
+            // Probed here, not on main: the first isAvailable touch can fall
+            // back to a login shell (seconds of beachball on the main queue).
+            guard AutopilotReviewGate.isAvailable else {
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.endBackgroundJob(job)
+                    if self.activeGateHandle === handle { self.activeGateHandle = nil }
+                    guard gen == self.generation, case .running = self.state,
+                          let current = self.store.run, current.id == run.id,
+                          AutopilotRunStage(rawValue: current.stage) == .gatingReview else { return }
+                    // A missing binary never consumes a review attempt.
+                    self.store.updateRun { $0.reviewAttempts = max(0, $0.reviewAttempts - 1) }
+                    self.block(.reviewGateBroken,
+                               "The review gate needs the claude CLI, which couldn't be found (set SUIT_CLAUDE_PATH or install claude).",
+                               phaseId: nil)
+                }
+                return
+            }
             let defaultBranch = GitHubCLI.defaultBranch(root: root) ?? "main"
             // Best-effort: verification already fetched recently; a stale
             // origin ref only makes the diff marginally out of date.
@@ -1088,7 +1145,8 @@ final class AutopilotEngine: NSObject {
                 if case .failure(let error) = diffResult { why += " (\(error.message))" }
                 DispatchQueue.main.async {
                     guard let self else { return }
-                    self.inFlight = false
+                    self.endBackgroundJob(job)
+                    if self.activeGateHandle === handle { self.activeGateHandle = nil }
                     guard gen == self.generation, case .running = self.state,
                           let current = self.store.run, current.id == run.id,
                           AutopilotRunStage(rawValue: current.stage) == .gatingReview else { return }
@@ -1105,11 +1163,13 @@ final class AutopilotEngine: NSObject {
             )
             AutopilotReviewGate.run(
                 worktree: run.worktreePath, prompt: prompt,
-                model: model.isEmpty ? nil : model, logPath: logURL.path
+                model: model.isEmpty ? nil : model, logPath: logURL.path,
+                handle: handle
             ) { outcome, output in
                 DispatchQueue.main.async {
                     guard let self else { return }
-                    self.inFlight = false
+                    self.endBackgroundJob(job)
+                    if self.activeGateHandle === handle { self.activeGateHandle = nil }
                     guard gen == self.generation, case .running = self.state,
                           let current = self.store.run, current.id == run.id,
                           AutopilotRunStage(rawValue: current.stage) == .gatingReview else { return }
@@ -1200,7 +1260,7 @@ final class AutopilotEngine: NSObject {
         } else {
             store.log("merging PR #\(prNumber) (gh pr merge --merge)")
         }
-        inFlight = true
+        let job = beginBackgroundJob()
         let gen = generation
         DispatchQueue.global(qos: .utility).async { [weak self] in
             var mergeError: String?
@@ -1220,7 +1280,7 @@ final class AutopilotEngine: NSObject {
                 ? (GitHubCLI.defaultBranch(root: root) ?? "main") : "main"
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.inFlight = false
+                self.endBackgroundJob(job)
                 guard gen == self.generation, case .running = self.state,
                       let current = self.store.run, current.id == run.id,
                       AutopilotRunStage(rawValue: current.stage) == .merging else { return }
@@ -1298,7 +1358,7 @@ final class AutopilotEngine: NSObject {
         guard !inFlight, let app = appDelegate else { return }
         let root = app.autopilotProjectRoot
         store.log("cleanup: syncing the main checkout and removing the task worktree")
-        inFlight = true
+        let job = beginBackgroundJob()
         let gen = generation
         DispatchQueue.global(qos: .utility).async { [weak self] in
             // Main checkout catches up to the merged HEAD first, so the next
@@ -1324,7 +1384,7 @@ final class AutopilotEngine: NSObject {
             let prURL = GitHubCLI.pullRequests(root: root)[run.branch]?.url
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.inFlight = false
+                self.endBackgroundJob(job)
                 guard gen == self.generation, case .running = self.state,
                       let current = self.store.run, current.id == run.id,
                       AutopilotRunStage(rawValue: current.stage) == .cleanup else { return }
@@ -1375,9 +1435,11 @@ final class AutopilotEngine: NSObject {
 
     // Gate feedback → the live worker session, and the run back to `working`
     // with a fresh fix round (its own wall clock / stall / verification
-    // window). If the user closed the tab, the working tick parks in `paused`
-    // on the next pass — feedback is logged as undeliverable, never dropped
-    // silently.
+    // window). Without a live session the feedback is never dropped: an
+    // adopted run with no tab respawns `claude --continue` (feedback delivers
+    // on session-ready), a shell that died during the gates goes through the
+    // §2.7 death path the same way, and only a user-closed tab — deliberate
+    // intervention (§2.9) — parks in `paused` via the next working tick.
     private func returnRunToWorking(_ run: AutopilotRun, message: String, logLine: String) {
         store.updateRun { $0.stage = AutopilotRunStage.working.rawValue }
         attemptStartedAt = Date()
@@ -1391,8 +1453,31 @@ final class AutopilotEngine: NSObject {
         if let terminal = workerTerminal() {
             SessionControl.send(text: message, to: terminal, submit: true, submitDelay: 0.5)
             store.log(logLine)
+        } else if workerTabId == nil {
+            // Adoption landed the run at a gate stage without opening a tab
+            // (§2.2: OPEN PR → re-run gates). Respawn `claude --continue`
+            // (not counted against the §2.7 death respawn) and hold the
+            // feedback for session-ready.
+            pendingFeedbackMessage = message
+            store.updateRun { $0.sessionId = nil }
+            guard let current = store.run, openWorkerTab(run: current, continueSession: true) else {
+                pendingFeedbackMessage = nil
+                block(.workerDied,
+                      "Phase \(run.phaseId): no window could host the run tab for the gate feedback",
+                      phaseId: run.phaseId)
+                return
+            }
+            store.log("no worker tab (adopted run) — respawned claude --continue; gate feedback delivers on session-ready")
+        } else if workerTab() != nil {
+            // The tab is open but its shell died during the gates
+            // (workerTabExited deliberately leaves gate stages alone): the
+            // §2.7 death path respawns `claude --continue`; the feedback
+            // delivers on session-ready. A second death blocks instead — the
+            // held feedback then dies with the run memory on the next adoption.
+            pendingFeedbackMessage = message
+            workerDied(reason: "the shell died while the gates ran")
         } else {
-            store.log("worker tab is gone — feedback couldn't be delivered (Autopilot will pause)")
+            store.log("worker tab was closed — feedback couldn't be delivered (Autopilot will pause)")
         }
         postUpdate()
     }
@@ -1413,6 +1498,7 @@ final class AutopilotEngine: NSObject {
         workerTabId = nil
         sessionReadyDeadline = nil
         deliverResumePrompt = false
+        pendingFeedbackMessage = nil
         respawnCount = 0
         attemptStartedAt = nil
         needsInputSince = nil
@@ -1528,11 +1614,20 @@ final class AutopilotEngine: NSObject {
         workerTabId == id
     }
 
-    // The worker tab's terminal content, resolved live across windows — tab
-    // ids stay valid through drags/tear-offs, unlike weak content refs.
-    private func workerTerminal() -> TerminalPaneContent? {
+    // The worker tab, resolved live across windows — tab ids stay valid
+    // through drags/tear-offs, unlike weak content refs.
+    private func workerTab() -> Tab? {
         guard let id = workerTabId,
               let (_, tab) = appDelegate?.controllerAndTab(withId: id) else { return nil }
+        return tab
+    }
+
+    // The worker tab's terminal content — nil once the tab is gone OR its
+    // shell exited (the tab is deliberately left open then, but a dead pty
+    // swallows sends silently: LocalProcess.send guards on `running`, so
+    // "delivered" feedback would be dropped while the log claims success).
+    private func workerTerminal() -> TerminalPaneContent? {
+        guard let tab = workerTab(), tab.exitStatus == nil else { return nil }
         return tab.content as? TerminalPaneContent
     }
 
@@ -1649,6 +1744,14 @@ final class AutopilotEngine: NSObject {
         if let terminal = workerTerminal() {
             SessionControl.interrupt(terminal)
         }
+        // An in-flight gate (build.sh / claude -p) still runs inside the
+        // worktree that's about to be force-removed: kill it. Its completion
+        // then fires promptly — dropped by the generation check — and
+        // releases the in-flight flag, so the next phase isn't stalled
+        // behind the abandoned gate's 15-minute watchdog.
+        let gateHandle = activeGateHandle
+        activeGateHandle = nil
+        gateHandle?.cancel()
         store.appendHistory(CompletedRun(
             runId: run.id, phase: run.phaseId, title: run.title, slug: run.slug,
             branch: run.branch, startedAt: run.startedAt,
@@ -1669,6 +1772,9 @@ final class AutopilotEngine: NSObject {
         let worktreePath = run.worktreePath
         let branch = run.branch
         DispatchQueue.global(qos: .utility).async { [weak self] in
+            // Wait out the killed gate's death before removing its cwd —
+            // removal must not race a process still writing into the tree.
+            gateHandle?.waitUntilExited(timeout: 10)
             var warning: String?
             if FileManager.default.fileExists(atPath: worktreePath) {
                 warning = WorktreeTasks.removeAfterRemoteMerge(worktreePath: worktreePath)

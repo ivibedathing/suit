@@ -1597,6 +1597,20 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     // decided the run's fate (the paneFinishedTask trust, but tab-addressed:
     // the worker tab is usually backgrounded with no pane).
     func closeAutopilotRunTab(_ tab: Tab) {
+        guard store.tab(withId: tab.id) != nil else { return }
+        // The run tab as the window's only tab (torn off into its own window,
+        // or every other tab closed overnight): forceCloseTab's count==1
+        // branch would close the window — quitting the app when it's the last
+        // one — killing the Autopilot loop mid-sequence. Open a replacement
+        // shell tab first so the window (and the loop) survives; the pane's
+        // MRU fallback then displays it.
+        if store.tabs.count == 1 {
+            let content = TerminalPaneContent()
+            let replacement = Tab(content: content)
+            store.insert(replacement)
+            let root = appDelegate.autopilotProjectRoot
+            content.start(in: root.isEmpty ? NSHomeDirectory() : root)
+        }
         forceCloseTab(tab)
     }
 
@@ -1613,7 +1627,10 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         let content = TerminalPaneContent()
         let tab = Tab(content: content)
         tab.customTitle = title
-        store.insert(tab)
+        // MRU tail, not head: a background-spawned run must not hijack the
+        // ⌃Tab quick-toggle or become the ⌘W close-tab fallback (keystrokes
+        // would land in the autonomous worker's input box).
+        store.insert(tab, background: true)
         content.start(in: directory)
         if wasEmpty {
             activate(tab)

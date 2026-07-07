@@ -11,6 +11,54 @@ import Foundation
 // on a background queue — the engine hops to main (generation-checked) before
 // acting. Foundation-only, no AppKit: compiles standalone for logic tests.
 
+// A running gate's cancellation handle (§2.9 Skip Current Phase): created by
+// the engine before the gate launches, attached to the Process once it has.
+// `cancel()` SIGTERMs the process from any queue — the runner's normal
+// completion path then fires with the exit status (which the engine's
+// generation check drops) and releases its in-flight hold, instead of the
+// abandoned gate running out its 15/10-minute watchdog. `waitUntilExited`
+// lets Skip's worktree removal wait out the dying process rather than
+// force-removing a directory it is still writing to.
+final class AutopilotGateHandle {
+    private let lock = NSLock()
+    private var process: Process?
+    private var cancelled = false
+
+    fileprivate func attach(_ process: Process) {
+        lock.lock()
+        self.process = process
+        let killNow = cancelled
+        lock.unlock()
+        if killNow, process.isRunning { process.terminate() }
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        let process = self.process
+        lock.unlock()
+        if let process, process.isRunning { process.terminate() }
+    }
+
+    // Bounded poll (the runner's own thread owns `waitUntilExit`); escalates
+    // to SIGKILL halfway through the bound in case SIGTERM was ignored.
+    // Returns immediately when nothing attached (gate never launched, or its
+    // pre-process work — fetch/diff — hasn't reached the launch yet; `attach`
+    // kills on arrival then).
+    func waitUntilExited(timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        let killAt = Date().addingTimeInterval(timeout / 2)
+        while Date() < deadline {
+            lock.lock()
+            let process = self.process
+            lock.unlock()
+            guard let process, process.isRunning else { return }
+            if Date() >= killAt { kill(process.processIdentifier, SIGKILL) }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+    }
+}
+
 // What a gate process did. `timedOut` and `failedToLaunch` are never conflated
 // with an exit status, so the engine can message each distinctly.
 enum AutopilotGateOutcome {
@@ -56,9 +104,11 @@ enum AutopilotBuildGate {
 
     // Callable from any queue; `completion` fires on a background queue. The
     // `timeout` parameter exists for the test harness — production callers use
-    // the default.
+    // the default. `handle`, when given, receives the launched Process so the
+    // caller can cancel it (Skip Current Phase).
     static func run(worktree: String, logPath: String,
                     timeout: TimeInterval = AutopilotBuildGate.timeoutSeconds,
+                    handle: AutopilotGateHandle? = nil,
                     completion: @escaping (AutopilotGateOutcome) -> Void) {
         DispatchQueue.global(qos: .utility).async {
             guard let log = AutopilotGateProcess.openLog(atPath: logPath) else {
@@ -67,7 +117,8 @@ enum AutopilotBuildGate {
             }
             let (outcome, _) = AutopilotGateProcess.run(
                 executable: worktree + "/build.sh", arguments: [], cwd: worktree,
-                stdin: nil, logHandle: log, timeout: timeout, captureStdout: false)
+                stdin: nil, logHandle: log, timeout: timeout, captureStdout: false,
+                handle: handle)
             completion(outcome)
         }
     }
@@ -111,6 +162,7 @@ enum AutopilotReviewGate {
     // `model` is the Settings review model — empty/nil means claude's default.
     static func run(worktree: String, prompt: String, model: String?, logPath: String,
                     timeout: TimeInterval = AutopilotReviewGate.timeoutSeconds,
+                    handle: AutopilotGateHandle? = nil,
                     completion: @escaping (AutopilotGateOutcome, String) -> Void) {
         DispatchQueue.global(qos: .utility).async {
             guard let claude = resolvedPath else {
@@ -126,7 +178,7 @@ enum AutopilotReviewGate {
             let (outcome, output) = AutopilotGateProcess.run(
                 executable: claude, arguments: arguments, cwd: worktree,
                 stdin: Data(prompt.utf8), logHandle: log, timeout: timeout,
-                captureStdout: true)
+                captureStdout: true, handle: handle)
             completion(outcome, output)
         }
     }
@@ -148,7 +200,8 @@ private enum AutopilotGateProcess {
 
     static func run(executable: String, arguments: [String], cwd: String,
                     stdin stdinData: Data?, logHandle: FileHandle,
-                    timeout: TimeInterval, captureStdout: Bool) -> (AutopilotGateOutcome, String) {
+                    timeout: TimeInterval, captureStdout: Bool,
+                    handle: AutopilotGateHandle? = nil) -> (AutopilotGateOutcome, String) {
         defer { try? logHandle.close() }
 
         let process = Process()
@@ -188,6 +241,9 @@ private enum AutopilotGateProcess {
             stderr.fileHandleForReading.readabilityHandler = nil
             return (.failedToLaunch(error.localizedDescription), "")
         }
+        // Expose the live process for cancellation; an already-cancelled
+        // handle kills it right here.
+        handle?.attach(process)
 
         // Feed stdin off-thread — a review prompt is far bigger than the 64 KB
         // pipe buffer, so a synchronous write before the child reads would
