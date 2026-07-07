@@ -383,7 +383,7 @@ mechanism (split tree, drag targets, state restoration all unchanged under the h
   distinct tabs while preview opens keep replacing one, and the Phase 12 focus invariants
   (exactly one border, strip agreement) hold through all of it.
 
-### Phase 14 — Chrome-parity drag & drop, files as first-class tabs, darker terminal ground
+### Phase 14 — Chrome-parity drag & drop, files as first-class tabs, darker terminal ground — ✅ shipped (docs-only: implementation predated this run)
 
 Three Chrome/VS Code-parity refinements on the Phase 13 model:
 
