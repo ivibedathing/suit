@@ -91,6 +91,55 @@ extension AppDelegate {
         sendReview(from: content)
     }
 
+    // ROADMAP Phase 29 — route a machine-feedback event (CI failure, PR review
+    // comments, merge conflict) into its originating session as one structured
+    // prompt. When attribution resolved a single session whose pty is hosted,
+    // send straight there and focus it; otherwise fall back to the picker (the
+    // phase's caveat: ambiguous attribution never guesses). Uses the longer
+    // submit delay since a failure log can be multi-KB.
+    func routeFeedback(_ event: FeedbackEvent) {
+        let prompt = FeedbackRouting.composePrompt(for: event)
+        if let id = event.sessionId, let terminal = terminalContent(forSessionId: id) {
+            SessionControl.send(text: prompt, to: terminal, submit: true, submitDelay: 0.5)
+            focusSession(withId: id)
+            return
+        }
+        withSession(placeholder: "Route feedback to session…") { [weak self] session in
+            guard let self, let terminal = self.terminalContent(forSessionId: session.id) else {
+                NSSound.beep()
+                return
+            }
+            SessionControl.send(text: prompt, to: terminal, submit: true, submitDelay: 0.5)
+            self.focusSession(withId: session.id)
+        }
+    }
+
+    // Palette "Route Feedback to Session…": gathers the active window's Git-tab
+    // feedback events; one routes directly, several show a picker to choose
+    // which event to route (each event then resolves its own target session).
+    @objc func routeFeedbackFromPalette(_ sender: Any?) {
+        guard let controller = activeWindowController() else { NSSound.beep(); return }
+        let events = controller.currentFeedbackEvents()
+        switch events.count {
+        case 0:
+            NSSound.beep()
+        case 1:
+            routeFeedback(events[0])
+        default:
+            paletteFileIndex = nil
+            commandPalette.show(
+                relativeTo: controller.window,
+                commands: events.map { event in
+                    let target = event.branch ?? (event.worktreePath as NSString).lastPathComponent
+                    return PaletteCommand(title: "\(event.kind.label): \(event.title) · \(target)", shortcut: nil) { [weak self] in
+                        self?.routeFeedback(event)
+                    }
+                },
+                placeholder: "Route which feedback…"
+            )
+        }
+    }
+
     // Palette entry points: with several sessions they go through a picker
     // palette (same machinery as Open Claude Transcript).
     @objc func promptClaudeSession(_ sender: Any?) {

@@ -303,6 +303,27 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     uncommitted); `GitFileHistory.compute` runs `git log --follow` into `[FileCommit]`
     (newest-first). `GitAgeTint.color(forTime:now:)` shades recent commits bright fading to faint
     over ~2 years (log scale), amber for uncommitted — shared by the blame gutter and history rows.
+  - `FeedbackRouting.swift` — feedback-loop routing (ROADMAP Phase 29), the UI-free,
+    standalone-compilable core (the `RoadmapParser`/`AutopilotScheduler`/`DiffReview` pattern,
+    Foundation-only): the `FeedbackEvent` model (kind = ciFailure/prComment/mergeConflict, its
+    worktree, branch, PR number, detail, and the attributed `sessionId`; `id` dedupes by
+    kind+worktree+PR) plus the deterministic pieces — `conflictedFiles(porcelain:)` (unmerged
+    XY codes: any `U`, `AA`, `DD`), `parsePRFeedback(json:)` / `parseFailingChecks(json:)` over
+    gh's `reviews,comments` / `statusCheckRollup` JSON, `attributeSession(worktreePath:sessions:)`
+    (a single physical-path cwd match wins; 0 or >1 → nil so routing falls back to a picker,
+    never guesses), and `composePrompt(for:)` / `reviewPassPrompt(for:)` (fenced so bracketed
+    paste keeps the log/comments one input unit). Verified by `scripts/feedback-routing-test.sh`.
+  - `FeedbackInbox.swift` — the Phase 29 IO layer: `FeedbackInbox.gather(root:prByBranch:sessions:)`
+    iterates the repo's worktrees (`git worktree list --porcelain`), reads each one's conflict
+    state (pure git, so conflicts show without gh), and — for worktrees whose branch has an open
+    PR — pulls failing-check detail + a failed-run log tail and PR review comments via the new
+    `GitHubCLI.failingChecks` / `failedRunLog` / `prFeedback`, attributing each event to its
+    session. Runs off the main thread; takes a `SessionRef` snapshot read on the main thread so
+    it never touches `ClaudeSessionMonitor` off-thread. Surfaced by `GitView+Feedback.swift` (the
+    Git tab's top "Feedback — N" section + `GitFeedbackRowView`, loaded token-guarded like the
+    branch pass) and routed by `AppDelegate.routeFeedback(_:)` → `SessionControl.send` (the
+    resolved session, else the `withSession` picker) with palette verbs "Show Feedback Inbox" /
+    "Route Feedback to Session…"; the reviewer-agent lane is `TerminalWindowController.startReviewPass(for:)`.
   - `WorktreeTasks.swift` — worktree orchestration (ROADMAP Phase 5): `createTask` makes
     `.claude/worktrees/<slug>` on branch `task/<slug>`; `finish` merges (refusing on uncommitted
     changes) or discards, then removes worktree + branch. `removeAfterRemoteMerge` (Phase 32)

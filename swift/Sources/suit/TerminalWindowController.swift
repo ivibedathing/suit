@@ -217,6 +217,14 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.gitView.onTaskFinished = { [weak self] mainRoot in
             self?.pinSidebar(toDirectory: mainRoot, showFiles: false)
         }
+        // Feedback inbox row → route the event into its session, or start a
+        // dedicated review pass in its worktree (ROADMAP Phase 29).
+        sidebar.gitView.onRouteFeedback = { event in
+            (NSApp.delegate as? AppDelegate)?.routeFeedback(event)
+        }
+        sidebar.gitView.onStartReviewPass = { [weak self] event in
+            self?.startReviewPass(for: event)
+        }
         sidebar.recentFolders.onSelect = { [weak self] path in
             var isDirectory: ObjCBool = false
             guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
