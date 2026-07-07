@@ -97,6 +97,14 @@ each shell running directly over a real pty
   usage, and the Sessions sidebar sorts sessions "needs you first".
 - **Attention** — a session that needs input while Suit is inactive posts a notification
   (click to jump to its pane) and badges the Dock with the needs-input count.
+- **Fleet dashboard** — "Show Fleet" (⇧⌘O, or the command palette) opens a floating,
+  cross-window panel listing every live Claude session as a row — status dot, current task,
+  project · worktree · branch, context %, and cost — sorted needs-you-first, so one glance
+  answers "who needs me right now" without hunting through tabs. Each row steers the session
+  in place: **Focus** (bring its window + pane forward), **Esc** (interrupt), **Continue**, and
+  **Stop** (close the session's tab); double-clicking a row focuses it. A **Board** toggle lays
+  the same sessions out Kanban-style (Running / Needs you / Done), one card per worktree —
+  click a card to jump to it. Actions are only enabled for sessions a pane still hosts.
 - **Talk-back** — send prompts into any session's pty: quick actions (Prompt… / Continue /
   /compact / Interrupt), a floating composer with `@`-completion over repo files, a prompt
   library (`~/.suit/prompts/*.md`), or right-click ▸ "Send Selection to Claude Session" to pipe
@@ -246,6 +254,7 @@ The full list also lives in-app under **Settings (⌘,) ▸ Shortcuts**.
 | ⌃⌘C | New Claude session |
 | ⌃⌘T | New Claude task |
 | ⌃⌘F | Search transcripts |
+| ⇧⌘O | Show fleet dashboard |
 
 Show File History (palette / viewer right-click) lists the open file's commits in the Git tab.
 

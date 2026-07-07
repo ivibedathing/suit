@@ -65,6 +65,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         self?.paletteCommands() ?? []
     }
     lazy var promptComposer = PromptComposerController()
+    // Fleet-supervision dashboard (ROADMAP Phase 28): a floating cross-window
+    // view of every live Claude session, sorted needs-you-first, with per-row
+    // steering routed through the same paths as the palette's session verbs.
+    lazy var fleetDashboard: FleetDashboardController = {
+        let controller = FleetDashboardController()
+        controller.hostedIds = { [weak self] in self?.hostedSessionIds() ?? [] }
+        controller.onFocus = { [weak self] id in self?.focusSession(withId: id) }
+        controller.onInterrupt = { [weak self] id in self?.performQuickAction(.interrupt, onSessionId: id) }
+        controller.onContinue = { [weak self] id in self?.performQuickAction(.continueSession, onSessionId: id) }
+        controller.onArchive = { [weak self] id in self?.archiveSession(withId: id) }
+        return controller
+    }()
     // Cross-transcript search (ROADMAP Phase 20): a floating "Search
     // Transcripts…" panel; a picked result opens that session's transcript pane
     // in the active window, anchored to the matching line.

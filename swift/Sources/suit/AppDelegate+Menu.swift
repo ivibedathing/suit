@@ -187,6 +187,10 @@ extension AppDelegate {
         gitDiffItem.keyEquivalentModifierMask = [.command, .control]
         gitDiffItem.target = self
 
+        let showFleetItem = viewMenu.addItem(withTitle: "Show Fleet", action: #selector(showFleet(_:)), keyEquivalent: "o")
+        showFleetItem.keyEquivalentModifierMask = [.command, .shift]
+        showFleetItem.target = self
+
         let newSessionItem = viewMenu.addItem(withTitle: "New Claude Session", action: #selector(newClaudeSession(_:)), keyEquivalent: "c")
         newSessionItem.keyEquivalentModifierMask = [.command, .control]
         newSessionItem.target = self
