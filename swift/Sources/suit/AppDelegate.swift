@@ -60,6 +60,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // the goal carries where the selection came from. Off by default — the
     // selection alone is usually the directive.
     var goalPrependProvenanceEnabled = false
+    // Autopilot (ROADMAP Phase 32) — the §2.9 config table. The engine reads
+    // these live through its weak appDelegate reference; the Settings window's
+    // Autopilot section writes them through autopilotXChanged(...).
+    var autopilotEnabled = false
+    var autopilotProjectRoot = ""             // git repo containing ROADMAP.md
+    var autopilotMode: AutopilotBudgetMode = .paceToReset
+    var autopilotNightStart = 22              // hour, night-shift window start
+    var autopilotNightEnd = 7                 // hour, exclusive; wraps midnight
+    var autopilotFiveHourCeiling = 85         // %, hard gate in all modes
+    var autopilotWeeklyCeiling = 95           // %, maxOut/nightShift ceiling
+    var autopilotWeeklyHardStop = 98          // %, hard gate in all modes
+    var autopilotPaceTargetPct = 100          // %, where the pace line ends
+    var autopilotMaxGateAttempts = 3          // build/review attempts per phase
+    var autopilotStallMinutes = 60            // needs-input stall before blocking
+    var autopilotExtraArgs = ""               // appended to the worker's claude
+    var autopilotReviewModel = ""             // review gate --model; empty = default
+    var autopilotPreventSleep = true          // hold .idleSystemSleepDisabled across runs
     private lazy var settingsWindowController = SettingsWindowController(appDelegate: self)
     private lazy var commandPalette = CommandPaletteController { [weak self] in
         self?.paletteCommands() ?? []
@@ -130,10 +147,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             } else {
                 self.remapClaudeSessions()
             }
+            AutopilotEngine.shared.tick()
         }
         attentionCenter = ClaudeAttentionCenter { [weak self] sessionId in
             self?.focusSession(withId: sessionId)
         }
+        // Autopilot notification click-through (§2.11): a live run tab is the
+        // interesting surface, otherwise the log — the footer row's routing.
+        attentionCenter?.onAutopilotEvent = { [weak self] _ in
+            guard let self else { return }
+            if AutopilotEngine.shared.workerTabId != nil {
+                self.focusAutopilotRunTab()
+            } else {
+                self.openAutopilotLog()
+            }
+        }
+
+        // Autopilot (ROADMAP Phase 32): the engine hangs off the same 3 s
+        // timer (tick added in the closure above) and needs the session
+        // monitor, which the observers above have already instantiated.
+        AutopilotEngine.shared.appDelegate = self
+        AutopilotEngine.shared.adoptOnLaunch()
     }
 
     // MARK: - Claude sessions
@@ -936,7 +970,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             PaletteCommand(title: "Toggle Word Wrap", shortcut: nil) { [weak self] in self?.toggleWordWrap(nil) },
             PaletteCommand(title: "Settings…", shortcut: "⌘,") { [weak self] in self?.showSettings(nil) },
             PaletteCommand(title: "Install Claude Code Integration…", shortcut: nil) { [weak self] in self?.installClaudeIntegration(nil) },
-        ] + sshHostCommands() + promptLibraryCommands()
+        ] + autopilotPaletteCommands() + sshHostCommands() + promptLibraryCommands()
     }
 
     // Saved SSH hosts (the sidebar's SSH tab) as palette entries, so a
@@ -1138,6 +1172,216 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         saveSettings()
     }
 
+    // MARK: - Autopilot (ROADMAP Phase 32)
+
+    // Enabling runs the §2.3 enable-time checks: the hook/statusline scripts
+    // are Autopilot's nervous system (refuse without them), and gh gets an
+    // install hint (missing gh is an expected, recoverable blocked state).
+    // Returns whether the value was taken so the settings checkbox can revert.
+    @discardableResult
+    func autopilotEnabledChanged(_ enabled: Bool) -> Bool {
+        if enabled, !autopilotEnabled {
+            guard ClaudeIntegration.status() == .installed else {
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = "Install the Claude Code integration first"
+                alert.informativeText = "Autopilot watches its worker sessions through the session files and usage snapshot written by Suit's statusline and hook scripts — without them it is blind. Run “Install Claude Code Integration…” from the app menu, then enable Autopilot."
+                alert.runModal()
+                return false
+            }
+            if !GitHubCLI.isAvailable {
+                let alert = NSAlert()
+                alert.messageText = "The gh CLI isn’t installed"
+                alert.informativeText = "Autopilot uses GitHub’s gh to open and merge PRs (brew install gh, then gh auth login). Autopilot will stay blocked until gh is available."
+                alert.runModal()
+            }
+        }
+        autopilotEnabled = enabled
+        saveSettings()
+        AutopilotStore.shared.log(enabled ? "Autopilot enabled" : "Autopilot disabled")
+        AutopilotEngine.shared.settingsChanged()
+        return true
+    }
+
+    // Only accepts a git repository that contains ROADMAP.md (the steering
+    // file the engine parses); clearing the path is always allowed. Returns
+    // whether the value was taken so the settings field can revert.
+    @discardableResult
+    func autopilotProjectRootChanged(_ path: String) -> Bool {
+        let expanded = (path as NSString).expandingTildeInPath
+        if !expanded.isEmpty {
+            guard FileIndex.gitRoot(of: expanded) != nil,
+                  FileManager.default.fileExists(atPath: expanded + "/ROADMAP.md") else { return false }
+        }
+        autopilotProjectRoot = expanded
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+        return true
+    }
+
+    func autopilotModeChanged(_ mode: AutopilotBudgetMode) {
+        autopilotMode = mode
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    func autopilotNightStartChanged(_ hour: Int) {
+        autopilotNightStart = min(23, max(0, hour))
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    func autopilotNightEndChanged(_ hour: Int) {
+        autopilotNightEnd = min(23, max(0, hour))
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    func autopilotFiveHourCeilingChanged(_ pct: Int) {
+        autopilotFiveHourCeiling = min(100, max(0, pct))
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    func autopilotWeeklyCeilingChanged(_ pct: Int) {
+        autopilotWeeklyCeiling = min(100, max(0, pct))
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    func autopilotWeeklyHardStopChanged(_ pct: Int) {
+        autopilotWeeklyHardStop = min(100, max(0, pct))
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    func autopilotPaceTargetChanged(_ pct: Int) {
+        autopilotPaceTargetPct = min(100, max(1, pct))
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    func autopilotMaxGateAttemptsChanged(_ attempts: Int) {
+        autopilotMaxGateAttempts = min(9, max(1, attempts))
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    func autopilotStallMinutesChanged(_ minutes: Int) {
+        autopilotStallMinutes = min(24 * 60, max(5, minutes))
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    // Newline-free (the launch path types this into zsh as one line, §2.5).
+    func autopilotExtraArgsChanged(_ args: String) {
+        autopilotExtraArgs = args
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    func autopilotReviewModelChanged(_ model: String) {
+        autopilotReviewModel = model.trimmingCharacters(in: .whitespaces)
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    func autopilotPreventSleepChanged(_ enabled: Bool) {
+        autopilotPreventSleep = enabled
+        saveSettings()
+        AutopilotEngine.shared.settingsChanged()
+    }
+
+    // Footer row / palette "Open Run Tab" / notification click-through: focus
+    // the worker tab wherever it lives. The one deliberate focus steal in the
+    // Autopilot flow — the user explicitly asked for the run.
+    func focusAutopilotRunTab() {
+        guard let id = AutopilotEngine.shared.workerTabId,
+              let (controller, tab) = controllerAndTab(withId: id) else {
+            AutopilotStore.shared.log("Open Run Tab: no run tab is open")
+            NSSound.beep()
+            return
+        }
+        controller.activate(tab)
+        controller.window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // The engine's tab factory (§2.5 launch stage): the run tab opens in the
+    // active window without stealing focus. Nil only when no window exists.
+    func openAutopilotRunTab(directory: String, title: String, continueSession: Bool) -> Tab? {
+        activeWindowController()?.openAutopilotRunTab(
+            directory: directory, title: title, continueSession: continueSession
+        )
+    }
+
+    // The engine's notification hook (§2.11): merged / blocked / idle events
+    // ride the attention center's existing UNUserNotificationCenter plumbing
+    // (it already owns the delegate and the no-bundle-identity guard).
+    func postAutopilotNotification(title: String, body: String, identifier: String) {
+        attentionCenter?.postAutopilotEvent(title: title, body: body, identifier: identifier)
+    }
+
+    // "Autopilot: Show Log" / footer click while idle or blocked: the log is a
+    // regular file, so it opens as a first-class viewer tab.
+    func openAutopilotLog() {
+        let path = AutopilotStore.shared.logFileURL.path
+        if !FileManager.default.fileExists(atPath: path) {
+            AutopilotStore.shared.log("log created")
+        }
+        guard let controller = activeWindowController() else {
+            NSSound.beep()
+            return
+        }
+        controller.openFile(atPath: path, line: nil)
+    }
+
+    // The §2.10 palette entries. Rebuilt per palette invocation (like the rest
+    // of paletteCommands), so titles reflect the engine's current state. The
+    // run-control verbs only appear while Autopilot is enabled.
+    private func autopilotPaletteCommands() -> [PaletteCommand] {
+        var commands = [
+            PaletteCommand(title: autopilotEnabled ? "Autopilot: Disable" : "Autopilot: Enable", shortcut: nil) { [weak self] in
+                guard let self else { return }
+                self.autopilotEnabledChanged(!self.autopilotEnabled)
+            },
+            PaletteCommand(title: "Autopilot: Show Log", shortcut: nil) { [weak self] in
+                self?.openAutopilotLog()
+            },
+        ]
+        guard autopilotEnabled else { return commands }
+        // §2.9: Retry appears only while blocked — it clears the block and
+        // re-adopts the kept run (or re-runs preflight when none exists).
+        if case .blocked = AutopilotEngine.shared.state {
+            commands.append(PaletteCommand(title: "Autopilot: Retry", shortcut: nil) {
+                AutopilotEngine.shared.retryAfterBlock()
+            })
+        }
+        let paused = AutopilotEngine.shared.state == .paused
+        commands.append(contentsOf: [
+            PaletteCommand(title: "Autopilot: Run Next Phase Now", shortcut: nil) {
+                AutopilotEngine.shared.runNextPhaseNow()
+            },
+            PaletteCommand(title: paused ? "Autopilot: Resume" : "Autopilot: Pause After Current Run", shortcut: nil) {
+                if paused {
+                    AutopilotEngine.shared.resume()
+                } else {
+                    AutopilotEngine.shared.pauseAfterCurrentRun()
+                }
+            },
+            PaletteCommand(title: "Autopilot: Skip Current Phase", shortcut: nil) {
+                AutopilotEngine.shared.skipCurrentPhase()
+            },
+            PaletteCommand(title: "Autopilot: Open Run Tab", shortcut: nil) { [weak self] in
+                self?.focusAutopilotRunTab()
+            },
+        ])
+        return commands
+    }
+
     private func loadSettings() {
         let defaults = UserDefaults.standard
         if let fontName = defaults.string(forKey: "fontName") {
@@ -1187,6 +1431,48 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if let args = defaults.string(forKey: "claudeSessionArgs") {
             claudeSessionArgs = args
         }
+        // Autopilot (§2.9): bare camelCase keys, one per table row.
+        autopilotEnabled = defaults.bool(forKey: "autopilotEnabled")
+        if let root = defaults.string(forKey: "autopilotProjectRoot") {
+            autopilotProjectRoot = root
+        }
+        if let raw = defaults.string(forKey: "autopilotMode"),
+           let mode = AutopilotBudgetMode(rawValue: raw) {
+            autopilotMode = mode
+        }
+        if defaults.object(forKey: "autopilotNightStart") != nil {
+            autopilotNightStart = defaults.integer(forKey: "autopilotNightStart")
+        }
+        if defaults.object(forKey: "autopilotNightEnd") != nil {
+            autopilotNightEnd = defaults.integer(forKey: "autopilotNightEnd")
+        }
+        if defaults.object(forKey: "autopilotFiveHourCeiling") != nil {
+            autopilotFiveHourCeiling = defaults.integer(forKey: "autopilotFiveHourCeiling")
+        }
+        if defaults.object(forKey: "autopilotWeeklyCeiling") != nil {
+            autopilotWeeklyCeiling = defaults.integer(forKey: "autopilotWeeklyCeiling")
+        }
+        if defaults.object(forKey: "autopilotWeeklyHardStop") != nil {
+            autopilotWeeklyHardStop = defaults.integer(forKey: "autopilotWeeklyHardStop")
+        }
+        if defaults.object(forKey: "autopilotPaceTargetPct") != nil {
+            autopilotPaceTargetPct = defaults.integer(forKey: "autopilotPaceTargetPct")
+        }
+        if defaults.object(forKey: "autopilotMaxGateAttempts") != nil {
+            autopilotMaxGateAttempts = defaults.integer(forKey: "autopilotMaxGateAttempts")
+        }
+        if defaults.object(forKey: "autopilotStallMinutes") != nil {
+            autopilotStallMinutes = defaults.integer(forKey: "autopilotStallMinutes")
+        }
+        if let args = defaults.string(forKey: "autopilotExtraArgs") {
+            autopilotExtraArgs = args
+        }
+        if let model = defaults.string(forKey: "autopilotReviewModel") {
+            autopilotReviewModel = model
+        }
+        if defaults.object(forKey: "autopilotPreventSleep") != nil {
+            autopilotPreventSleep = defaults.bool(forKey: "autopilotPreventSleep")
+        }
     }
 
     private func saveSettings() {
@@ -1211,6 +1497,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         defaults.set(bellDockBounceEnabled, forKey: "bellDockBounceEnabled")
         defaults.set(goalPrependProvenanceEnabled, forKey: "goalPrependProvenanceEnabled")
         defaults.set(claudeSessionArgs, forKey: "claudeSessionArgs")
+        defaults.set(autopilotEnabled, forKey: "autopilotEnabled")
+        defaults.set(autopilotProjectRoot, forKey: "autopilotProjectRoot")
+        defaults.set(autopilotMode.rawValue, forKey: "autopilotMode")
+        defaults.set(autopilotNightStart, forKey: "autopilotNightStart")
+        defaults.set(autopilotNightEnd, forKey: "autopilotNightEnd")
+        defaults.set(autopilotFiveHourCeiling, forKey: "autopilotFiveHourCeiling")
+        defaults.set(autopilotWeeklyCeiling, forKey: "autopilotWeeklyCeiling")
+        defaults.set(autopilotWeeklyHardStop, forKey: "autopilotWeeklyHardStop")
+        defaults.set(autopilotPaceTargetPct, forKey: "autopilotPaceTargetPct")
+        defaults.set(autopilotMaxGateAttempts, forKey: "autopilotMaxGateAttempts")
+        defaults.set(autopilotStallMinutes, forKey: "autopilotStallMinutes")
+        defaults.set(autopilotExtraArgs, forKey: "autopilotExtraArgs")
+        defaults.set(autopilotReviewModel, forKey: "autopilotReviewModel")
+        defaults.set(autopilotPreventSleep, forKey: "autopilotPreventSleep")
     }
 
     // MARK: - Menu

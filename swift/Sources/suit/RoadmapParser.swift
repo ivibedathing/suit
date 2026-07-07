@@ -73,6 +73,20 @@ enum RoadmapParser {
         phases(in: markdown).first { $0.number == number }
     }
 
+    // The markdown with " — ⏸ skipped" appended to phase N's heading — the
+    // text transform behind Autopilot's Skip Current Phase, its one
+    // sanctioned write to the steering file (§2.9). Pure so it's testable
+    // standalone. nil when the phase has no heading; an already-skipped
+    // heading returns the input unchanged.
+    static func markingPhaseSkipped(_ number: Int, in markdown: String) -> String? {
+        guard let phase = phase(numbered: number, in: markdown) else { return nil }
+        guard !phase.skipped else { return markdown }
+        var lines = markdown.components(separatedBy: "\n")
+        guard let index = lines.firstIndex(of: phase.heading) else { return nil }
+        lines[index] = phase.heading + " — \u{23F8} skipped"
+        return lines.joined(separator: "\n")
+    }
+
     // Same character rules as WorktreeTasks.slug (keep in sync), plus a
     // trailing-dash trim after the 48-char cut so the result is a fixed
     // point of that function — createTask re-slugs the name it is given,
