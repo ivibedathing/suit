@@ -730,7 +730,7 @@ is in.
   in order, that Approve/Edit/Discard inject the correct payload into the pty, and that the mode
   control reflects and switches mode correctly (readback + send).
 
-### Phase 27 — Live slash-command menu + one-tap context controls
+### Phase 27 — Live slash-command menu + one-tap context controls 🚧 in progress (worktree-phase-27-slash-command-menu, 2026-07-07)
 
 The context-window meter (Phase 7) tells you *when* to `/compact`; this makes acting on it one
 tap instead of a typed incantation, and turns every built-in, custom, and skill command into a
