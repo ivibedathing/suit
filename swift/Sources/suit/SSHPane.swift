@@ -91,7 +91,7 @@ final class SSHPaneContent: TerminalPaneContent {
         installAutoAuth()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             guard let self else { return }
-            self.terminalView.send(txt: sshCommand(for: self.sshHost) + "\n")
+            self.terminalView.send(txt: sshCommand(for: self.sshHost) + "\r")
             if self.sshHost.auth == .password {
                 self.autoAuth.arm()
             }
@@ -122,7 +122,7 @@ final class SSHPaneContent: TerminalPaneContent {
             guard let self,
                   let password = SSHKeychain.password(forHostId: self.sshHost.id) else { return }
             // Raw write, no bracketed paste — readpassphrase wants plain bytes.
-            self.terminalView.send(txt: password + "\n")
+            self.terminalView.send(txt: password + "\r")
         }
     }
 
