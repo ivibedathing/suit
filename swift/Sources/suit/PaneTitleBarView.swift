@@ -1,5 +1,96 @@
 import Cocoa
 
+// The Ask · Plan · Agent mode control (ROADMAP Phase 26): a compact three-way
+// segmented control that lives on a Claude tab's title bar. Selecting a segment
+// asks the pane to switch Claude's permission mode (see ClaudeModeControl). It
+// draws its own segments rather than using NSSegmentedControl so it reads as
+// chrome and stays legible at the 26pt header height.
+final class ModeControlView: NSView {
+    // Called with the picked mode when a segment is clicked.
+    var onSelect: ((ClaudeMode) -> Void)?
+
+    private static let modes = ClaudeMode.displayOrder
+    private static let font = NSFont.systemFont(ofSize: 9.5, weight: .semibold)
+    private static let segmentPadding: CGFloat = 7
+    private static let height: CGFloat = 16
+
+    private var selected: ClaudeMode = .agent
+    // Left edges + widths of each segment, recomputed on selection change so
+    // hit-testing and drawing agree.
+    private var segmentRects: [NSRect] = []
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // The width this control wants — the sum of every segment plus a hairline
+    // between them — so the title bar can reserve exactly that.
+    var fittingWidth: CGFloat {
+        Self.modes.reduce(0) { $0 + segmentWidth(for: $1) } + CGFloat(Self.modes.count - 1)
+    }
+
+    func setSelected(_ mode: ClaudeMode) {
+        guard mode != selected else { return }
+        selected = mode
+        needsDisplay = true
+    }
+
+    private func segmentWidth(for mode: ClaudeMode) -> CGFloat {
+        let size = (mode.label as NSString).size(withAttributes: [.font: Self.font])
+        return ceil(size.width) + Self.segmentPadding * 2
+    }
+
+    override func layout() {
+        super.layout()
+        var x: CGFloat = 0
+        segmentRects = Self.modes.map { mode in
+            let w = segmentWidth(for: mode)
+            let rect = NSRect(x: x, y: (bounds.height - Self.height) / 2, width: w, height: Self.height)
+            x += w + 1
+            return rect
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard segmentRects.count == Self.modes.count else { return }
+        for (index, mode) in Self.modes.enumerated() {
+            let rect = segmentRects[index]
+            let isSelected = mode == selected
+            let full = NSRect(x: rect.minX, y: 0, width: rect.width, height: bounds.height)
+            let path = NSBezierPath(roundedRect: full.insetBy(dx: 0.5, dy: 3), xRadius: 3, yRadius: 3)
+            if isSelected {
+                Theme.accent.withAlphaComponent(0.9).setFill()
+                path.fill()
+            } else {
+                Theme.overlay.setFill()
+                path.fill()
+            }
+            let color: NSColor = isSelected ? Theme.bg : Theme.textDim
+            let attrs: [NSAttributedString.Key: Any] = [.font: Self.font, .foregroundColor: color]
+            let size = (mode.label as NSString).size(withAttributes: attrs)
+            let point = NSPoint(x: rect.midX - size.width / 2, y: (bounds.height - size.height) / 2)
+            (mode.label as NSString).draw(at: point, withAttributes: attrs)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard let index = segmentRects.firstIndex(where: { $0.insetBy(dx: -0.5, dy: -3).contains(point) }) else { return }
+        onSelect?(Self.modes[index])
+    }
+
+    // The tooltip explains the transient nature of the reading.
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        toolTip = "Claude mode: Ask · Plan · Agent (Shift+Tab)"
+    }
+}
+
 // The slim viewport header (browser-tab model): icon + title on the left,
 // Claude session dot and context % on the right. It labels what the pane is
 // showing — the strip is the single source of tabs — and doubles as the drag
@@ -10,6 +101,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
     private let label = NSTextField(labelWithString: "")
     private let statusDot = NSView(frame: .zero)
     private let contextLabel = NSTextField(labelWithString: "")
+    private let modeControl = ModeControlView(frame: .zero)
     private var mouseDownLocation: NSPoint?
 
     override init(frame frameRect: NSRect) {
@@ -38,6 +130,12 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         contextLabel.textColor = Theme.textFaint
         contextLabel.isHidden = true
         addSubview(contextLabel)
+
+        modeControl.isHidden = true
+        modeControl.onSelect = { [weak self] mode in
+            self?.pane?.switchClaudeMode(to: mode)
+        }
+        addSubview(modeControl)
     }
 
     required init?(coder: NSCoder) {
@@ -64,6 +162,25 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
     var sessionState: ClaudeSessionState? {
         didSet {
             if sessionState != oldValue { updateStatusDot() }
+        }
+    }
+
+    // The Claude permission mode this tab is in (ROADMAP Phase 26): shows the
+    // Ask · Plan · Agent control when the tab hosts a live Claude session, hidden
+    // otherwise. Set from Pane.refreshChrome; the reading is best-effort.
+    var claudeMode: ClaudeMode? {
+        didSet {
+            guard claudeMode != oldValue else { return }
+            if let mode = claudeMode {
+                modeControl.setSelected(mode)
+                if modeControl.isHidden {
+                    modeControl.isHidden = false
+                }
+            } else if !modeControl.isHidden {
+                modeControl.isHidden = true
+            }
+            needsLayout = true
+            setFrameSize(frame.size)
         }
     }
 
@@ -133,6 +250,13 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
             right = statusDot.frame.minX - 6
         }
 
+        if !modeControl.isHidden {
+            let width = modeControl.fittingWidth
+            modeControl.frame = NSRect(x: right - width, y: 0, width: width, height: bounds.height)
+            modeControl.needsLayout = true
+            right = modeControl.frame.minX - 8
+        }
+
         let left = iconView.frame.maxX + 6
         label.frame = NSRect(x: left, y: (bounds.height - 14) / 2, width: max(0, right - left), height: 14)
     }
@@ -141,8 +265,14 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
 
     // The labels cover most of the bar and would swallow mouseDown, so claim
     // every hit for the bar itself — a click focuses the pane, a drag moves it.
+    // The mode control is the one exception: its clicks must reach it, not the
+    // drag handle, so a hit inside it returns the control (Phase 26).
     override func hitTest(_ point: NSPoint) -> NSView? {
-        super.hitTest(point) == nil ? nil : self
+        guard let hit = super.hitTest(point) else { return nil }
+        if !modeControl.isHidden, hit === modeControl || hit.isDescendant(of: modeControl) {
+            return hit
+        }
+        return self
     }
 
     override func mouseDown(with event: NSEvent) {

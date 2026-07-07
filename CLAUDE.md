@@ -180,6 +180,27 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     (`resolveFileReference`, cwd-relative like the terminal's Cmd-click links) open in the viewer
     pane. Opened from the "Open Claude Transcript…" palette entry
     (multiple sessions → palette picker); one transcript pane per window, reused like viewers.
+  - `ClaudeMode.swift` — the Ask · Plan · Agent permission-mode control (ROADMAP Phase 26).
+    `ClaudeMode` (ask/plan/agent) with a fixed Shift+Tab cycle order (default → acceptEdits →
+    plan); `ClaudeModeControl.payload(from:to:)` is the pure `ESC[Z`×N (back-tab) string that
+    cycles from a believed mode to a target; `ClaudeModeTracker.shared` remembers the last mode
+    Suit sent per session, and `effectiveMode(for:)` prefers the session JSON's `permission_mode`
+    readback, else last-sent, else agent. The title bar's `ModeControlView` (in
+    `PaneTitleBarView.swift`, shown only for a live Claude tab) and the `Claude: Ask/Plan/Agent
+    Mode` palette entries both route through `paneRequestedSwitchClaudeMode` /
+    `AppDelegate.switchClaudeMode(_:forSessionId:)`, which writes the payload and records the new
+    belief. Purely a control surface — no Claude-side changes; readback is best-effort (the
+    `suit-session-state.sh` hook writes `permission_mode` when the hook JSON carries it).
+  - `PlanParsing.swift` / `PlanApprovalPane.swift` — the plan-approval surface (ROADMAP Phase 26).
+    `PlanParser` (pure, UI-free) scans a session's JSONL transcript for the latest `ExitPlanMode`
+    tool call and returns its `plan` markdown split into ordered steps (list items, else prose
+    lines); `PlanApprovalAction` maps Approve & Run / Edit / Discard onto ExitPlanMode's menu
+    hotkeys `1`/`2`/`3`. `PlanApprovalPaneContent` renders the plan read-only as numbered steps
+    with a footer of those buttons (each dispatched via `AppDelegate.dispatchPlanApproval` →
+    `SessionControl.send`) plus a Refresh that re-parses; opened by `Claude: Review Plan…`
+    (`TerminalWindowController.openPlanApproval`), one per window, reused like the transcript pane.
+    `scripts/mode-plan-harness.sh` compiles both pure files against a `ClaudeSession` stub and
+    asserts the switch payloads, plan parsing, and approval payloads.
   - `StateRestoration.swift` — the Codable layout snapshot (cross-cutting "state restoration"):
     `SavedAppState`/`SavedWindow` mirror each window's ordered tab list (terminal cwd, viewer
     path + first visible line, diff root, preview/pinned flags, custom title), MRU order, active

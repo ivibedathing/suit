@@ -142,6 +142,76 @@ extension AppDelegate {
         }
     }
 
+    // MARK: - Mode control (ROADMAP Phase 26)
+
+    // Switch a session to a permission mode by writing Shift+Tab presses into
+    // its pty — the palette-side counterpart of the title bar's mode control.
+    // Session-scoped (not pane-scoped) so it works even when the session's tab
+    // is backgrounded; the visible pane, if any, repaints its control.
+    func switchClaudeMode(_ target: ClaudeMode, forSessionId id: String) {
+        guard let terminal = terminalContent(forSessionId: id),
+              let session = ClaudeSessionMonitor.shared.sessions.first(where: { $0.id == id }) else {
+            NSSound.beep()
+            return
+        }
+        let current = ClaudeModeTracker.shared.effectiveMode(for: session)
+        let payload = ClaudeModeControl.payload(from: current, to: target)
+        if !payload.isEmpty {
+            terminal.terminalView.send(txt: payload)
+        }
+        ClaudeModeTracker.shared.record(target, forSessionId: id)
+        terminal.pane?.refreshChrome()
+    }
+
+    @objc func setSessionModeAsk(_ sender: Any?) {
+        withSession(placeholder: "Set Ask mode in session…") { [weak self] in self?.switchClaudeMode(.ask, forSessionId: $0.id) }
+    }
+
+    @objc func setSessionModePlan(_ sender: Any?) {
+        withSession(placeholder: "Set Plan mode in session…") { [weak self] in self?.switchClaudeMode(.plan, forSessionId: $0.id) }
+    }
+
+    @objc func setSessionModeAgent(_ sender: Any?) {
+        withSession(placeholder: "Set Agent mode in session…") { [weak self] in self?.switchClaudeMode(.agent, forSessionId: $0.id) }
+    }
+
+    // MARK: - Plan approval (ROADMAP Phase 26)
+
+    // Palette: open a session's plan-approval pane. One session opens directly;
+    // several go through the picker, exactly like Open Claude Transcript.
+    @objc func openPlanForReview(_ sender: Any?) {
+        guard let controller = activeWindowController() else { return }
+        let sessions = ClaudeSessionMonitor.shared.sessions
+        switch sessions.count {
+        case 0:
+            NSSound.beep()
+        case 1:
+            controller.openPlanApproval(for: sessions[0])
+        default:
+            paletteFileIndex = nil
+            commandPalette.show(
+                relativeTo: controller.window,
+                commands: sessions.map { session in
+                    let project = (session.cwd as NSString?)?.lastPathComponent ?? ""
+                    return PaletteCommand(title: "\(session.displayName) — \(session.state.label) · \(project)", shortcut: nil) { [weak controller] in
+                        controller?.openPlanApproval(for: session)
+                    }
+                },
+                placeholder: "Open plan for session…"
+            )
+        }
+    }
+
+    // Dispatch a plan-approval button into the session's pty: the exact hotkey
+    // for the matching ExitPlanMode menu option, submitted with a return.
+    func dispatchPlanApproval(_ action: PlanApprovalAction, forSessionId id: String) {
+        guard let terminal = terminalContent(forSessionId: id) else {
+            NSSound.beep()
+            return
+        }
+        SessionControl.send(text: action.ptyPayload, to: terminal, submit: true)
+    }
+
     // MARK: - Set as Goal (ROADMAP Phase 18)
 
     // Composes `/goal ` + the selection (optionally prefixed with provenance)
