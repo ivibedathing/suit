@@ -383,7 +383,7 @@ mechanism (split tree, drag targets, state restoration all unchanged under the h
   distinct tabs while preview opens keep replacing one, and the Phase 12 focus invariants
   (exactly one border, strip agreement) hold through all of it.
 
-### Phase 14 — Chrome-parity drag & drop, files as first-class tabs, darker terminal ground
+### Phase 14 — Chrome-parity drag & drop, files as first-class tabs, darker terminal ground — ✅ shipped
 
 Three Chrome/VS Code-parity refinements on the Phase 13 model:
 
@@ -510,7 +510,7 @@ copy-paste-retype round trip.
   prompt reproduces every file/line/text faithfully and lands in the target pty as one
   bracketed-paste unit, and that the draft survives a state-restoration round-trip.
 
-### Phase 17 — Git blame gutter + file history
+### Phase 17 — Git blame gutter + file history — ✅ shipped
 
 Understanding before steering. "Who and what last changed this line, and why" is a constant
 question when reviewing a monorepo you didn't type. Read-only, so it stays inside the
@@ -528,7 +528,7 @@ viewer-first contract — no typing into the buffer, just richer context around 
   right shas and the history list opens the correct per-file diff; toggling blame off leaves no
   gutter residue.
 
-### Phase 18 — "Set as Goal" from a viewer selection
+### Phase 18 — "Set as Goal" from a viewer selection — ✅ shipped
 
 Phase 8 pipes text into sessions; this makes any span of a file a *directive*. Select code or
 prose in a viewer, right-click **Set as Goal**, and Suit sends `/goal <selection>` into a chosen
@@ -642,7 +642,7 @@ high-leverage navigation for holding several threads of a change in your head at
 - **Verification.** Harness sets bookmarks across files, asserts the list opens each at the right
   line and that ticks appear in gutter + minimap; a moved/deleted file's bookmark is pruned.
 
-### Phase 23 — Usage & cost analytics
+### Phase 23 — Usage & cost analytics — 🚧 in progress (worktree-phase-23-usage-cost-analytics, 2026-07-07)
 
 Phases 4 and 7 already collect `cost_usd` and context/usage into the session files; this makes it
 legible. Steering a fleet of sessions means watching spend — a global rate-limit bar isn't the
@@ -680,7 +680,7 @@ Claude's work faster" for the multi-session workflow Phase 5 set up.
   asserts the catch-up review set lists exactly the changed files with correct per-worktree
   attribution.
 
-### Phase 25 — Visual checkpoint / rewind timeline
+### Phase 25 — Visual checkpoint / rewind timeline — ✅ shipped
 
 Claude Code auto-saves a code checkpoint before each change (`/rewind`, Esc-Esc restores code /
 conversation / both). Today you rewind blind by typing into the pty; this makes the checkpoint
