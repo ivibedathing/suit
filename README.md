@@ -225,6 +225,16 @@ working.
   once and Enter sends it into every target's pty as one bracketed-paste unit. "Broadcast to
   All Sessions…" (command palette / View menu) is the keyboard path. A fan-out confirm gates
   before it lands in two or more panes; only sessions a pane still hosts are reached.
+- **Activity feed / daily digest** — where the fleet dashboard is a live snapshot of *who's
+  busy*, "Show Activity Feed" (command palette / View menu) opens a floating panel with the
+  chronological record of what *moved* across the fleet: sessions finishing or stalling on
+  input, CI failing, and Autopilot runs merging or blocking — newest-first, each row a
+  tone-colored glyph + title + repo · worktree/PR + relative age. Filter by repo or kind, and
+  click a row to jump to the thing it names (the session's pane, the PR on GitHub, or the
+  Autopilot log). The events persist to `~/.suit/activity.jsonl` (append-only, so history
+  outlives session-file pruning). A header shows a **"what happened today"** recap — sessions
+  finished · PRs merged · autopilot merges · CI failures — and once per day Suit delivers the
+  previous day's digest as a notification (click it to open the feed).
 - **Talk-back** — send prompts into any session's pty: quick actions (Prompt… / Continue /
   /compact / Interrupt), a floating composer with `@`-completion over repo files, a prompt
   library (`~/.suit/prompts/*.md`), or right-click ▸ "Send Selection to Claude Session" to pipe

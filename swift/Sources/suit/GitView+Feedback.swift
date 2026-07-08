@@ -27,8 +27,31 @@ extension GitView {
             DispatchQueue.main.async {
                 guard let self, token == self.feedbackToken, root == self.gitRoot else { return }
                 self.feedbackEvents = events
+                self.recordCIFailures(events, root: root)
                 self.reload()
             }
+        }
+    }
+
+    // Fleet activity feed (ROADMAP Phase 38): a CI failure surfaced by the
+    // inbox is feed-worthy. Deduped on the FeedbackEvent id (kind+worktree+PR),
+    // so several windows' passes over the same repo record it once; a row
+    // routes to its attributed session, else falls back (no PR URL is known
+    // here). Only ciFailure maps in — conflicts/comments aren't feed events.
+    private func recordCIFailures(_ events: [FeedbackEvent], root: String) {
+        let repo = (root as NSString).lastPathComponent
+        for event in events where event.kind == .ciFailure {
+            ActivityStore.shared.record(ActivityEvent(
+                id: "ci_fail-\(event.id)",
+                kind: .ciFail,
+                timestamp: Date().timeIntervalSince1970,
+                title: event.title,
+                detail: event.prNumber.map { "PR #\($0)" } ?? event.branch,
+                repo: repo,
+                sessionId: event.sessionId,
+                worktree: (event.worktreePath as NSString).lastPathComponent,
+                prNumber: event.prNumber
+            ))
         }
     }
 

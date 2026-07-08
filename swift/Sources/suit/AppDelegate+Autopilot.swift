@@ -154,6 +154,34 @@ extension AppDelegate {
         attentionCenter?.postAutopilotEvent(title: title, body: body, identifier: identifier)
     }
 
+    // Fleet activity feed (ROADMAP Phase 38): record an Autopilot run that
+    // merged — a positive row that routes to its PR on GitHub (or the log when
+    // there's no URL). id keyed by run so re-entry can't double-record.
+    func recordAutopilotMerged(runId: String, phaseId: Int, title: String, repo: String?, prNumber: Int?, prURL: String?) {
+        activityRecorder.record(ActivityEvent(
+            id: "autopilot_merged-\(runId)",
+            kind: .autopilotMerged,
+            timestamp: Date().timeIntervalSince1970,
+            title: "Phase \(phaseId): \(title)",
+            detail: prNumber.map { "PR #\($0)" },
+            repo: (repo == "—") ? nil : repo,
+            prNumber: prNumber,
+            prURL: prURL
+        ))
+    }
+
+    // The blocked counterpart — a negative row that routes to the Autopilot log.
+    // id carries the block instant so a genuinely new block records again.
+    func recordAutopilotBlocked(reason: String, message: String, phaseId: Int?, at: TimeInterval) {
+        activityRecorder.record(ActivityEvent(
+            id: "autopilot_blocked-\(phaseId.map(String.init) ?? "-")-\(Int(at))",
+            kind: .autopilotBlocked,
+            timestamp: at,
+            title: phaseId.map { "Phase \($0)" } ?? "Autopilot",
+            detail: message
+        ))
+    }
+
     // "Autopilot: Show Log" / footer click while idle or blocked: the log is a
     // regular file, so it opens as a first-class viewer tab.
     func openAutopilotLog() {

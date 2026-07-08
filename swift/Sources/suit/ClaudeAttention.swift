@@ -22,6 +22,11 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
     // AppDelegate focuses the run tab when one is open, else opens the log.
     var onAutopilotEvent: ((String) -> Void)?
 
+    // Activity feed (ROADMAP Phase 38): the once-daily digest notification
+    // ("activity-" prefixed identifier) routes here — AppDelegate opens the
+    // Activity panel. Same plumbing rationale as onAutopilotEvent.
+    var onActivityEvent: (() -> Void)?
+
     init(onFocusSession: @escaping (String) -> Void) {
         self.onFocusSession = onFocusSession
         super.init()
@@ -117,6 +122,8 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
             NSApp.activate(ignoringOtherApps: true)
             if identifier.hasPrefix("autopilot-") {
                 self?.onAutopilotEvent?(identifier)
+            } else if identifier.hasPrefix("activity-") {
+                self?.onActivityEvent?()
             } else {
                 self?.onFocusSession(identifier)
             }
