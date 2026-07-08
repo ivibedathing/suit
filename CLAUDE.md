@@ -5,11 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app growing from a terminal into a Claude-code-first cockpit for
-monorepo work (see `ROADMAP.md` for the phased plan). Today it's a native app bundle (Dock icon,
+codebase work (see `ROADMAP.md` for the phased plan). Today it's a native app bundle (Dock icon,
 own bundle identifier, own TCC permission entries) whose windows host split trees of terminal
 panes, each running an interactive shell (`/bin/zsh -l -i`) directly via SwiftTerm's pty (see
 `PaneContent.swift`). Swift/AppKit is the product/UI layer; heavy non-UI logic (indexing,
-monorepo analysis) may live in a Go sidecar if it outgrows Swift.
+codebase analysis) may live in a Go sidecar if it outgrows Swift.
 
 - `swift/Sources/suit/` — the AppKit app. This is the product layer (per `ROADMAP.md`), no
   longer a "keep it minimal" shell; UI features live here.
