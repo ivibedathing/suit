@@ -101,6 +101,13 @@ working.
 - **State restoration** — quitting snapshots every window's tab list, split tree, and viewer
   scroll positions; the next launch reopens it all, restarting terminals as fresh shells in
   their old working directories.
+- **Saved layouts / named workspaces** — snapshot the current window's tab list + split tree
+  under a name (**Save Layout As…**, in the Screen menu and the palette) and reopen it any time
+  (**Open Layout…** — pick from a list; it rebuilds in a new window through the same replay path
+  as quit-time restoration, so terminals restart as fresh shells in their old cwd and tabs whose
+  file is gone collapse out). Rename, delete, and overwrite layouts from the palette; layouts are
+  per-machine, shared across windows, and kept in `~/.suit/layouts.json`. Distinct from the
+  automatic, unnamed quit-time restoration above.
 
 ### Files, search & navigation
 
@@ -422,6 +429,9 @@ The full list also lives in-app under **Settings (⌘,) ▸ Shortcuts**.
 | ⌥⌘W | Unsplit (keep tab) |
 | ⌃⌘M | Unsplit all |
 | ⌥⌘← / → / ↑ / ↓ | Focus split left / right / above / below |
+
+Save and reopen named window layouts from the Screen menu (**Save Layout As…** / **Open Layout…**)
+or the command palette (which also offers **Rename Layout…** and **Delete Layout…**).
 
 ### Files, search & navigation
 
