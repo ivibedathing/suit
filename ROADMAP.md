@@ -1093,7 +1093,7 @@ diff to the neighbouring revision shown. Read-only and non-destructive (no check
   that revision's exact content and the correct diff-to-neighbour, and that leaving time-travel
   restores the working-tree view with no residue.
 
-### Phase 41 — Saved layouts / named workspaces
+### Phase 41 — Saved layouts / named workspaces — ✅ shipped
 
 A Foundation piece. State restoration already reopens the *last* layout automatically; this makes
 layouts nameable and switchable — a "review" layout, a "debug" layout — on top of the same

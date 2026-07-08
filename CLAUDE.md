@@ -213,6 +213,19 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     divider fractions and viewer scrolls apply after the window has its real size. Saved under
     `savedAppStateV2`; the first post-rebuild launch migrates the old per-pane snapshot
     (each pane's tabs flatten into the window list, its selected tab becomes the leaf).
+  - `Layouts.swift` / `AppDelegate+Layouts.swift` — saved layouts / named workspaces (ROADMAP
+    Phase 41), on top of the state-restoration machinery. `Layouts.swift` is the UI-free,
+    standalone-compilable core (the `RoadmapParser`/`Recipes`/`FileEdit` pattern): `SavedLayout`
+    (a `SavedWindow` snapshot + name + timestamp), `LayoutCatalog` (pure save/overwrite by
+    case-insensitive name / rename / delete / alphabetical sort), `LayoutRestore`
+    (`isRestorable`/`pruned` — the restore-time pruning that collapses a pane whose file/root is
+    gone and reindexes the tree/mru/active, mirroring `restoredContent`/`buildNode`), and
+    `LayoutStore` (the FavoritesStore pattern — `$HOME`-first `~/.suit/layouts.json`, atomic
+    write, `didUpdate`). `AppDelegate+Layouts.swift` is the AppKit half: `saveLayoutAs` snapshots
+    the active window via `captureState()`; `openLayout`/`restoreLayout` rebuild a layout in a
+    *new* window through `init(restoring:)` (so missing-file panes collapse out for free);
+    `renameLayout`/`deleteLayout` manage the catalog — all surfaced from the palette (Save/Open/
+    Rename/Delete Layout…) and the Screen menu (Save/Open). Verified by `scripts/layouts-test.sh`.
   - `PromptComposer.swift` — talk-back (ROADMAP Phase 8): `SessionControl` sends text into a
     session's pty via `terminalView.send` (bracketed-paste-wrapped so multi-line payloads stay
     one input-box unit; a trailing `\r` submits `submitDelay` later — 0.15 s default, 0.5 s
@@ -671,7 +684,7 @@ relevant Foundation-only source file(s) against a small assertion driver and run
 UI. Run them all from one entrypoint:
 
 ```
-scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes + file-edit + activity + pr-review), ~seconds
+scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes + file-edit + activity + pr-review + layouts), ~seconds
 scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
 scripts/test.sh --list            # list the harnesses
 ```
@@ -683,8 +696,10 @@ The individual harnesses (each also runnable directly) are `scripts/feedback-rou
 atomic write, Phase 37), `scripts/activity-test.sh` (`Activity.swift` — feed ordering / row
 routing / repo·kind filtering / daily-digest rollup / append-only store dedup + round-trip,
 Phase 38), `scripts/pr-review-test.sh` (`PRReview.swift` — `gh pr list` parse / review-body
-compose / `gh pr review` argv, Phase 39), and `scripts/autopilot-harness.sh` (the full Autopilot
-pipeline, offscreen with everything faked).
+compose / `gh pr review` argv, Phase 39), `scripts/layouts-test.sh` (`Layouts.swift` — catalog
+save/overwrite/rename/delete/sort, the `~/.suit/layouts.json` disk round-trip, and restore-time
+pruning that collapses a deleted-file pane, Phase 41), and `scripts/autopilot-harness.sh` (the
+full Autopilot pipeline, offscreen with everything faked).
 This is why testable logic is kept in Foundation-only files with no app dependencies (the
 `RoadmapParser`/`AutopilotScheduler`/`FeedbackRouting` pattern) — a harness can compile it in
 isolation. When you add such logic, add a harness for it and wire it into the `HARNESSES` list in
