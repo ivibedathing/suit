@@ -174,6 +174,15 @@ extension AppDelegate {
             item.tag = tag
         }
 
+        paneMenu.addItem(.separator())
+
+        // Saved layouts / named workspaces (ROADMAP Phase 41): snapshot the
+        // window's tab list + split tree under a name and reopen it later.
+        let saveLayoutItem = paneMenu.addItem(withTitle: "Save Layout As…", action: #selector(saveLayoutAs(_:)), keyEquivalent: "")
+        saveLayoutItem.target = self
+        let openLayoutItem = paneMenu.addItem(withTitle: "Open Layout…", action: #selector(openLayout(_:)), keyEquivalent: "")
+        openLayoutItem.target = self
+
         paneMenuItem.submenu = paneMenu
 
         let viewMenuItem = NSMenuItem()

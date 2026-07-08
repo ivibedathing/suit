@@ -9,7 +9,7 @@
 # "run the tests" command before committing a non-UI change.
 #
 # Usage:
-#   scripts/test.sh           # fast suite (feedback-routing + mode-plan), ~seconds
+#   scripts/test.sh           # fast suite (feedback-routing + mode-plan + … + layouts), ~seconds
 #   scripts/test.sh --all     # also runs the autopilot pipeline harness (~4 min)
 #   scripts/test.sh --list    # list the harnesses and exit
 #   scripts/test.sh -h        # this help
@@ -27,6 +27,7 @@ HARNESSES=(
   "file-edit|scripts/file-edit-test.sh|fast"
   "activity|scripts/activity-test.sh|fast"
   "pr-review|scripts/pr-review-test.sh|fast"
+  "layouts|scripts/layouts-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 
