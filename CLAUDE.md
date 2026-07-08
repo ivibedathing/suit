@@ -378,6 +378,24 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     dirty flag surfaces via `Tab.isDirty`/`contentDirtyDidChange` (strip close-slot dot in
     `TabItemView`, `PaneTitleBarView.isDirty` header dot); `⌘S` is File ▸ Save / palette "Save
     File" (`ViewerTextView.saveFile`, auto-disabled via `validateUserInterfaceItem` when clean).
+  - `FileTimeTravel.swift` / `FileViewerPane+TimeTravel.swift` — the file time-travel scrubber
+    (ROADMAP Phase 40). `FileTimeTravel.swift` is the UI-free, standalone-compilable core (the
+    `RoadmapParser`/`CommitGraph` pattern, Foundation-only): `TimeTravelTimeline` (built from the
+    file's `GitFileHistory` mirrored into `TimeTravelRevision`s) maps each scrubber position to its
+    `TimeTravelStop` (oldest commit … newest → working tree at the far right) and the older
+    neighbour it diffs against; `TimeTravelGit` composes the `git show <sha>:<path>` /
+    `git diff <old> [<new>] -U0 -- <path>` argv (working tree reads off disk, leftmost commit has
+    no diff); `TimeTravelDiff.changedNewLines` parses a unified diff's +side @@ headers (shared
+    with Phase 5's `GitChangedLines`); `TimeTravelHeader` composes the sha · subject · age label.
+    Verified by `scripts/file-time-travel-test.sh` (a fixture repo asserting per-position content,
+    diff-to-neighbour, working-tree restore, and the argv/labels). `FileViewerPane+TimeTravel.swift`
+    is the Cocoa half: `toggleTimeTravel()` (⌃⌘H / View menu / palette / viewer right-click) loads
+    the history and drives the read-only viewer through it via `applyStop` (git off-main, dropped by
+    `loadGeneration` if the user scrubs again), hosting a `TimeTravelBarView` (header + slider +
+    Diff/Exit) in the `ViewerContainerView`'s new top bar; `showTimeTravelDiff` flips into
+    `openCommitDiff`, and `exitTimeTravel` reloads the working-tree file ("no residue").
+    `refreshChangedLines`/`reconcileExternalChange` no-op while `isTimeTraveling` so the scrubber
+    owns the buffer.
   - `SyntaxHighlighter.swift` — regex-free single-pass scanner producing `SyntaxSpan`s (comments,
     strings, keywords, numbers, types, attributes, keys) for Swift/Go/JS-TS/Python/shell/JSON/
     YAML/Markdown/C-family (`CodeLanguage.detect` by extension/filename). The roadmap's sanctioned
@@ -684,7 +702,7 @@ relevant Foundation-only source file(s) against a small assertion driver and run
 UI. Run them all from one entrypoint:
 
 ```
-scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes + file-edit + activity + pr-review + layouts), ~seconds
+scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes + file-edit + activity + pr-review + layouts + file-time-travel), ~seconds
 scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
 scripts/test.sh --list            # list the harnesses
 ```
@@ -698,8 +716,11 @@ routing / repo·kind filtering / daily-digest rollup / append-only store dedup +
 Phase 38), `scripts/pr-review-test.sh` (`PRReview.swift` — `gh pr list` parse / review-body
 compose / `gh pr review` argv, Phase 39), `scripts/layouts-test.sh` (`Layouts.swift` — catalog
 save/overwrite/rename/delete/sort, the `~/.suit/layouts.json` disk round-trip, and restore-time
-pruning that collapses a deleted-file pane, Phase 41), and `scripts/autopilot-harness.sh` (the
-full Autopilot pipeline, offscreen with everything faked).
+pruning that collapses a deleted-file pane, Phase 41), `scripts/file-time-travel-test.sh`
+(`FileTimeTravel.swift` — a fixture repo asserting the timeline shape, per-position content via
+the real `git show` argv, diff-to-neighbour, working-tree restore, and the header labels,
+Phase 40), and `scripts/autopilot-harness.sh` (the full Autopilot pipeline, offscreen with
+everything faked).
 This is why testable logic is kept in Foundation-only files with no app dependencies (the
 `RoadmapParser`/`AutopilotScheduler`/`FeedbackRouting` pattern) — a harness can compile it in
 isolation. When you add such logic, add a harness for it and wire it into the `HARNESSES` list in

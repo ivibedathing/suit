@@ -23,6 +23,11 @@ final class ViewerTextView: NSTextView {
         viewerContent?.showFileHistory()
     }
 
+    // ROADMAP Phase 40 — scrub the open file backward through its git history.
+    @objc func toggleTimeTravel(_ sender: Any?) {
+        viewerContent?.toggleTimeTravel()
+    }
+
     // ROADMAP Phase 18 — send the selection into a Claude session as a `/goal`.
     @objc func setAsGoal(_ sender: Any?) {
         viewerContent?.setSelectionAsGoal()
@@ -65,6 +70,11 @@ final class ViewerTextView: NSTextView {
         if item.action == #selector(saveFile(_:)) {
             return viewerContent?.canSave ?? false
         }
+        // Time-travel needs a real file; reflect the active state as a check.
+        if item.action == #selector(toggleTimeTravel(_:)) {
+            (item as? NSMenuItem)?.state = (viewerContent?.isTimeTraveling ?? false) ? .on : .off
+            return viewerContent?.filePath != nil
+        }
         return super.validateUserInterfaceItem(item)
     }
 
@@ -83,6 +93,8 @@ final class ViewerTextView: NSTextView {
         let blameItem = menu.addItem(withTitle: "Toggle Blame", action: #selector(toggleBlame(_:)), keyEquivalent: "")
         blameItem.state = (viewerContent?.blameVisible ?? false) ? .on : .off
         menu.addItem(withTitle: "Show File History", action: #selector(showFileHistory(_:)), keyEquivalent: "")
+        let timeTravelItem = menu.addItem(withTitle: "Time Travel", action: #selector(toggleTimeTravel(_:)), keyEquivalent: "")
+        timeTravelItem.state = (viewerContent?.isTimeTraveling ?? false) ? .on : .off
         return menu
     }
 }

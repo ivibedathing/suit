@@ -11,6 +11,9 @@ extension FileViewerPaneContent {
     }
 
     func refreshChangedLines() {
+        // While scrubbing history the gutter shows the diff-to-neighbour marks
+        // the scrubber computed, not HEAD-vs-disk — don't overwrite them.
+        guard !isTimeTraveling else { return }
         guard let filePath else { return }
         let generation = loadGeneration
         GitChangedLines.compute(filePath: filePath) { [weak self] lines in

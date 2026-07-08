@@ -121,6 +121,9 @@ extension FileViewerPaneContent: NSTextViewDelegate {
     // The file may have been rewritten by Claude or $EDITOR while we were away.
     // Compare mtimes first (cheap), then reconcile via the pure decision.
     func reconcileExternalChange() {
+        // The scrubber owns the buffer while time-traveling (read-only, showing
+        // a historical revision) — never reload disk content over it.
+        guard !isTimeTraveling else { return }
         guard isEditableFile, let filePath else { return }
         let currentMod = modificationDate(ofPath: filePath)
         // Unchanged mtime → nothing moved.

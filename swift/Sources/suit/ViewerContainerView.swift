@@ -1,10 +1,23 @@
 import Cocoa
 
-// The viewer's root view: text scroll view on the left, minimap strip on the
+// The viewer's root view: an optional top bar (the Phase 40 time-travel
+// scrubber) above a text scroll view on the left and a minimap strip on the
 // right. Manual layout like the rest of the pane tree.
 final class ViewerContainerView: NSView {
     let scrollView: NSScrollView
     let minimap: MinimapView
+
+    // The time-travel scrubber bar (ROADMAP Phase 40): non-nil only while the
+    // viewer is scrubbing, laid out as a strip across the top that pushes the
+    // text + minimap down.
+    var topBar: NSView? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            if let topBar { addSubview(topBar) }
+            relayout()
+        }
+    }
+    static let topBarHeight: CGFloat = 34
 
     init(scrollView: NSScrollView, minimap: MinimapView) {
         self.scrollView = scrollView
@@ -20,8 +33,15 @@ final class ViewerContainerView: NSView {
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
+        relayout()
+    }
+
+    private func relayout() {
+        let barHeight = topBar == nil ? 0 : Self.topBarHeight
+        topBar?.frame = NSRect(x: 0, y: bounds.height - barHeight, width: bounds.width, height: barHeight)
+        let contentHeight = max(0, bounds.height - barHeight)
         let minimapWidth = minimap.isHidden ? 0 : MinimapView.preferredWidth
-        scrollView.frame = NSRect(x: 0, y: 0, width: max(0, bounds.width - minimapWidth), height: bounds.height)
-        minimap.frame = NSRect(x: bounds.width - minimapWidth, y: 0, width: minimapWidth, height: bounds.height)
+        scrollView.frame = NSRect(x: 0, y: 0, width: max(0, bounds.width - minimapWidth), height: contentHeight)
+        minimap.frame = NSRect(x: bounds.width - minimapWidth, y: 0, width: minimapWidth, height: contentHeight)
     }
 }

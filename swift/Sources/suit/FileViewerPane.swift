@@ -17,7 +17,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     let textView: ViewerTextView
     let ruler: LineNumberRulerView
     let minimap = MinimapView(frame: .zero)
-    private var container: ViewerContainerView!
+    var container: ViewerContainerView!
 
     private(set) var filePath: String?
     var lineStarts: [Int] = [0]
@@ -142,6 +142,18 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     // MARK: - Bookmarks (ROADMAP Phase 22)
 
     var bookmarkedLines = IndexSet()
+
+    // MARK: - Time-travel scrubber (ROADMAP Phase 40)
+
+    // Non-nil while scrubbing a file's history: the timeline of revisions, the
+    // current slider position, and the scrubber bar. Leaving the mode
+    // (exitTimeTravel) drops all three and reloads the working-tree file.
+    var timeTravelTimeline: TimeTravelTimeline?
+    var timeTravelPosition = 0
+    var timeTravelBar: TimeTravelBarView?
+    var timeTravelRelativePath: String?
+    var timeTravelRoot: String?
+    var isTimeTraveling: Bool { timeTravelTimeline != nil }
 
     // MARK: - Loading
 
