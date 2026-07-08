@@ -191,6 +191,23 @@ extension AppDelegate {
         }
     }
 
+    // Symbol navigation (ROADMAP Phase 33): several definitions for one name
+    // (an overload / a shadowed symbol) go through the palette in explicit-items
+    // mode as a definition picker — each row jumps to that site.
+    func presentDefinitionPicker(_ defs: [Symbol], root: String, controller: TerminalWindowController) {
+        paletteFileIndex = nil
+        commandPalette.show(
+            relativeTo: controller.window,
+            commands: defs.map { symbol in
+                let title = "\(symbol.relativePath):\(symbol.line)" + (symbol.kind.isEmpty ? "" : "  — \(symbol.kind)")
+                return PaletteCommand(title: title, shortcut: nil) { [weak controller] in
+                    controller?.openFile(atPath: root + "/" + symbol.relativePath, line: symbol.line)
+                }
+            },
+            placeholder: "Go to definition…"
+        )
+    }
+
     // MARK: - Fuzzy file opener (Cmd-P)
 
     @objc func openQuickly(_ sender: Any?) {
@@ -221,6 +238,11 @@ extension AppDelegate {
     // The first scan of a large project can land after Cmd-P was pressed; this
     // swaps the fresh list under the open palette instead of leaving it empty.
     @objc func fileIndexUpdated(_ note: Notification) {
+        // Symbol index (Phase 33) tracks the same FSEvents refreshes — a code
+        // change invalidates the cached ctags tags.
+        if let changed = note.object as? FileIndex {
+            SymbolIndex.markStaleIfExists(forRoot: changed.root)
+        }
         guard let index = note.object as? FileIndex,
               index === paletteFileIndex,
               commandPalette.isVisible,
@@ -258,6 +280,8 @@ extension AppDelegate {
             PaletteCommand(title: "Claude: Review Plan…", shortcut: nil) { [weak self] in self?.openPlanForReview(nil) },
             PaletteCommand(title: "Set Selection as Claude Goal", shortcut: nil) { [weak self] in self?.setSelectionAsGoalFromFocused(nil) },
             PaletteCommand(title: "Go to Line…", shortcut: "⌘L") { NSApp.sendAction(#selector(ViewerTextView.goToLine(_:)), to: nil, from: nil) },
+            PaletteCommand(title: "Go to Definition", shortcut: "⌃⌘J") { NSApp.sendAction(#selector(ViewerTextView.goToDefinition(_:)), to: nil, from: nil) },
+            PaletteCommand(title: "Find References", shortcut: "⇧⌃⌘J") { NSApp.sendAction(#selector(ViewerTextView.findReferences(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Toggle Blame", shortcut: "⌃⌘B") { NSApp.sendAction(#selector(ViewerTextView.toggleBlame(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Show File History", shortcut: nil) { NSApp.sendAction(#selector(ViewerTextView.showFileHistory(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Split Screen (new terminal)", shortcut: "⌘D") { [weak self] in self?.splitScreen(nil) },

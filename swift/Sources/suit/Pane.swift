@@ -40,6 +40,8 @@ protocol PaneHost: AnyObject {
     func paneRequestedOpenFile(path: String, line: Int?)
     func paneRequestedOpenCommitDiff(forFile path: String, sha: String)
     func paneRequestedShowFileHistory(forPath path: String)
+    func paneRequestedGoToDefinition(identifier: String, fromFile path: String?)
+    func paneRequestedFindReferences(identifier: String, fromFile path: String?)
     func paneRequestedShowBackgroundTasks(_ pane: Pane)
     func paneFinishedTask(_ pane: Pane)
     // Tab-grain drag & drop (browser-tab model): a strip-dragged tab dropped
@@ -301,6 +303,17 @@ final class Pane: NSObject {
 
     func showFileHistory(forPath path: String) {
         host?.paneRequestedShowFileHistory(forPath: path)
+    }
+
+    // Symbol-aware navigation (ROADMAP Phase 33): the viewer routes an
+    // identifier under the caret / a Cmd-click through the host, which owns the
+    // symbol index, the diff/viewer tabs, and the references pane.
+    func goToDefinition(identifier: String, fromFile path: String?) {
+        host?.paneRequestedGoToDefinition(identifier: identifier, fromFile: path)
+    }
+
+    func findReferences(identifier: String, fromFile path: String?) {
+        host?.paneRequestedFindReferences(identifier: identifier, fromFile: path)
     }
 
     // The pane is going away for good (its tab closed with it). Contents are

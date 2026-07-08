@@ -110,6 +110,13 @@ working.
   first-class tabs: every open (sidebar click, ⌘P, search hit, Cmd-click link) opens the
   file's own tab or re-activates it if the path is already open — files never load one on top
   of another, so opening three files leaves three tabs.
+- **Go to definition & find references** — the Navigate pillar goes semantic. **Cmd-click** an
+  identifier in the viewer (or right-click ▸ **Go to Definition**, ⌃⌘J, or the palette) to jump
+  to its definition via a bundled `universal-ctags` symbol index; an overloaded name that has
+  several definitions opens a picker. **Find References** (right-click, ⇧⌃⌘J, palette) opens a
+  references pane — every use of the symbol, grouped by file, each row jumping the viewer to that
+  line. The symbol index is cached per git root and refreshes on file changes; with no
+  `universal-ctags` installed, both degrade to a whole-word ripgrep search with a header note.
 - **Blame gutter** — Toggle Blame (⌃⌘B) shows a per-line column of the last-touching commit
   (short sha + author, tinted by age) beside the line numbers; the full commit subject is on
   hover, and clicking a line's sha opens that commit's diff.
@@ -361,6 +368,8 @@ The full list also lives in-app under **Settings (⌘,) ▸ Shortcuts**.
 | ⌘E | Use selection for find |
 | ⌘L | Go to line (file viewer) |
 | ⇧⌘L | Toggle bookmark on the current line (file viewer) |
+| ⌃⌘J | Go to definition (file viewer; also Cmd-click an identifier) |
+| ⇧⌃⌘J | Find references (file viewer) |
 
 ### Git & Claude
 

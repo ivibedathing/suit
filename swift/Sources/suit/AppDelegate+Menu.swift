@@ -68,6 +68,18 @@ extension AppDelegate {
         let toggleBookmarkItem = editMenu.addItem(withTitle: "Toggle Bookmark", action: #selector(toggleBookmark(_:)), keyEquivalent: "l")
         toggleBookmarkItem.keyEquivalentModifierMask = [.command, .shift]
 
+        editMenu.addItem(.separator())
+
+        // Symbol navigation (ROADMAP Phase 33) — responder-routed to the focused
+        // viewer (auto-disabled when no viewer is focused). ⌃⌘J for go-to-def
+        // (the Xcode-ish binding; also a Cmd-click in the viewer), ⇧⌃⌘J for the
+        // references pane.
+        let goToDefItem = editMenu.addItem(withTitle: "Go to Definition", action: #selector(ViewerTextView.goToDefinition(_:)), keyEquivalent: "j")
+        goToDefItem.keyEquivalentModifierMask = [.command, .control]
+
+        let findRefsItem = editMenu.addItem(withTitle: "Find References", action: #selector(ViewerTextView.findReferences(_:)), keyEquivalent: "j")
+        findRefsItem.keyEquivalentModifierMask = [.command, .control, .shift]
+
         editMenuItem.submenu = editMenu
 
         // The Tabs menu (browser-tab model): one strip per window owns every

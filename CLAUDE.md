@@ -265,6 +265,29 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     resolved by `TerminalWindowController.resolveSearchScope` — sub-project means the deepest
     `FileIndex.subprojectBadges` directory above the focused pane's cwd). Results stream into an
     `NSOutlineView` grouped by file; clicking a match opens the viewer pane at that line.
+  - `SymbolIndex.swift` — symbol-aware navigation core (ROADMAP Phase 33), the UI-free,
+    standalone-compilable pattern (Foundation-only, verified by `scripts/symbol-index-test.sh`):
+    the `Symbol` model, the universal-ctags JSON tag parser (`parseTags`/`index`), the
+    identifier-at-offset extractor (`SymbolLookup`), the go-to-def outcome / header-note /
+    whole-word-search decisions (`SymbolNavigation`), the `SUIT_CTAGS_PATH`→bundle→Homebrew ctags
+    resolver (deliberately never BSD `/usr/bin/ctags` — no JSON output), and the `SymbolIndex`
+    class itself: one instance cached per git root, `rebuild`/`definitions(named:)` running ctags
+    over a caller-supplied FileIndex file list (piped on stdin) off the main thread, marked stale
+    on `FileIndex.didUpdate`. A light LSP client is the sanctioned swap-in later.
+  - `FileViewerPane+Symbols.swift` — bridges the viewer's text-view character indexing to
+    `SymbolLookup` (identifier at caret / click / selection) and routes Go to Definition / Find
+    References through `Pane` → `PaneHost` to `TerminalWindowController`'s
+    `goToDefinition`/`findReferences`/`openReferences` (in `+OpenTabs`), which resolve the symbol
+    against the root's `SymbolIndex` — one definition jumps via `openFile`, several open the
+    palette definition picker (`AppDelegate.presentDefinitionPicker`), none (incl. no ctags)
+    degrade to the references pane. The viewer's `ViewerTextView` Cmd-click / right-click and the
+    ⌃⌘J / ⇧⌃⌘J menu + palette entries are the surfaces.
+  - `ReferencesPane.swift` — `ReferencesPaneContent` (ROADMAP Phase 33): the find-references pane,
+    a grouped-by-file `NSOutlineView` reusing the `RipgrepSearch` result stack
+    (`SearchFileGroup`/`SearchMatchNode`/`SearchFileRowView`) + `RipgrepSearcher` — every use of a
+    symbol via a whole-word `rg` search, one row per line, click → viewer at that line, with a
+    header note (ctags-backed vs the rg text-match fallback). One per window, reused like the diff
+    / transcript panes.
   - `CommandPalette.swift` — the Cmd-K palette: a floating panel with fuzzy type-to-filter
     (`fuzzyScore`) over `PaletteCommand`s provided by `AppDelegate`; arrows/Enter/Esc driven from
     the search field's `doCommandBy` hook. Also the machinery behind Cmd-P: the same panel shown
@@ -562,13 +585,15 @@ relevant Foundation-only source file(s) against a small assertion driver and run
 UI. Run them all from one entrypoint:
 
 ```
-scripts/test.sh                   # fast suite (feedback-routing + mode-plan), ~seconds
+scripts/test.sh                   # fast suite (feedback-routing + mode-plan + symbol-index), ~seconds
 scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
 scripts/test.sh --list            # list the harnesses
 ```
 
 The individual harnesses (each also runnable directly) are `scripts/feedback-routing-test.sh`
 (`FeedbackRouting.swift`), `scripts/mode-plan-harness.sh` (`ClaudeMode.swift` + `PlanParsing.swift`),
+`scripts/symbol-index-test.sh` (`SymbolIndex.swift` — ctags parse, identifier extraction,
+go-to-def resolution, and a `runCtags` round-trip against a fake ctags),
 and `scripts/autopilot-harness.sh` (the full Autopilot pipeline, offscreen with everything faked).
 This is why testable logic is kept in Foundation-only files with no app dependencies (the
 `RoadmapParser`/`AutopilotScheduler`/`FeedbackRouting` pattern) — a harness can compile it in

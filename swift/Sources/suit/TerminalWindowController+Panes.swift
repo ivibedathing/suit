@@ -74,6 +74,16 @@ extension TerminalWindowController {
         sidebar.gitView.showFileHistory(absolutePath: (path as NSString).standardizingPath)
     }
 
+    // Symbol-aware navigation (ROADMAP Phase 33): a viewer/terminal Cmd-click or
+    // menu action on an identifier routes here.
+    func paneRequestedGoToDefinition(identifier: String, fromFile path: String?) {
+        goToDefinition(identifier: identifier, fromFile: path)
+    }
+
+    func paneRequestedFindReferences(identifier: String, fromFile path: String?) {
+        findReferences(identifier: identifier, fromFile: path)
+    }
+
     // Background-task monitor for a pane's shell (ROADMAP Phase 30): a terminal
     // pane scopes to its own shell's job subtree; any other pane kind opens the
     // window-wide monitor (shellPid 0).

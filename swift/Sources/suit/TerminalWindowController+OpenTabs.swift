@@ -275,6 +275,77 @@ extension TerminalWindowController {
         }
     }
 
+    // MARK: - Symbol navigation (ROADMAP Phase 33)
+
+    // The git root a symbol lookup runs against: the clicked file's repo when we
+    // have one, else the window's current project root — so references stay
+    // repo-scoped like project search.
+    private func symbolRoot(forFile path: String?) -> String {
+        if let path {
+            let directory = (path as NSString).deletingLastPathComponent
+            if let root = FileIndex.gitRoot(of: directory) { return root }
+        }
+        return currentFileIndex().root
+    }
+
+    // Go to definition: resolve the identifier to its ctags definition(s) and
+    // jump. One definition jumps straight there; several open a palette picker
+    // (an overloaded/shadowed name never silently jumps to the wrong site); none
+    // — including when ctags isn't installed — degrades to the references pane's
+    // rg word search with a header note.
+    func goToDefinition(identifier: String, fromFile path: String?) {
+        let symbol = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !symbol.isEmpty else { NSSound.beep(); return }
+        let root = symbolRoot(forFile: path)
+        let index = SymbolIndex.shared(forRoot: root)
+        index.definitions(named: symbol, files: { FileIndex.shared(forDirectory: root).files }) { [weak self] defs, available in
+            guard let self else { return }
+            switch SymbolNavigation.gotoOutcome(for: defs) {
+            case .jump(let symbol):
+                self.openFile(atPath: root + "/" + symbol.relativePath, line: symbol.line)
+            case .choose(let defs):
+                self.appDelegate.presentDefinitionPicker(defs, root: root, controller: self)
+            case .none:
+                self.openReferences(symbol: symbol, root: root, ctagsAvailable: available)
+            }
+        }
+    }
+
+    // Find references: open the references pane (rg whole-word search of the
+    // identifier), noting whether ctags backed the lookup.
+    func findReferences(identifier: String, fromFile path: String?) {
+        let symbol = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !symbol.isEmpty else { NSSound.beep(); return }
+        let root = symbolRoot(forFile: path)
+        let index = SymbolIndex.shared(forRoot: root)
+        // Kick the index build (warms go-to-def, sets isCtagsAvailable) and open
+        // the pane once we know whether ctags ran, so the header note is right.
+        index.definitions(named: symbol, files: { FileIndex.shared(forDirectory: root).files }) { [weak self] _, available in
+            self?.openReferences(symbol: symbol, root: root, ctagsAvailable: available)
+        }
+    }
+
+    // Opens (or reuses, same policy as the diff/transcript panes) the window's
+    // references tab listing every use of a symbol.
+    func openReferences(symbol: String, root: String, ctagsAvailable: Bool) {
+        let load = { (content: ReferencesPaneContent) in
+            content.onOpenMatch = { [weak self] path, line in
+                self?.openFile(atPath: path, line: line)
+            }
+            content.load(symbol: symbol, root: root, ctagsAvailable: ctagsAvailable)
+        }
+        if let tab = store.tabs.first(where: { $0.content is ReferencesPaneContent }) {
+            if let content = tab.content as? ReferencesPaneContent { load(content) }
+            activate(tab)
+            return
+        }
+        let content = ReferencesPaneContent()
+        let tab = Tab(content: content)
+        store.insert(tab)
+        load(content)
+        activate(tab)
+    }
+
     // MARK: - Claude task worktrees (ROADMAP Phase 5)
 
     // "New task": a tab running claude, tagged with the task name (ROADMAP

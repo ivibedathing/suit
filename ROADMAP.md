@@ -894,6 +894,46 @@ steers only by editing ROADMAP.md.
   removal, the history row, and `⏸` honored on the next pass; plus full `./build.sh` and a
   manual smoke of the footer row, run tab, and notification click-throughs.
 
+### Phase 33 — Go-to-definition & find-references — ✅ shipped
+
+The Navigate pillar goes semantic. Phases 1–2 gave fuzzy-open and text search; this adds
+symbol-aware jumps — Cmd-click an identifier to reach its definition, and open a references list
+for every use. Read-only, so it stays inside the viewer-first contract: navigate the code, don't
+edit it.
+
+Landed as `SymbolIndex.swift` (the Foundation-only core: the ctags JSON-tag parser, the
+identifier extractor, and the go-to-def outcome / header-note / whole-word-search logic, all
+harness-tested) plus `ReferencesPane.swift` (the references pane), with viewer/menu/palette
+wiring in `ViewerTextView.swift`, `FileViewerPane+Symbols.swift`, `Pane.swift`,
+`TerminalWindowController+OpenTabs.swift` and the palette/menu, and a `universal-ctags` bundling
+block in `build.sh`.
+
+- **Symbol index**: bundle a `universal-ctags` binary into `Contents/Resources` (`build.sh`, the
+  way `rg`/`gh` are bundled; `SUIT_CTAGS_PATH` overrides for dev runs — and it deliberately never
+  falls back to macOS's BSD `/usr/bin/ctags`, which can't emit the JSON the parser reads) and run
+  it over the `FileIndex` file list per git root (piped on stdin), cached per root and marked
+  stale on `FileIndex.didUpdate` (FSEvents), off the main thread. A light LSP client is the
+  sanctioned swap-in later (same definition/reference output), exactly as `SyntaxHighlighter`
+  leaves room for tree-sitter.
+- **Go to definition**: the viewer's `ViewerTextView` gains a Cmd-click interception (mirroring
+  the terminal's path-shaped-link Cmd-click) that resolves the identifier under the caret to its
+  definition(s) via the symbol index and jumps with `openFile(atPath:line:)`; a right-click
+  "Go to Definition", a palette entry, and a ⌃⌘J keystroke too. One definition jumps straight
+  there; several open a palette picker (an overloaded / shadowed name never silently jumps to the
+  wrong site).
+- **Find references**: a references pane reusing the `RipgrepSearch` grouped-by-file
+  `NSOutlineView` result stack — every use of the symbol via a whole-word `rg` search — each row
+  click → viewer at that line. "Find References" right-click + palette + ⇧⌃⌘J, one references
+  pane per window reused like the diff/transcript panes.
+- **Fallback**: with no `universal-ctags` installed, go-to-definition degrades to the references
+  pane's whole-word `rg` search with a header note saying so — the roadmap's graceful degradation.
+- **Verification.** `scripts/symbol-index-test.sh` (wired into `scripts/test.sh`) asserts the
+  ctags JSON parser lands single- and multi-definition symbols on the right `file:line` (picker
+  for the latter via `gotoOutcome`), the identifier extractor (caret inside / at either end /
+  on whitespace), the whole-word search pattern, the `SUIT_CTAGS_PATH` resolver, and an
+  end-to-end `runCtags` round-trip against a fake `universal-ctags` (stdin file-list plumbing,
+  multi-definition, and a broken binary degrading to the rg fallback).
+
 ## Cross-cutting principles ("works for the user")
 
 - **Keyboard-complete**: every action has a binding and a palette entry; the mouse is optional.
