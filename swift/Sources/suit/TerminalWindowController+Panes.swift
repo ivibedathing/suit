@@ -74,6 +74,15 @@ extension TerminalWindowController {
         sidebar.gitView.showFileHistory(absolutePath: (path as NSString).standardizingPath)
     }
 
+    // Symbol navigation (ROADMAP Phase 33): resolve against the pane's project.
+    func paneRequestedGoToDefinition(symbol: String, fromDirectory directory: String?) {
+        goToDefinition(symbol: symbol, fromDirectory: directory)
+    }
+
+    func paneRequestedFindReferences(symbol: String, fromDirectory directory: String?) {
+        findReferences(symbol: symbol, fromDirectory: directory)
+    }
+
     // Ask · Plan · Agent control (ROADMAP Phase 26): drive the Claude session in
     // `pane`'s tab to the requested mode by writing the right number of Shift+Tab
     // presses into its pty, then remember the new belief so the control reflects

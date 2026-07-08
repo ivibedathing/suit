@@ -894,7 +894,7 @@ steers only by editing ROADMAP.md.
   removal, the history row, and `⏸` honored on the next pass; plus full `./build.sh` and a
   manual smoke of the footer row, run tab, and notification click-throughs.
 
-### Phase 33 — Go-to-definition & find-references — 🚧 in progress (worktree-phase-33-goto-def-references, 2026-07-08)
+### Phase 33 — Go-to-definition & find-references — ✅ shipped
 
 The Navigate pillar goes semantic. Phases 1–2 gave fuzzy-open and text search; this adds
 symbol-aware jumps — Cmd-click an identifier to reach its definition, and open a references list

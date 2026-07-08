@@ -252,6 +252,63 @@ extension TerminalWindowController {
         }
     }
 
+    // MARK: - Go to definition / find references (ROADMAP Phase 33)
+
+    // Resolves `symbol` to its definition(s) via the project's SymbolIndex and
+    // navigates: exactly one jumps straight there; several open the palette
+    // picker; none (or no ctags at all) fall back to the references pane's rg
+    // word search, which still surfaces the definition among the uses — with a
+    // header note explaining the fallback.
+    func goToDefinition(symbol: String, fromDirectory directory: String?) {
+        let base = directory ?? currentFileIndex().root
+        let root = FileIndex.gitRoot(of: base) ?? base
+        let definitions = SymbolIndex.shared(forDirectory: root).definitions(for: symbol)
+        switch definitions.count {
+        case 1:
+            let def = definitions[0]
+            openFile(atPath: root + "/" + def.relativePath, line: def.lineNumber)
+        case 0:
+            let note = SymbolIndex.hasCtags
+                ? "No indexed definition for “\(symbol)” — showing every use."
+                : "ctags not found — showing every use (rebuild the app or set SUIT_CTAGS_PATH)."
+            openReferences(symbol: symbol, root: root, fallbackNote: note)
+        default:
+            appDelegate.showDefinitionPicker(symbol: symbol, definitions: definitions, root: root, controller: self)
+        }
+    }
+
+    // Jumps to one specific definition — the palette picker's action for the
+    // multi-definition case.
+    func openDefinition(_ definition: SymbolDefinition, root: String) {
+        openFile(atPath: root + "/" + definition.relativePath, line: definition.lineNumber)
+    }
+
+    // Opens (or reuses) the window's references pane for `symbol`. A missing
+    // ctags binary just means the list is unqualified — the rg word search runs
+    // the same way — so a note is passed through to the header.
+    func findReferences(symbol: String, fromDirectory directory: String?) {
+        let base = directory ?? currentFileIndex().root
+        let root = FileIndex.gitRoot(of: base) ?? base
+        let note = SymbolIndex.hasCtags
+            ? nil
+            : "ctags not found — this is an rg word search (rebuild the app or set SUIT_CTAGS_PATH)."
+        openReferences(symbol: symbol, root: root, fallbackNote: note)
+    }
+
+    // The references pane itself, reused like the diff / transcript panes.
+    func openReferences(symbol: String, root: String, fallbackNote: String? = nil) {
+        if let tab = store.tabs.first(where: { $0.content is ReferencesPaneContent }) {
+            (tab.content as? ReferencesPaneContent)?.load(symbol: symbol, root: root, fallbackNote: fallbackNote)
+            activate(tab)
+            return
+        }
+        let content = ReferencesPaneContent()
+        let tab = Tab(content: content)
+        store.insert(tab)
+        content.load(symbol: symbol, root: root, fallbackNote: fallbackNote)
+        activate(tab)
+    }
+
     // MARK: - Claude task worktrees (ROADMAP Phase 5)
 
     // "New task": worktree + branch + a tab running claude in it, tagged with
