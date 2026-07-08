@@ -49,6 +49,15 @@ protocol PaneHost: AnyObject {
     // host owns the store and the tree.
     func canDropTab(withId id: String, onto target: Pane) -> Bool
     func dropTab(withId id: String, onto target: Pane, drop: TabDropTarget) -> Bool
+
+    // In-pane tab bar (the tabs-on-the-pane model): the pane hosts every tab it
+    // owns and switches between them itself, so the host provides the owned list
+    // and receives select/close/context actions. The strip is gone; the sidebar
+    // Sessions tab is the cross-pane overview.
+    func ownedTabs(for pane: Pane) -> [Tab]
+    func paneDidSelectOwnedTab(_ pane: Pane, tab: Tab)
+    func paneDidCloseOwnedTab(_ pane: Pane, tab: Tab)
+    func contextMenu(forOwnedTab tab: Tab) -> NSMenu
 }
 
 // Owns one pane: a viewport in the split tree. The pane displays exactly one
@@ -158,9 +167,22 @@ final class Pane: NSObject {
         super.init()
 
         tab.pane = self
+        tab.homePane = self
         content.pane = self
         container.pane = self
         container.titleBar.pane = self
+        // The in-pane tab bar routes its actions back through the host.
+        container.tabBar.onSelect = { [weak self] tab in
+            guard let self else { return }
+            self.host?.paneDidSelectOwnedTab(self, tab: tab)
+        }
+        container.tabBar.onClose = { [weak self] tab in
+            guard let self else { return }
+            self.host?.paneDidCloseOwnedTab(self, tab: tab)
+        }
+        container.tabBar.contextMenuProvider = { [weak self] tab in
+            self?.host?.contextMenu(forOwnedTab: tab)
+        }
         refreshChrome()
     }
 
@@ -179,6 +201,7 @@ final class Pane: NSObject {
         }
         tab = newTab
         newTab.pane = self
+        newTab.homePane = self
         newTab.content.pane = self
         // A (re-)displayed tab picks up the appearance this pane already wears.
         if let appliedFont { newTab.content.applyFont(appliedFont) }
@@ -196,6 +219,14 @@ final class Pane: NSObject {
         container.titleBar.exitStatus = tab.exitStatus
         container.titleBar.sessionState = tab.liveSessionState
         container.titleBar.contextPct = tab.exitStatus == nil ? tab.claudeSession?.contextPct : nil
+        refreshTabBar()
+    }
+
+    // Rebuilds the in-pane tab bar from the tabs this pane owns; it shows only
+    // when the pane holds more than one, so a single-tab pane looks untouched.
+    func refreshTabBar() {
+        let owned = host?.ownedTabs(for: self) ?? [tab]
+        container.setTabBar(tabs: owned, active: tab)
     }
 
     // MARK: - Drag & drop rearrangement (forwarded to the host, which owns the tree)

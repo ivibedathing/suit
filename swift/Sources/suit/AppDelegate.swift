@@ -80,6 +80,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         controller.onInterrupt = { [weak self] id in self?.performQuickAction(.interrupt, onSessionId: id) }
         controller.onContinue = { [weak self] id in self?.performQuickAction(.continueSession, onSessionId: id) }
         controller.onArchive = { [weak self] id in self?.archiveSession(withId: id) }
+        controller.onBroadcast = { [weak self] scope in self?.presentBroadcast(scope: scope) }
         return controller
     }()
     // Cross-transcript search (ROADMAP Phase 20): a floating "Search

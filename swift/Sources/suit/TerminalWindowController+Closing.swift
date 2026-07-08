@@ -46,16 +46,17 @@ extension TerminalWindowController {
         store.rememberClosed(savedTab(for: tab))
         if let pane = tab.pane {
             let wasFocused = focusedPane() === pane
-            if let fallback = store.mruBackgroundTab(excluding: tab) {
+            if let fallback = store.mruBackgroundTab(inHome: pane, excluding: tab) {
                 pane.display(fallback)
                 store.touchMRU(fallback)
                 if wasFocused { focusPane(pane) }
             } else {
-                // Every other tab is on screen in some other pane, so this
-                // viewport has nothing left to show: it dissolves and its
-                // space returns to its neighbors.
+                // This pane owned only the closing tab, so its viewport has
+                // nothing left to show: it dissolves and its space returns to
+                // its neighbors.
                 tab.pane = nil
                 tab.content.pane = nil
+                tab.homePane = nil
                 dissolvePane(pane)
             }
         }
@@ -88,9 +89,14 @@ extension TerminalWindowController {
         unsplit(pane.tab)
     }
 
-    // Removes a viewport from the split tree. The tab it displayed is the
-    // caller's responsibility (already unlinked or being closed).
-    func dissolvePane(_ pane: Pane) {
+    // Removes a viewport from the split tree. Any tabs the pane still owns move
+    // to a surviving pane (dissolving a viewport never closes tabs) — unless the
+    // caller already unlinked them (a closed tab clears its own homePane first).
+    // `absorbInto` names the destination explicitly (merge keeps one pane).
+    func dissolvePane(_ pane: Pane, absorbInto explicitDest: Pane? = nil) {
+        if let dest = explicitDest ?? absorbTarget(excluding: pane) {
+            absorbOwnedTabs(from: pane, into: dest)
+        }
         pane.teardown()
         if let parentSplit = pane.container.superview as? NSSplitView {
             if let sibling = detachFromPaneTree(pane.container, parentSplit: parentSplit),
@@ -100,6 +106,7 @@ extension TerminalWindowController {
         }
         panes.removeAll { $0 === pane }
         updateBorderVisibility()
+        reloadStrip()
     }
 
     // MARK: - Window closing

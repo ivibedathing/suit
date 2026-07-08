@@ -23,6 +23,7 @@ HARNESSES=(
   "feedback-routing|scripts/feedback-routing-test.sh|fast"
   "mode-plan|scripts/mode-plan-harness.sh|fast"
   "symbol-index|scripts/symbol-index-test.sh|fast"
+  "broadcast|scripts/broadcast-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 

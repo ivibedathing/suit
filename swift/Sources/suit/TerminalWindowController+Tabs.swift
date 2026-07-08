@@ -75,11 +75,16 @@ extension TerminalWindowController {
             if let pane = tab.pane {
                 tab.pane = nil
                 tab.content.pane = nil
-                if let fallback = store.mruBackgroundTab(excluding: tab) {
+                tab.homePane = nil
+                if let fallback = store.mruBackgroundTab(inHome: pane, excluding: tab) {
                     pane.display(fallback)
                 } else {
                     dissolvePane(pane)
                 }
+            } else {
+                // A background tab of some other pane: it just leaves that
+                // pane's group (no viewport change).
+                tab.homePane = nil
             }
         } else {
             source.release(tab)
@@ -95,7 +100,8 @@ extension TerminalWindowController {
             let wasFocused = focusedPane() === pane
             tab.pane = nil
             tab.content.pane = nil
-            if let fallback = store.mruBackgroundTab(excluding: tab) {
+            tab.homePane = nil
+            if let fallback = store.mruBackgroundTab(inHome: pane, excluding: tab) {
                 pane.display(fallback)
                 store.touchMRU(fallback)
                 // Removing the dragged view can reset the first responder to

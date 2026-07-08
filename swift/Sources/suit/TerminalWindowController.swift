@@ -1,13 +1,14 @@
 import Cocoa
 
-// Owns one OS-level window and everything under it: the browser-style tab
-// strip (TabStripView) fed by the window's TabStore, the NSSplitView tree of
-// panes (viewports displaying one tab each), and the panes themselves.
+// Owns one OS-level window and everything under it: the window's TabStore, the
+// NSSplitView tree of panes (viewports), and the panes themselves.
 //
-// The tab model (browser-tabs rebuild): the strip owns every tab — terminal,
-// viewer, diff, transcript. Panes display a subset; clicking a background
-// tab shows it in the focused pane, clicking a visible one focuses its pane.
-// Native macOS window tabs are gone — ⌘T opens a tab in the strip.
+// The tab model (tabs-on-the-pane): every tab belongs to a pane (its homePane),
+// and each pane hosts its own in-pane tab bar (PaneTabBarView) to switch between
+// the tabs it owns — the window-level strip is gone. The sidebar's Sessions tab
+// is the cross-pane overview (every open tab grouped by pane). ⌘T opens a tab in
+// the focused pane; opening a file/diff/etc. adds a tab to that pane's group.
+// Native macOS window tabs are gone.
 final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDelegate, PaneHost {
     let window: NSWindow
     unowned let appDelegate: AppDelegate
@@ -246,6 +247,16 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.bookmarksView.onOpen = { [weak self] path, line in
             self?.openFile(atPath: path, line: line)
         }
+        // Sessions tab: click a row to bring that tab forward in its pane, or
+        // its close box to shut it (the cross-pane overview replacing the strip).
+        sidebar.sessionsView.onSelectTab = { [weak self] id in
+            guard let self, let tab = self.store.tab(withId: id) else { return }
+            self.activate(tab)
+        }
+        sidebar.sessionsView.onCloseTab = { [weak self] id in
+            guard let self, let tab = self.store.tab(withId: id) else { return }
+            self.closeTab(tab)
+        }
         sidebar.usageFooter.onOpenSettings = { [weak self] in
             self?.appDelegate.installClaudeIntegration(nil)
         }
@@ -276,8 +287,10 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebarSplit.addArrangedSubview(paneTreeHost)
 
         rootContainer.addSubview(sidebarSplit)
-        rootContainer.addSubview(strip)
-        rootContainer.strip = strip
+        // The window-level strip is no longer shown (tabs live on each pane's
+        // own tab bar; the sidebar Sessions tab is the overview). `strip` stays
+        // constructed and wired so its harmless no-op methods keep compiling,
+        // but it is never added to the view hierarchy.
         rootContainer.body = sidebarSplit
         rootContainer.background = effectView
         rootContainer.layoutParts()
@@ -321,6 +334,16 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
                 DispatchQueue.main.async {
                     for restore in scrolls { restore() }
                 }
+            }
+        }
+
+        // Any restored tab not placed in the split tree (a former window-level
+        // background tab, from before per-pane ownership existed) has no home
+        // pane yet. Give each to the focused/first pane so it appears in that
+        // pane's tab bar and the Sessions list rather than being stranded.
+        if let home = firstPane(in: paneTreeRoot) {
+            for tab in store.tabs where tab.homePane == nil {
+                tab.homePane = home
             }
         }
 
