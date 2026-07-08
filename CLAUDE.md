@@ -30,7 +30,9 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     Screen / Unsplit, ⌘D, the Screen menu's / palette's last-used-tab and
     "Split Screen with Tab…" picker entries, or drag a tab to a
     screen edge — no pane-first split commands. Single-field prompts (rename tab, new Claude
-    task) use `OverlayPrompt.swift`, the palette-style panel (Phase 15), not NSAlert. Also the cross-window
+    task) use `OverlayPrompt.swift`, the palette-style panel (Phase 15), not NSAlert — the
+    new-task prompt carries its optional "Isolate in worktree" accessory toggle (Phase 31),
+    `ask(…, toggleLabel:toggleOn:) { name, isolate in … }`. Also the cross-window
     tab plumbing: `controllerAndTab(withId:)` resolves a dragged tab across windows, and
     `tearOffTab(withId:at:)` turns a tab dragged outside every window into its own window.
     Also Autopilot's host (Phase 32): the `autopilot*` settings (enabled, project root, budget
@@ -351,9 +353,23 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     worktree removal (the build gate leaves an untracked `build/` that a plain remove refuses),
     local `branch -D`, best-effort remote branch delete — `finish` stays untouched and unused
     by Autopilot. UI: View ▸ New Claude Task… (Ctrl-Cmd-T,
-    palette) prompts for a name and opens a pane running `claude` in the new
-    worktree (title = task name); right-click ▸ Finish Claude Task… (only shown inside a task
-    worktree) offers Merge & Remove / Discard & Remove and closes the pane.
+    palette) prompts for a name plus an "Isolate in worktree" toggle (Phase 31) and opens a pane
+    running `claude` (title = task name); right-click ▸ Finish Claude Task… (only shown inside a
+    task worktree) offers Merge & Remove / Discard & Remove and closes the pane. The isolation
+    branch lives in `TerminalWindowController.startClaudeTask(named:isolate:)` — on = `createTask`
+    worktree (the original behavior), off = run in the current checkout — with the pure decision
+    (`usesWorktree` / `checkoutDirectory`) factored into `TaskLaunch.swift` for the harness, and
+    the prompt default in `AppDelegate.taskIsolateByDefault` (Settings ▸ Claude).
+  - `TaskLaunch.swift` / `SubagentTree.swift` — the Phase 31 UI-free, standalone-compilable cores
+    (the RoadmapParser / FeedbackRouting pattern). `TaskLaunch` is the per-task isolation decision.
+    `SubagentTree.build(sessions:worktrees:)` turns the flat session map + `git worktree list` into
+    a session-anchored nested forest: a worktree nests under its nearest *session* ancestor (via
+    `.claude/worktrees/` containment), so a session's `isolation: worktree` subagents render
+    indented under it while a session-less checkout that merely *contains* a session (the main
+    repo) stays transparent; pruning is implicit (a removed worktree drops out of the list).
+    `FleetDashboard`'s list weaves the tree in (`FleetModel.tree`, `FleetRow.depth/isBareWorktree`,
+    off-thread `git worktree list` cache), rendering bare subagent worktrees muted and
+    unsteerable. Verified by `scripts/isolation-harness.sh`.
   - `AutopilotEngine.swift` — Autopilot (ROADMAP Phase 32): the app works through `ROADMAP.md`
     autonomously, one run at a time. A main-queue state machine (off / idle / running / paused /
     blocked(reason) / doneAllPhases — the last auto-recovers when ROADMAP.md's mtime changes)

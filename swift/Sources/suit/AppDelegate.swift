@@ -35,6 +35,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // (the strip's ✦ button, ⌃⌘C, the palette) — e.g. "--continue" or
     // "--model opus". A raw string handed to the shell, not validated.
     var claudeSessionArgs = ""
+    // New Claude Task isolation default (ROADMAP Phase 31): whether the
+    // "New Claude Task" prompt's "Isolate in worktree" switch starts on. On
+    // reproduces Phase 5's always-a-worktree behavior; off runs claude in the
+    // current checkout. The prompt's per-task choice overrides it.
+    var taskIsolateByDefault = true
     // Bell responses (PaneTerminalView.bell): the white pane flash and the
     // Dock-icon bounce while the app is inactive.
     var bellFlashEnabled = true

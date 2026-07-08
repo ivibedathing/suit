@@ -55,20 +55,24 @@ extension AppDelegate {
         }
     }
 
-    // "New task" (ROADMAP Phase 5): prompt for a name, then worktree + claude
-    // pane via the window controller.
+    // "New task" (ROADMAP Phase 5): prompt for a name, then claude pane via the
+    // window controller. Phase 31 — the prompt carries an "Isolate in worktree"
+    // switch (seeded from the settings default) so isolation is a per-task
+    // choice: on spins a worktree, off runs claude in the current checkout.
     @objc func newClaudeTask(_ sender: Any?) {
         guard let controller = activeWindowController() else {
             NSSound.beep()
             return
         }
         OverlayPromptController.shared.ask(
-            caption: "New Claude Task — worktree + claude session",
+            caption: "New Claude Task — claude session",
             placeholder: "task name",
+            toggleLabel: "Isolate in worktree",
+            toggleOn: taskIsolateByDefault,
             over: controller.window
-        ) { [weak controller] name in
+        ) { [weak controller] name, isolate in
             guard !name.isEmpty else { return }
-            controller?.startClaudeTask(named: name)
+            controller?.startClaudeTask(named: name, isolate: isolate)
         }
     }
 

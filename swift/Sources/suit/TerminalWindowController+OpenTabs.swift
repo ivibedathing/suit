@@ -277,28 +277,38 @@ extension TerminalWindowController {
 
     // MARK: - Claude task worktrees (ROADMAP Phase 5)
 
-    // "New task": worktree + branch + a tab running claude in it, tagged with
-    // the task name. The CLAUDE.md multi-agent discipline as one keystroke.
-    func startClaudeTask(named name: String) {
+    // "New task": a tab running claude, tagged with the task name (ROADMAP
+    // Phase 5 as one keystroke). Phase 31 makes isolation a per-task choice —
+    // `isolate` on spins a dedicated worktree + branch (the original
+    // behavior); off runs claude straight in the current checkout, for cheap
+    // tasks that don't want the worktree churn.
+    func startClaudeTask(named name: String, isolate: Bool = true) {
         let root = currentFileIndex().root
-        switch WorktreeTasks.createTask(projectRoot: root, name: name) {
-        case .failure(let error):
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = "New Claude Task"
-            alert.informativeText = error.message
-            alert.runModal()
-        case .success(let directory):
-            let content = TerminalPaneContent()
-            let tab = Tab(content: content)
-            tab.customTitle = name
-            store.insert(tab)
-            content.start(in: directory)
-            activate(tab)
-            // The pty input queue holds this until zsh is ready to read it.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
-                content?.terminalView.send(txt: "claude\r")
+        let directory: String
+        if TaskLaunch.usesWorktree(isolate: isolate) {
+            switch WorktreeTasks.createTask(projectRoot: root, name: name) {
+            case .failure(let error):
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = "New Claude Task"
+                alert.informativeText = error.message
+                alert.runModal()
+                return
+            case .success(let worktree):
+                directory = TaskLaunch.checkoutDirectory(isolate: isolate, currentRoot: root, worktreeDirectory: worktree)
             }
+        } else {
+            directory = TaskLaunch.checkoutDirectory(isolate: isolate, currentRoot: root, worktreeDirectory: nil)
+        }
+        let content = TerminalPaneContent()
+        let tab = Tab(content: content)
+        tab.customTitle = name
+        store.insert(tab)
+        content.start(in: directory)
+        activate(tab)
+        // The pty input queue holds this until zsh is ready to read it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
+            content?.terminalView.send(txt: "claude\r")
         }
     }
 

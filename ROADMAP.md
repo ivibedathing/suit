@@ -807,7 +807,7 @@ blocking the agent or spelunking scrollback.
   clean, one that fails), asserts the monitor lists each with correct status/port and tails new
   log lines, and that a failure raises the strip-item attention signal.
 
-### Phase 31 — Per-session worktree isolation choice + subagent tree
+### Phase 31 — Per-session worktree isolation choice + subagent tree — ✅ shipped
 
 Phase 5 made "New task" always spin a worktree; this makes isolation an explicit per-session
 *choice* and renders nested subagent worktrees (Claude Code's `isolation: worktree` subagents,
