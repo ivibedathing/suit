@@ -191,6 +191,10 @@ extension AppDelegate {
         showFleetItem.keyEquivalentModifierMask = [.command, .shift]
         showFleetItem.target = self
 
+        // Broadcast one instruction across every live session (ROADMAP Phase 35).
+        let broadcastItem = viewMenu.addItem(withTitle: "Broadcast to All Sessions…", action: #selector(broadcastToAllSessions(_:)), keyEquivalent: "")
+        broadcastItem.target = self
+
         let newSessionItem = viewMenu.addItem(withTitle: "New Claude Session", action: #selector(newClaudeSession(_:)), keyEquivalent: "c")
         newSessionItem.keyEquivalentModifierMask = [.command, .control]
         newSessionItem.target = self
