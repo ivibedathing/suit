@@ -32,6 +32,47 @@ extension AppDelegate {
         action.perform(on: terminal)
     }
 
+    // Fleet dashboard (ROADMAP Phase 28) routes its per-row verbs by session id.
+    func performQuickAction(_ action: SessionQuickAction, onSessionId id: String) {
+        guard let terminal = terminalContent(forSessionId: id) else {
+            NSSound.beep()
+            return
+        }
+        action.perform(on: terminal)
+    }
+
+    // MARK: - Fleet-supervision dashboard (ROADMAP Phase 28)
+
+    // Every session id some pane currently hosts, across all windows — the
+    // steerable rows in the dashboard (an unhosted "done" file can't be written).
+    func hostedSessionIds() -> Set<String> {
+        var ids = Set<String>()
+        for controller in windowControllers {
+            for tab in controller.store.tabs {
+                if let id = tab.claudeSession?.id, tab.content is TerminalPaneContent {
+                    ids.insert(id)
+                }
+            }
+        }
+        return ids
+    }
+
+    // Archive/Stop: close the tab hosting the session, wherever it lives —
+    // the same path as ⌘W on that tab (confirms if a foreground process runs).
+    func archiveSession(withId id: String) {
+        for controller in windowControllers {
+            if let tab = controller.store.tabs.first(where: { $0.claudeSession?.id == id }) {
+                controller.closeTab(tab)
+                return
+            }
+        }
+        NSSound.beep()
+    }
+
+    @objc func showFleet(_ sender: Any?) {
+        fleetDashboard.toggle(relativeTo: activeWindowController()?.window)
+    }
+
     // Opens the prompt composer aimed at `session` — @-completion works over
     // the file index of the session's cwd (so paths complete against the
     // project claude is actually in), falling back to the active window's.

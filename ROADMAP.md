@@ -749,7 +749,7 @@ discoverable button. Directly steer-faster: the terminal's hidden verbs become n
   custom command + a seeded skill), that selecting one injects the exact command string into the
   target pty, and that the `/compact` bar action fires on the focused session.
 
-### Phase 28 — Fleet-supervision dashboard (all sessions at a glance) 🚧 in progress (worktree-phase-28-fleet-dashboard, 2026-07-07)
+### Phase 28 — Fleet-supervision dashboard (all sessions at a glance) — ✅ shipped
 
 Suit signals per-window session state (tab dots, title-bar meters) but has no cross-window view
 of the whole fleet — the biggest gap in the "orchestrate multiple sessions" pillar. This is the

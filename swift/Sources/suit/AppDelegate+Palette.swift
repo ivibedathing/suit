@@ -228,6 +228,7 @@ extension AppDelegate {
             PaletteCommand(title: "Show Git Diff", shortcut: "⌃⌘D") { [weak self] in self?.showGitDiff(nil) },
             PaletteCommand(title: "Review Changes (n/p walk files, o opens, c comments)", shortcut: nil) { [weak self] in self?.showGitDiff(nil) },
             PaletteCommand(title: "Send Review to Session…", shortcut: nil) { [weak self] in self?.sendReviewToSession(nil) },
+            PaletteCommand(title: "Show Fleet (all sessions)", shortcut: "⇧⌘O") { [weak self] in self?.showFleet(nil) },
             PaletteCommand(title: "New Claude Session", shortcut: "⌃⌘C") { [weak self] in self?.newClaudeSession(nil) },
             PaletteCommand(title: "New Claude Task…", shortcut: "⌃⌘T") { [weak self] in self?.newClaudeTask(nil) },
             PaletteCommand(title: "Open Claude Transcript…", shortcut: nil) { [weak self] in self?.openClaudeTranscript(nil) },
