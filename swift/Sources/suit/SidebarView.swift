@@ -20,9 +20,11 @@ final class SidebarView: NSView {
         case git
         case ssh
         case bookmarks
+        case sessions
 
         // The rail's left-to-right icon order, independent of rawValue.
-        static let railOrder: [Tab] = [.files, .git, .bookmarks, .ssh, .notes]
+        // Sessions leads: it's the replacement for the removed top tab strip.
+        static let railOrder: [Tab] = [.sessions, .files, .git, .bookmarks, .ssh, .notes]
 
         // Tooltip / accessibility label; the rail shows only the icon.
         var label: String {
@@ -32,6 +34,7 @@ final class SidebarView: NSView {
             case .git: return "Git"
             case .ssh: return "SSH Hosts"
             case .bookmarks: return "Bookmarks"
+            case .sessions: return "Sessions"
             }
         }
 
@@ -42,6 +45,7 @@ final class SidebarView: NSView {
             case .git: return "arrow.triangle.branch"
             case .ssh: return "network"
             case .bookmarks: return "bookmark"
+            case .sessions: return "rectangle.stack"
             }
         }
 
@@ -61,6 +65,7 @@ final class SidebarView: NSView {
     let gitView = GitView(frame: .zero)
     let sshHostsView = SSHHostsView(frame: .zero)
     let bookmarksView = BookmarksView(frame: .zero)
+    let sessionsView = SessionsView(frame: .zero)
     let recentFolders = RecentFoldersView(frame: .zero)
     let usageFooter = ClaudeUsageFooterView(frame: .zero)
 
@@ -91,6 +96,7 @@ final class SidebarView: NSView {
         addSubview(gitView)
         addSubview(sshHostsView)
         addSubview(bookmarksView)
+        addSubview(sessionsView)
 
         // The project switcher sits below the tab content, on every tab, and
         // the Claude Code usage footer sits at the very bottom below it.
@@ -151,6 +157,7 @@ final class SidebarView: NSView {
         gitView.frame = contentFrame
         sshHostsView.frame = contentFrame
         bookmarksView.frame = contentFrame
+        sessionsView.frame = contentFrame
     }
 
     private func updateTabContent() {
@@ -162,6 +169,7 @@ final class SidebarView: NSView {
         gitView.isHidden = selectedTab != .git
         sshHostsView.isHidden = selectedTab != .ssh
         bookmarksView.isHidden = selectedTab != .bookmarks
+        sessionsView.isHidden = selectedTab != .sessions
         // Notes is a text surface: selecting it should put the caret there.
         if selectedTab == .notes {
             window?.makeFirstResponder(notesView.focusTarget)

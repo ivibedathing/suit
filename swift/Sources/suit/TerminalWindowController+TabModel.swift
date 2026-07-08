@@ -18,8 +18,33 @@ extension TerminalWindowController {
         strip.onTearOff = { [weak self] id, point in self?.appDelegate.tearOffTab(withId: id, at: point) }
     }
 
+    // The window-level strip is gone (its tabs now live on each pane's own tab
+    // bar, and the sidebar's Sessions tab is the cross-pane overview). This name
+    // survives as the single "the tab set changed, refresh its surfaces" call so
+    // its many callers stay untouched.
     func reloadStrip(animated: Bool = false) {
-        strip.reload(animated: animated)
+        for pane in panes {
+            pane.refreshTabBar()
+        }
+        refreshSessionsSidebar()
+    }
+
+    // Rebuilds the sidebar Sessions list: every open tab grouped by the pane
+    // (screen) that owns it, plus a Background group for any tab no pane holds.
+    func refreshSessionsSidebar() {
+        var groups: [SessionsView.Group] = []
+        let multiple = panes.count > 1
+        for (index, pane) in panes.enumerated() {
+            let owned = store.ownedTabs(of: pane)
+            guard !owned.isEmpty else { continue }
+            let title = multiple ? "Screen \(index + 1)" : "Open Tabs"
+            groups.append(SessionsView.Group(title: title, tabs: owned))
+        }
+        let orphans = store.tabs.filter { $0.homePane == nil }
+        if !orphans.isEmpty {
+            groups.append(SessionsView.Group(title: "Background", tabs: orphans))
+        }
+        sidebar.sessionsView.update(groups: groups, activeId: activeTab?.id)
     }
 
     // MARK: - The tab model core
@@ -63,8 +88,14 @@ extension TerminalWindowController {
     func activate(_ tab: Tab) {
         guard store.tab(withId: tab.id) != nil else { return }
         if let pane = tab.pane {
+            // Already on screen — focus its pane, content never jumps.
             focusPane(pane)
+        } else if let home = tab.homePane, panes.contains(where: { $0 === home }) {
+            // A background tab of a pane it belongs to: bring it forward there.
+            home.display(tab)
+            focusPane(home)
         } else if let pane = displayTargetPane() {
+            // A brand-new or orphaned tab: adopt it into the focused pane.
             pane.display(tab)
             focusPane(pane)
         }

@@ -47,6 +47,15 @@ final class Tab {
     // The viewport currently showing this tab; nil while backgrounded.
     weak var pane: Pane?
 
+    // The pane this tab *belongs to* — its home viewport, whose in-pane tab bar
+    // lists it (see PaneTabBarView). Distinct from `pane`: `homePane` stays set
+    // while the tab is a background tab of that pane (`pane == nil`), so a pane
+    // can own several tabs and switch between them. Set whenever a pane displays
+    // or adopts the tab; reassigned when its home pane dissolves. A tab whose
+    // homePane is nil is an orphan (transient — between insert and first
+    // display, or a background-inserted tab awaiting a home).
+    weak var homePane: Pane?
+
     var contentTitle: String?
     var customTitle: String?
     var exitStatus: ProcessExitStatus?
@@ -231,6 +240,18 @@ final class TabStore {
     // the most recently used tab that isn't visible in any pane.
     func mruBackgroundTab(excluding excluded: Tab? = nil) -> Tab? {
         tabsInMRUOrder().first { $0.pane == nil && $0 !== excluded }
+    }
+
+    // The tabs belonging to `pane` (its in-pane tab bar), in strip order.
+    func ownedTabs(of pane: Pane) -> [Tab] {
+        tabs.filter { $0.homePane === pane }
+    }
+
+    // The fallback a pane shows when its active tab goes away: the most recently
+    // used *background* tab it still owns (visible-elsewhere is impossible for an
+    // owned tab, but keep the pane == nil guard for symmetry with the global one).
+    func mruBackgroundTab(inHome pane: Pane, excluding excluded: Tab? = nil) -> Tab? {
+        tabsInMRUOrder().first { $0.homePane === pane && $0.pane == nil && $0 !== excluded }
     }
 
     // The window's single preview tab of a given content kind, if any.
