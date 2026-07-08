@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(./build.sh)",
+      "Bash(swiftc:*)",
+      "Bash(swift --version)",
+      "Bash(scripts/test.sh:*)",
+      "Bash(./scripts/test.sh:*)",
+      "Bash(scripts/feedback-routing-test.sh)",
+      "Bash(scripts/mode-plan-harness.sh)",
+      "Bash(scripts/autopilot-harness.sh)",
+      "Bash(design/render-reference.sh)",
+      "Bash(./design/render-reference.sh)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git worktree list:*)",
+      "Bash(git stash list:*)",
+      "Bash(git blame:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git remote -v)",
+      "Bash(git remote get-url:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh auth status:*)",
+      "Bash(rg:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(file:*)",
+      "Bash(grep:*)",
+      "Bash(awk:*)",
+      "Bash(which:*)",
+      "Bash(codesign -dv:*)",
+      "Bash(plutil -p:*)",
+      "Bash(sw_vers:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)"
+    ]
+  }
+}

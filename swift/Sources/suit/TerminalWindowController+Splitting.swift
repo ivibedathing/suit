@@ -78,8 +78,8 @@ extension TerminalWindowController {
             NSSound.beep()
             return
         }
-        tab.pane = nil
-        tab.content.pane = nil
+        // The viewport collapses; every tab it owned (the shown one and any
+        // background tabs) folds into a surviving pane — dissolvePane absorbs.
         dissolvePane(pane)
         equalizeSplits()
         reloadStrip()
@@ -126,9 +126,8 @@ extension TerminalWindowController {
             return
         }
         for pane in Array(panes) where pane !== keep {
-            pane.tab.pane = nil
-            pane.tab.content.pane = nil
-            dissolvePane(pane)
+            // Every other viewport's tabs fold into `keep` as background tabs.
+            dissolvePane(pane, absorbInto: keep)
         }
         focusPane(keep)
         reloadStrip(animated: true)

@@ -45,13 +45,22 @@ protocol PaneHost: AnyObject {
     // the tabs) to jump to its definition or list its references.
     func paneRequestedGoToDefinition(symbol: String, fromDirectory directory: String?)
     func paneRequestedFindReferences(symbol: String, fromDirectory directory: String?)
-    func paneRequestedSwitchClaudeMode(_ pane: Pane, to mode: ClaudeMode)
+    func paneRequestedShowBackgroundTasks(_ pane: Pane)
     func paneFinishedTask(_ pane: Pane)
     // Tab-grain drag & drop (browser-tab model): a strip-dragged tab dropped
     // on this pane — shown in its viewport, or split out onto an edge. The
     // host owns the store and the tree.
     func canDropTab(withId id: String, onto target: Pane) -> Bool
     func dropTab(withId id: String, onto target: Pane, drop: TabDropTarget) -> Bool
+
+    // In-pane tab bar (the tabs-on-the-pane model): the pane hosts every tab it
+    // owns and switches between them itself, so the host provides the owned list
+    // and receives select/close/context actions. The strip is gone; the sidebar
+    // Sessions tab is the cross-pane overview.
+    func ownedTabs(for pane: Pane) -> [Tab]
+    func paneDidSelectOwnedTab(_ pane: Pane, tab: Tab)
+    func paneDidCloseOwnedTab(_ pane: Pane, tab: Tab)
+    func contextMenu(forOwnedTab tab: Tab) -> NSMenu
 }
 
 // Owns one pane: a viewport in the split tree. The pane displays exactly one
@@ -161,9 +170,22 @@ final class Pane: NSObject {
         super.init()
 
         tab.pane = self
+        tab.homePane = self
         content.pane = self
         container.pane = self
         container.titleBar.pane = self
+        // The in-pane tab bar routes its actions back through the host.
+        container.tabBar.onSelect = { [weak self] tab in
+            guard let self else { return }
+            self.host?.paneDidSelectOwnedTab(self, tab: tab)
+        }
+        container.tabBar.onClose = { [weak self] tab in
+            guard let self else { return }
+            self.host?.paneDidCloseOwnedTab(self, tab: tab)
+        }
+        container.tabBar.contextMenuProvider = { [weak self] tab in
+            self?.host?.contextMenu(forOwnedTab: tab)
+        }
         refreshChrome()
     }
 
@@ -182,6 +204,7 @@ final class Pane: NSObject {
         }
         tab = newTab
         newTab.pane = self
+        newTab.homePane = self
         newTab.content.pane = self
         // A (re-)displayed tab picks up the appearance this pane already wears.
         if let appliedFont { newTab.content.applyFont(appliedFont) }
@@ -199,13 +222,14 @@ final class Pane: NSObject {
         container.titleBar.exitStatus = tab.exitStatus
         container.titleBar.sessionState = tab.liveSessionState
         container.titleBar.contextPct = tab.exitStatus == nil ? tab.claudeSession?.contextPct : nil
-        // The Ask · Plan · Agent control shows only while a live Claude session
-        // runs in this tab (ROADMAP Phase 26); its reading is best-effort.
-        if tab.exitStatus == nil, let session = tab.claudeSession {
-            container.titleBar.claudeMode = ClaudeModeTracker.shared.effectiveMode(for: session)
-        } else {
-            container.titleBar.claudeMode = nil
-        }
+        refreshTabBar()
+    }
+
+    // Rebuilds the in-pane tab bar from the tabs this pane owns; it shows only
+    // when the pane holds more than one, so a single-tab pane looks untouched.
+    func refreshTabBar() {
+        let owned = host?.ownedTabs(for: self) ?? [tab]
+        container.setTabBar(tabs: owned, active: tab)
     }
 
     // MARK: - Drag & drop rearrangement (forwarded to the host, which owns the tree)
@@ -265,6 +289,11 @@ final class Pane: NSObject {
         host?.paneRequestedFooter(self)
     }
 
+    // Open the background-task monitor for this pane's shell (ROADMAP Phase 30).
+    @objc func showBackgroundTasks(_ sender: Any?) {
+        host?.paneRequestedShowBackgroundTasks(self)
+    }
+
     // Finish this pane's task worktree (ROADMAP Phase 5): merge or discard the
     // branch, remove the worktree, and close the pane.
     @objc func finishClaudeTask(_ sender: Any?) {
@@ -319,12 +348,6 @@ final class Pane: NSObject {
 
     func findReferences(symbol: String, fromDirectory directory: String?) {
         host?.paneRequestedFindReferences(symbol: symbol, fromDirectory: directory)
-    }
-
-    // Ask · Plan · Agent control (ROADMAP Phase 26): the title bar asks to switch
-    // the Claude session in this pane to a mode; the host owns the pty write.
-    func switchClaudeMode(to mode: ClaudeMode) {
-        host?.paneRequestedSwitchClaudeMode(self, to: mode)
     }
 
     // The pane is going away for good (its tab closed with it). Contents are

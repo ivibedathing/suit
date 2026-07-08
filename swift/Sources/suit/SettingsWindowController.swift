@@ -40,6 +40,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
     let wordWrapCheckbox = NSButton(checkboxWithTitle: "Word wrap long lines", target: nil, action: nil)
 
     let claudeArgsField = NSTextField(string: "")
+    let taskIsolateCheckbox = NSButton(checkboxWithTitle: "Isolate new tasks in a worktree by default", target: nil, action: nil)
     let goalProvenanceCheckbox = NSButton(checkboxWithTitle: "Prepend source location to goals (From file:lines:)", target: nil, action: nil)
 
     // Autopilot (ROADMAP Phase 32, §2.9): every control writes through
@@ -94,6 +95,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
             bellBounceCheckbox.state = appDelegate.bellDockBounceEnabled ? .on : .off
             wordWrapCheckbox.state = appDelegate.wordWrapEnabled ? .on : .off
             claudeArgsField.stringValue = appDelegate.claudeSessionArgs
+            taskIsolateCheckbox.state = appDelegate.taskIsolateByDefault ? .on : .off
             goalProvenanceCheckbox.state = appDelegate.goalPrependProvenanceEnabled ? .on : .off
             autopilotEnabledCheckbox.state = appDelegate.autopilotEnabled ? .on : .off
             autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot

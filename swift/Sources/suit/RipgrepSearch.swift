@@ -57,7 +57,7 @@ struct RipgrepOptions {
 // and delivers matches to the main queue in batches (that's the "live-updating"
 // in the roadmap: big trees show hits as they're found, not after the walk).
 // Starting a new search cancels the previous one; results are capped so a
-// too-broad pattern over a monorepo can't accumulate memory without bound.
+// too-broad pattern over a large repo can't accumulate memory without bound.
 final class RipgrepSearcher {
     static let maxMatches = 2_000
 

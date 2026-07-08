@@ -46,6 +46,54 @@ extension TerminalWindowController {
         reloadStrip()
     }
 
+    // MARK: - In-pane tab bar (PaneHost)
+
+    // The tabs a pane owns, in strip order — feeds its in-pane tab bar.
+    func ownedTabs(for pane: Pane) -> [Tab] {
+        store.ownedTabs(of: pane)
+    }
+
+    // A chip click in a pane's own tab bar: show that tab in that pane and
+    // focus it (it already belongs there, so no cross-pane move).
+    func paneDidSelectOwnedTab(_ pane: Pane, tab: Tab) {
+        guard store.tab(withId: tab.id) != nil else { return }
+        if pane.tab !== tab {
+            pane.display(tab)
+        }
+        focusPane(pane)
+        store.touchMRU(tab)
+        reloadStrip()
+    }
+
+    // The chip's close box.
+    func paneDidCloseOwnedTab(_ pane: Pane, tab: Tab) {
+        closeTab(tab)
+    }
+
+    func contextMenu(forOwnedTab tab: Tab) -> NSMenu {
+        tabContextMenu(for: tab)
+    }
+
+    // Move every tab `pane` still owns to `dest` as background tabs — used
+    // before a viewport dissolves (unsplit / merge / drag-away) so the pane's
+    // tabs live on instead of vanishing with the viewport.
+    func absorbOwnedTabs(from pane: Pane, into dest: Pane) {
+        guard dest !== pane else { return }
+        for tab in store.ownedTabs(of: pane) {
+            if tab.pane === pane {
+                tab.pane = nil
+                tab.content.pane = nil
+            }
+            tab.homePane = dest
+        }
+    }
+
+    // The pane a dissolving `pane`'s tabs should move to: prefer an explicit
+    // destination, else any other pane.
+    func absorbTarget(excluding pane: Pane) -> Pane? {
+        panes.first { $0 !== pane }
+    }
+
     // A terminal pane's Cmd-click on a file-path link (see PaneTerminalView.mouseUp).
     func paneRequestedOpenFile(path: String, line: Int?) {
         openFile(atPath: path, line: line)
@@ -83,24 +131,15 @@ extension TerminalWindowController {
         findReferences(symbol: symbol, fromDirectory: directory)
     }
 
-    // Ask · Plan · Agent control (ROADMAP Phase 26): drive the Claude session in
-    // `pane`'s tab to the requested mode by writing the right number of Shift+Tab
-    // presses into its pty, then remember the new belief so the control reflects
-    // it and the next switch cycles correctly.
-    func paneRequestedSwitchClaudeMode(_ pane: Pane, to target: ClaudeMode) {
-        guard let session = pane.tab.claudeSession,
-              let terminal = pane.terminalContent else {
-            NSSound.beep()
-            return
+    // Background-task monitor for a pane's shell (ROADMAP Phase 30): a terminal
+    // pane scopes to its own shell's job subtree; any other pane kind opens the
+    // window-wide monitor (shellPid 0).
+    func paneRequestedShowBackgroundTasks(_ pane: Pane) {
+        if let shellPid = pane.terminalContent?.shellPid, shellPid > 0 {
+            openBackgroundTasks(forShellPid: shellPid, title: "Background Tasks")
+        } else {
+            openBackgroundTasks(forShellPid: 0, title: "Background Tasks")
         }
-        let current = ClaudeModeTracker.shared.effectiveMode(for: session)
-        let payload = ClaudeModeControl.payload(from: current, to: target)
-        if !payload.isEmpty {
-            terminal.terminalView.send(txt: payload)
-        }
-        ClaudeModeTracker.shared.record(target, forSessionId: session.id)
-        pane.refreshChrome()
-        reloadStrip()
     }
 
     // A path relative to a git root, for the file-scoped git commands.

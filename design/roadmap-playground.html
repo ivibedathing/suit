@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suit — Roadmap Feature Playground</title>
+<style>
+  :root{
+    --bg:#17191D; --bar:#1F2228; --raised:#2A2E36; --hover:#262A31;
+    --hair:#34383F; --overlay:#23262C;
+    --text:#D7DAE0; --dim:#8B909C; --faint:#4C515B;
+    --accent:#D99A3D; --busy:#E08A3C; --wait:#E5C453; --done:#57B36B; --fail:#D95757;
+    --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text); min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+    font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  code,.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace}
+  a{color:var(--accent);text-decoration:none}
+
+  header.top{
+    position:sticky; top:0; z-index:20;
+    background:linear-gradient(180deg,var(--bar),rgba(31,34,40,.96));
+    border-bottom:1px solid var(--hair);
+    padding:18px 24px 14px; backdrop-filter:blur(8px);
+  }
+  .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .brand h1{font-size:19px;font-weight:600;margin:0;letter-spacing:.2px}
+  .brand .tag{
+    font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);
+    border:1px solid var(--hair);border-radius:6px;padding:3px 7px;
+  }
+  .brand p{margin:0;color:var(--dim);font-size:12.5px;flex:1 1 320px}
+
+  .stats{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;align-items:center}
+  .stat{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
+  .stat b{color:var(--text);font-variant-numeric:tabular-nums;font-size:13px}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .dot.approved{background:var(--done)} .dot.maybe{background:var(--wait)}
+  .dot.rejected{background:var(--fail)} .dot.pending{background:var(--faint)}
+  .bar{flex:1 1 180px;height:6px;border-radius:4px;background:var(--raised);overflow:hidden;display:flex;min-width:140px}
+  .bar span{height:100%}
+  .bar .a{background:var(--done)} .bar .m{background:var(--wait)} .bar .r{background:var(--fail)}
+
+  .toolbar{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center}
+  .chip{
+    font-size:11.5px;color:var(--dim);background:var(--raised);border:1px solid transparent;
+    border-radius:20px;padding:5px 12px;cursor:pointer;user-select:none;transition:all .12s ease;
+  }
+  .chip:hover{background:var(--hover);color:var(--text)}
+  .chip.active{color:#1a1a1a;background:var(--accent);font-weight:600}
+  .chip .n{opacity:.6;margin-left:4px;font-variant-numeric:tabular-nums}
+  .sep{width:1px;height:20px;background:var(--hair);margin:0 4px}
+  .ghost{
+    font-size:11.5px;color:var(--dim);background:transparent;border:1px solid var(--hair);
+    border-radius:8px;padding:5px 11px;cursor:pointer;transition:all .12s ease;
+  }
+  .ghost:hover{border-color:var(--accent);color:var(--text)}
+
+  main{max-width:1180px;margin:0 auto;padding:22px 24px 220px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+
+  .card{
+    background:var(--overlay);border:1px solid var(--hair);border-left:3px solid var(--faint);
+    border-radius:var(--radius);padding:16px 16px 14px;display:flex;flex-direction:column;gap:10px;
+    transition:border-color .15s ease,box-shadow .15s ease,opacity .15s ease;
+  }
+  .card:hover{box-shadow:0 6px 20px rgba(0,0,0,.28)}
+  .card.approved{border-left-color:var(--done)}
+  .card.maybe{border-left-color:var(--wait)}
+  .card.rejected{border-left-color:var(--fail);opacity:.55}
+  .card.hidden{display:none}
+
+  .card .meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pill{font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;padding:3px 7px;border-radius:5px;font-weight:600}
+  .pill.pillar{background:rgba(217,154,61,.14);color:var(--accent)}
+  .pill.effort{background:var(--raised);color:var(--dim)}
+  .pill.ph{background:var(--raised);color:var(--dim);font-family:ui-monospace,monospace;letter-spacing:0}
+  .card h3{margin:0;font-size:15px;font-weight:600;line-height:1.3}
+  .card .summary{color:var(--text);font-size:13px;margin:0}
+
+  .detail{border-top:1px solid var(--hair);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+  .detail .row{font-size:12px;color:var(--dim);line-height:1.45}
+  .detail .row b{color:var(--text);font-weight:600;display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px;color:var(--dim)}
+  .detail .row span{color:var(--text)}
+  .detail .sketch{background:var(--bg);border:1px solid var(--hair);border-radius:7px;padding:9px 11px;font-size:11.5px;color:var(--dim)}
+  .disclose{background:none;border:none;color:var(--accent);font-size:11.5px;cursor:pointer;padding:0;text-align:left}
+  .disclose:hover{text-decoration:underline}
+
+  .actions{display:flex;gap:7px;margin-top:2px}
+  .act{
+    flex:1;font-size:12px;font-weight:600;padding:7px 0;border-radius:8px;cursor:pointer;
+    border:1px solid var(--hair);background:var(--raised);color:var(--dim);transition:all .12s ease;
+  }
+  .act:hover{color:var(--text);border-color:var(--dim)}
+  .act.on-approved{background:var(--done);color:#0d1a10;border-color:var(--done)}
+  .act.on-maybe{background:var(--wait);color:#231d05;border-color:var(--wait)}
+  .act.on-rejected{background:var(--fail);color:#210b0b;border-color:var(--fail)}
+
+  .commentbox{display:flex;flex-direction:column;gap:5px}
+  textarea{
+    width:100%;background:var(--bg);color:var(--text);border:1px solid var(--hair);border-radius:8px;
+    padding:8px 10px;font-size:12.5px;font-family:inherit;resize:vertical;min-height:34px;line-height:1.45;
+  }
+  textarea:focus{outline:none;border-color:var(--accent)}
+  textarea::placeholder{color:var(--faint)}
+
+  /* output dock */
+  .dock{
+    position:fixed;left:0;right:0;bottom:0;z-index:30;
+    background:linear-gradient(180deg,rgba(31,34,40,.4),var(--bar) 22%);
+    border-top:1px solid var(--hair);backdrop-filter:blur(10px);
+  }
+  .dock-inner{max-width:1180px;margin:0 auto;padding:12px 24px 16px}
+  .dock-head{display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none}
+  .dock-head h2{margin:0;font-size:13px;font-weight:600}
+  .dock-head .hint{color:var(--dim);font-size:11.5px}
+  .dock-head .chev{margin-left:auto;color:var(--dim);transition:transform .15s ease;font-size:12px}
+  .dock.collapsed .chev{transform:rotate(180deg)}
+  .dock.collapsed pre,.dock.collapsed .dock-actions{display:none}
+  pre{
+    margin:10px 0 0;background:var(--bg);border:1px solid var(--hair);border-radius:8px;
+    padding:12px 14px;max-height:34vh;overflow:auto;font-size:12px;line-height:1.55;color:var(--text);
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .dock-actions{display:flex;gap:8px;margin-top:10px}
+  .btn{
+    font-size:12.5px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer;border:1px solid var(--hair);
+    background:var(--raised);color:var(--text);transition:all .12s ease;
+  }
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);color:#1a1a1a;border-color:var(--accent)}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .empty{color:var(--faint);font-style:italic;font-size:12.5px;margin-top:8px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>Suit — Roadmap Feature Playground</h1>
+    <span class="tag">Phase 33+ proposals</span>
+    <p>Candidate features beyond Phase 32, each measured against the product thesis — <em>does this help you steer Claude or verify its work faster?</em> Approve, flag as maybe, or reject each one and leave notes. Your decisions export as a prompt to hand back to Claude.</p>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar" id="toolbar">
+    <div id="pillarChips" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <div class="sep"></div>
+    <div id="decisionChips" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <div class="sep"></div>
+    <button class="ghost" id="approveQuick">✓ Approve all quick wins</button>
+    <button class="ghost" id="resetAll">Reset all</button>
+  </div>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<div class="dock" id="dock">
+  <div class="dock-inner">
+    <div class="dock-head" id="dockHead">
+      <h2>Decision summary</h2>
+      <span class="hint" id="dockHint">Nothing decided yet</span>
+      <span class="chev">▾</span>
+    </div>
+    <pre id="output"></pre>
+    <div class="dock-actions">
+      <button class="btn primary" id="copyBtn">Copy prompt</button>
+      <button class="btn" id="downloadBtn">Download .md</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ------- Feature proposals -------------------------------------------------
+const FEATURES = [
+  {
+    id:"web-preview", title:"Live web preview pane", pillar:"Verify", effort:"M", phase:"33?",
+    summary:"A WKWebView tab that renders a running localhost dev server beside the code, auto-reloading when the build changes.",
+    why:"Phase 30 already detects the port a background dev server binds; this closes the loop so you can watch Claude's UI work come up without alt-tabbing to a browser. Read-only surface — no editor creep.",
+    builds:"Phase 30 (background-task monitor), Phase 19 (non-source panes)",
+    sketch:"Palette ▸ \"Open Web Preview\" (or a monitor-row action) → WKWebView tab pointed at http://localhost:<detected-port>; reload button + auto-reload on rebuild; address bar for a manual URL."
+  },
+  {
+    id:"problems", title:"Problems panel + inline diagnostics gutter", pillar:"Verify", effort:"L", phase:"33?",
+    summary:"Parse compiler / linter / test output (optionally an LSP) into a Problems list and viewer-gutter error markers, with one-tap \"send all errors to session.\"",
+    why:"The review pillar's missing instrument: right now errors live in scrollback. Markers are read-only (gutter ticks + minimap), and \"route the errors to the session that wrote them\" is the steer payoff — reuses the Phase 29 routing path.",
+    builds:"Phase 3 (gutter/minimap markers), Phase 29 (route to session), Phase 30 (build output)",
+    sketch:"A \"Problems — N\" sidebar tab grouped by file (error/warning icons); red/amber squiggle ticks in the viewer gutter; ⌘⇧M jumps between them; \"Send all to session…\" composes them like a diff review."
+  },
+  {
+    id:"test-results", title:"Structured test-results pane", pillar:"Verify", effort:"M", phase:"33?",
+    summary:"Parse go test / xctest / jest / pytest output into a pass/fail tree with jump-to-failure and a \"re-run failed\" action.",
+    why:"\"Are the tests green\" is the most common verification question. A structured tree beats scrolling raw output, and jump-to-failure lands you in the viewer at the assertion. Complements the background-task monitor.",
+    builds:"Phase 30 (background-task monitor), Phase 1 (jump-to-line)",
+    sketch:"A test tab: collapsible suite tree, green/red/○ dots, duration per test; click a failure → viewer at the file:line; footer buttons Re-run all / Re-run failed (typed into the owning shell)."
+  },
+  {
+    id:"goto-def", title:"Go-to-definition & find-references", pillar:"Navigate", effort:"L", phase:"33?",
+    summary:"Cmd-click a symbol in the viewer to jump to its definition; a references list opens in a pane. Backed by ctags or a light LSP client.",
+    why:"The navigation pillar's biggest gap — today you fuzzy-open by filename and search by text, but can't follow a symbol. Fully read-only (jump + list), so it stays inside the viewer-first contract.",
+    builds:"Phase 1 (viewer + Cmd-click links), Phase 2 (search infra)",
+    sketch:"⌘-click / F12 on an identifier → viewer at its definition; ⇧F12 opens a \"References\" results pane (reuses the search-results list). Index via ctags first (no SwiftPM), LSP as an optional upgrade."
+  },
+  {
+    id:"commit-graph", title:"Commit graph pane", pillar:"Read", effort:"M", phase:"33?",
+    summary:"A read-only visual DAG of commits and branches — nodes with subject/author, edges for merges/forks; click a node opens its diff.",
+    why:"Phase 21 lists branches flat; a graph makes 'how did these branches diverge' legible. Squarely viewer-first git literacy, and it turns the branch list into something you read spatially.",
+    builds:"Phase 21 (branch/PR list), Phase 17 (per-commit diffs)",
+    sketch:"A \"Graph\" section/tab on the Git surface: custom NSView rendering `git log --graph` topology with lanes; click a node → that commit's diff tab; current branch highlighted in accent."
+  },
+  {
+    id:"broadcast", title:"Broadcast input to multiple sessions", pillar:"Orchestrate", effort:"S", phase:"33?",
+    summary:"iTerm-style \"send to selected / all sessions\" — type one instruction and fan it out across the fleet's Claude panes.",
+    why:"Orchestration pillar: steering five worktrees often means telling all of them the same thing ('rebase on main', '/compact'). One composer, many ptys — reuses the Phase 8 send path verbatim.",
+    builds:"Phase 8 (SessionControl.send), Phase 28 (fleet dashboard)",
+    sketch:"In the fleet dashboard: checkboxes select sessions, a broadcast composer sends the same bracketed-paste payload to each selected pty; a persistent \"broadcast mode\" toggle mirrors keystrokes live."
+  },
+  {
+    id:"task-templates", title:"Session task templates / recipes", pillar:"Steer", effort:"S", phase:"33?",
+    summary:"One-command launchers that spin a worktree + claude + a parameterized prompt (bugfix, feature, refactor, review).",
+    why:"Extends the Phase 8 prompt library and Phase 5 worktree flow into repeatable rituals — 'start a bugfix' shouldn't mean retyping the same three steps. Files-as-config, matching the prompt-library ethos.",
+    builds:"Phase 5 (worktree tasks), Phase 8 (prompt library)",
+    sketch:"`~/.suit/recipes/*.md` with front-matter (isolate? extra args, prompt with `${task}` slots); palette \"Recipe: <name>\" prompts for the variables, then creates the worktree + tab + sends the filled prompt."
+  },
+  {
+    id:"activity-feed", title:"Fleet activity feed / daily digest", pillar:"Orchestrate", effort:"M", phase:"33?",
+    summary:"A chronological timeline of fleet events — session done, PR merged, CI failed, Autopilot ran — with a 'what happened today' recap.",
+    why:"The fleet dashboard shows the current snapshot; this is the history. When you step away and come back, one feed answers 'what moved' across every window — the async-delegation recap the Phase 24 marker only does per-diff.",
+    builds:"Phase 28 (fleet dashboard), Phase 24 (catch-up), Phase 29 (feedback events)",
+    sketch:"A window-spanning \"Activity\" panel: reverse-chron rows (icon + session + event + time), filterable by kind; a top 'Today' rollup (N merged, N blocked, $X spent); click a row → focuses the pane / opens the log."
+  },
+  {
+    id:"pr-inbox", title:"GitHub PR review inbox", pillar:"Verify", effort:"M", phase:"33?",
+    summary:"Pull open PRs (yours / assigned / requested) via gh, review their diffs in the diff pane with Phase 16 line comments, and submit the review through gh.",
+    why:"Extends the review pillar past local branches to teammates' PRs. The diff pane + line-comment machinery already exist; this just sources the diff from `gh pr diff` and posts comments back with `gh pr review`.",
+    builds:"Phase 16 (diff review comments), Phase 21 (gh actions)",
+    sketch:"A \"PRs\" Git-tab section (`gh pr list --json`) → click a PR opens its diff tab; comment on lines as today; \"Submit review\" → approve / request-changes / comment via gh with the batched comments."
+  },
+  {
+    id:"time-travel", title:"File time-travel scrubber", pillar:"Read", effort:"M", phase:"33?",
+    summary:"A slider that scrubs the open file through its git history — drag back in time to see the file at each commit, with the diff-to-neighbor shown.",
+    why:"Phase 17 gives a file-history list; this makes it kinetic. Dragging a timeline is a more visceral 'how did this file get here' than clicking commits one by one. Read-only, viewer-first.",
+    builds:"Phase 17 (file history + blame), Phase 3 (diff pane)",
+    sketch:"A thin timeline strip above the viewer: ticks = commits touching the file; drag the handle → viewer renders `git show <sha>:<path>` with changed lines highlighted; release to pin, or open the full diff."
+  },
+  {
+    id:"workspaces", title:"Saved layouts / named workspaces", pillar:"Foundation", effort:"M", phase:"33?",
+    summary:"Name and restore a set of tabs + splits per task — a 'review layout', a 'debug layout' — on top of the existing state restoration.",
+    why:"State restoration already serializes one layout at quit; this makes layouts first-class and switchable. Steering different kinds of work wants different arrangements, and rebuilding them by hand is friction.",
+    builds:"Phase 6/10 (tabs + state restoration), Phase 0 (palette)",
+    sketch:"Palette \"Save Layout As…\" / \"Switch Layout…\": persists the SavedWindow snapshot under a name in `~/.suit/layouts/`; switching swaps the window's tab set + split tree (terminals restart in their cwds)."
+  },
+  {
+    id:"budget-guard", title:"Cost budget guardrails + auto-pause", pillar:"Orchestrate", effort:"S", phase:"33?",
+    summary:"Per-session / per-task spend caps that notify — or optionally auto-interrupt — when a session blows past its budget.",
+    why:"Phase 23 makes spend legible; this makes it enforceable. A runaway session is the expensive failure mode of letting Claude run freely, and 'ping me at $5, pause at $10' turns watching into a rule.",
+    builds:"Phase 23 (usage analytics), Phase 32 (Autopilot budget math), Phase 7 (attention)",
+    sketch:"Settings: default per-session soft/hard cap; a session past soft → notification + amber tab; past hard → optional Esc-interrupt (opt-in, never silent). Autopilot honors the same ceilings."
+  },
+  {
+    id:"cmd-history", title:"Command history search (native ⌃R)", pillar:"Navigate", effort:"S", phase:"33?",
+    summary:"A native fuzzy overlay over shell history across panes — search past commands, pick one, re-run it in a chosen pane.",
+    why:"Every shell has ⌃R; a native overlay makes it fuzzy, cross-pane, and mouse-optional. Small, high-frequency navigation win that fits the command-palette family.",
+    builds:"Phase 0 (palette machinery), the pty layer",
+    sketch:"⌃R (or palette \"Search Command History\") → overlay listing recent commands (parsed from the pane's shell history / scrollback), fuzzy-filtered; Enter types it into the focused pane, ⇧Enter runs it."
+  },
+  {
+    id:"conflict-assist", title:"Merge-conflict assist pane", pillar:"Verify", effort:"M", phase:"33?",
+    summary:"A read view of conflict hunks (ours / theirs / base) with a one-tap 'resolve with Claude' per file — no 3-way editor, just steering.",
+    why:"Phase 29 detects conflicts and can route them; this gives them a proper surface. Viewer-first means we don't build a merge editor — we render the conflict clearly and hand it to Claude with the right context.",
+    builds:"Phase 29 (conflict detection/routing), Phase 3 (diff pane)",
+    sketch:"A conflict tab lists unmerged files; each shows the `<<<<<<< / ======= / >>>>>>>` hunks side by side (ours/theirs), with \"Resolve this file with Claude\" → sends the hunks + intent to the owning session."
+  }
+];
+
+const PILLARS = ["Navigate","Read","Verify","Steer","Orchestrate","Foundation"];
+const QUICK_WIN = f => f.effort === "S";
+
+// ------- State -------------------------------------------------------------
+const STORE_KEY = "suit-roadmap-playground-v1";
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch(e){ saved = {}; }
+
+const state = {
+  decisions: {}, // id -> "approved" | "maybe" | "rejected"
+  comments: {},  // id -> string
+  pillarFilter: "all",
+  decisionFilter: "all",
+  expanded: {}
+};
+FEATURES.forEach(f=>{
+  state.decisions[f.id] = saved.decisions?.[f.id] || "pending";
+  state.comments[f.id]  = saved.comments?.[f.id]  || "";
+});
+
+function persist(){
+  localStorage.setItem(STORE_KEY, JSON.stringify({decisions:state.decisions, comments:state.comments}));
+}
+
+// ------- Rendering ---------------------------------------------------------
+const grid = document.getElementById("grid");
+
+function decisionCounts(){
+  const c = {approved:0,maybe:0,rejected:0,pending:0};
+  FEATURES.forEach(f=>c[state.decisions[f.id]]++);
+  return c;
+}
+
+function renderStats(){
+  const c = decisionCounts(), total = FEATURES.length;
+  const el = document.getElementById("stats");
+  const pct = n => total ? (n/total*100) : 0;
+  el.innerHTML = `
+    <div class="stat"><span class="dot approved"></span><b>${c.approved}</b> approved</div>
+    <div class="stat"><span class="dot maybe"></span><b>${c.maybe}</b> maybe</div>
+    <div class="stat"><span class="dot rejected"></span><b>${c.rejected}</b> rejected</div>
+    <div class="stat"><span class="dot pending"></span><b>${c.pending}</b> undecided</div>
+    <div class="bar" title="${c.approved} approved · ${c.maybe} maybe · ${c.rejected} rejected of ${total}">
+      <span class="a" style="width:${pct(c.approved)}%"></span>
+      <span class="m" style="width:${pct(c.maybe)}%"></span>
+      <span class="r" style="width:${pct(c.rejected)}%"></span>
+    </div>`;
+}
+
+function renderChips(){
+  const pc = document.getElementById("pillarChips");
+  const counts = {};
+  PILLARS.forEach(p=>counts[p]=FEATURES.filter(f=>f.pillar===p).length);
+  pc.innerHTML = [`<button class="chip ${state.pillarFilter==='all'?'active':''}" data-p="all">All<span class="n">${FEATURES.length}</span></button>`]
+    .concat(PILLARS.map(p=>`<button class="chip ${state.pillarFilter===p?'active':''}" data-p="${p}">${p}<span class="n">${counts[p]}</span></button>`))
+    .join("");
+  pc.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{state.pillarFilter=b.dataset.p;renderAll();});
+
+  const dc = document.getElementById("decisionChips");
+  const c = decisionCounts();
+  const opts = [["all","All"],["pending","Undecided"],["approved","Approved"],["maybe","Maybe"],["rejected","Rejected"]];
+  dc.innerHTML = opts.map(([k,label])=>{
+    const n = k==="all"?FEATURES.length:c[k];
+    return `<button class="chip ${state.decisionFilter===k?'active':''}" data-d="${k}">${label}<span class="n">${n}</span></button>`;
+  }).join("");
+  dc.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{state.decisionFilter=b.dataset.d;renderAll();});
+}
+
+function visible(f){
+  if(state.pillarFilter!=="all" && f.pillar!==state.pillarFilter) return false;
+  if(state.decisionFilter!=="all" && state.decisions[f.id]!==state.decisionFilter) return false;
+  return true;
+}
+
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+function renderCards(){
+  grid.innerHTML = FEATURES.map(f=>{
+    const d = state.decisions[f.id];
+    const exp = state.expanded[f.id];
+    const vis = visible(f) ? "" : "hidden";
+    return `
+    <div class="card ${d} ${vis}" data-id="${f.id}">
+      <div class="meta">
+        <span class="pill pillar">${f.pillar}</span>
+        <span class="pill effort">${({S:'Small',M:'Medium',L:'Large'})[f.effort]}</span>
+        <span class="pill ph">Phase ${f.phase}</span>
+      </div>
+      <h3>${esc(f.title)}</h3>
+      <p class="summary">${esc(f.summary)}</p>
+      <button class="disclose" data-x="${f.id}">${exp?'▾ Hide details':'▸ Why it fits · builds on · sketch'}</button>
+      ${exp?`
+      <div class="detail">
+        <div class="row"><b>Why it fits</b><span>${esc(f.why)}</span></div>
+        <div class="row"><b>Builds on</b><span>${esc(f.builds)}</span></div>
+        <div class="row"><b>Sketch</b></div>
+        <div class="sketch">${esc(f.sketch)}</div>
+      </div>`:``}
+      <div class="actions">
+        <button class="act ${d==='approved'?'on-approved':''}" data-act="approved" data-id="${f.id}">Approve</button>
+        <button class="act ${d==='maybe'?'on-maybe':''}" data-act="maybe" data-id="${f.id}">Maybe</button>
+        <button class="act ${d==='rejected'?'on-rejected':''}" data-act="rejected" data-id="${f.id}">Reject</button>
+      </div>
+      <div class="commentbox">
+        <textarea placeholder="Notes, scope tweaks, concerns…" data-cm="${f.id}">${esc(state.comments[f.id])}</textarea>
+      </div>
+    </div>`;
+  }).join("");
+
+  grid.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.id, act=b.dataset.act;
+    state.decisions[id] = state.decisions[id]===act ? "pending" : act;
+    persist(); renderAll();
+  });
+  grid.querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.x; state.expanded[id]=!state.expanded[id]; renderCards();
+  });
+  grid.querySelectorAll("[data-cm]").forEach(t=>{
+    t.oninput=()=>{ state.comments[t.dataset.cm]=t.value; persist(); updateOutput(); };
+  });
+}
+
+// ------- Output prompt -----------------------------------------------------
+function updateOutput(){
+  const approved = FEATURES.filter(f=>state.decisions[f.id]==="approved");
+  const maybe    = FEATURES.filter(f=>state.decisions[f.id]==="maybe");
+  const rejected = FEATURES.filter(f=>state.decisions[f.id]==="rejected");
+  const commented = FEATURES.filter(f=>state.comments[f.id].trim());
+
+  const out = document.getElementById("output");
+  const hint = document.getElementById("dockHint");
+
+  if(!approved.length && !maybe.length && !rejected.length && !commented.length){
+    out.innerHTML = `<span class="empty">Approve, flag, or comment on features above — a prompt for Claude builds here.</span>`;
+    hint.textContent = "Nothing decided yet";
+    return;
+  }
+
+  const line = f => {
+    let s = `- **${f.title}** _(${f.pillar} · ${({S:'Small',M:'Medium',L:'Large'})[f.effort]})_ — ${f.summary}`;
+    if(state.comments[f.id].trim()) s += `\n    - 📝 Note: ${state.comments[f.id].trim()}`;
+    return s;
+  };
+
+  let p = `Roadmap feature triage for Suit — Phase 33+ candidates.\n`;
+  p += `Decisions from the feature playground:\n\n`;
+
+  if(approved.length){
+    p += `## ✅ Approved — add these as new ROADMAP.md phases and plan them\n\n`;
+    p += approved.map(line).join("\n") + "\n\n";
+  }
+  if(maybe.length){
+    p += `## 🟡 Maybe — worth discussing, not committed\n\n`;
+    p += maybe.map(line).join("\n") + "\n\n";
+  }
+  if(rejected.length){
+    p += `## ❌ Rejected — do not pursue\n\n`;
+    p += rejected.map(f=>{
+      let s = `- ${f.title}`;
+      if(state.comments[f.id].trim()) s += ` — 📝 ${state.comments[f.id].trim()}`;
+      return s;
+    }).join("\n") + "\n\n";
+  }
+
+  const otherComments = commented.filter(f=>state.decisions[f.id]==="pending");
+  if(otherComments.length){
+    p += `## 💬 Notes on undecided features\n\n`;
+    p += otherComments.map(f=>`- **${f.title}** — ${state.comments[f.id].trim()}`).join("\n") + "\n\n";
+  }
+
+  if(approved.length){
+    p += `Next: for each approved feature, draft its ROADMAP.md phase entry (heading + bullet spec + verification) in document-order priority, then implement one per worktree following CLAUDE.md.`;
+  }
+
+  out.textContent = p.trimEnd();
+  hint.textContent = `${approved.length} approved · ${maybe.length} maybe · ${rejected.length} rejected`;
+}
+
+// ------- Wiring ------------------------------------------------------------
+function renderAll(){ renderStats(); renderChips(); renderCards(); updateOutput(); }
+
+document.getElementById("approveQuick").onclick=()=>{
+  FEATURES.filter(QUICK_WIN).forEach(f=>{ if(state.decisions[f.id]==="pending") state.decisions[f.id]="approved"; });
+  persist(); renderAll();
+};
+document.getElementById("resetAll").onclick=()=>{
+  if(!confirm("Reset all decisions and comments?")) return;
+  FEATURES.forEach(f=>{ state.decisions[f.id]="pending"; state.comments[f.id]=""; });
+  state.expanded={}; persist(); renderAll();
+};
+
+document.getElementById("dockHead").onclick=()=>document.getElementById("dock").classList.toggle("collapsed");
+
+document.getElementById("copyBtn").onclick=()=>{
+  const txt = document.getElementById("output").textContent;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const b=document.getElementById("copyBtn"); const old=b.textContent;
+    b.textContent="Copied!"; setTimeout(()=>b.textContent=old,1200);
+  });
+};
+document.getElementById("downloadBtn").onclick=()=>{
+  const txt = document.getElementById("output").textContent;
+  const blob = new Blob([txt],{type:"text/markdown"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="suit-roadmap-decisions.md"; a.click();
+};
+
+renderAll();
+</script>
+</body>
+</html>

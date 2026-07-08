@@ -33,6 +33,12 @@ struct FleetRow {
     let contextPct: Double?
     let costUSD: Double?
     let hosted: Bool         // some pane in some window hosts this session's pty
+    // Subagent tree (ROADMAP Phase 31): indent depth (0 = a top-level session,
+    // 1+ = a nested `isolation: worktree` subagent) and whether this row is a
+    // bare subagent worktree with no live session (a checkout Claude Code spun
+    // for a subagent but whose session file hasn't appeared / was pruned).
+    var depth: Int = 0
+    var isBareWorktree: Bool = false
 }
 
 // Pure projection of the monitor's sessions into ordered rows, standalone so
@@ -80,6 +86,64 @@ enum FleetModel {
             return (repo, parts[marker + 2])
         }
         return ((cwd as NSString).lastPathComponent, nil)
+    }
+
+    // Weaves the subagent tree (ROADMAP Phase 31) into the flat session rows:
+    // each top-level session keeps its needs-you-first order, immediately
+    // followed by its nested `isolation: worktree` subagents (indented via
+    // `depth`). A subagent that has its own live session reuses that session's
+    // row; one without shows as a bare worktree row. Sessions rendered as a
+    // nested child are not repeated at the top level; sessions the tree never
+    // saw (e.g. no cwd) fall through as plain roots so none are dropped.
+    static func tree(sessionRows: [FleetRow], roots: [SubagentNode]) -> [FleetRow] {
+        let nestedSessionIds = Set(
+            SubagentTree.flatten(roots)
+                .filter { $0.depth > 0 }
+                .compactMap { $0.node.sessionId }
+        )
+        var out: [FleetRow] = []
+        for sessionRow in sessionRows {
+            if nestedSessionIds.contains(sessionRow.id) { continue }
+            guard let root = roots.first(where: { $0.sessionId == sessionRow.id }) else {
+                out.append(withDepth(sessionRow, 0))
+                continue
+            }
+            for entry in SubagentTree.flatten([root]) {
+                if entry.depth == 0 {
+                    out.append(withDepth(sessionRow, 0))
+                } else if let sid = entry.node.sessionId,
+                          let childRow = sessionRows.first(where: { $0.id == sid }) {
+                    out.append(withDepth(childRow, entry.depth))
+                } else {
+                    out.append(bareRow(for: entry.node, depth: entry.depth))
+                }
+            }
+        }
+        return out
+    }
+
+    private static func withDepth(_ row: FleetRow, _ depth: Int) -> FleetRow {
+        var copy = row
+        copy.depth = depth
+        return copy
+    }
+
+    // A subagent worktree with no live session: shown muted, unsteerable.
+    private static func bareRow(for node: SubagentNode, depth: Int) -> FleetRow {
+        let place = projectAndWorktree(cwd: node.path)
+        return FleetRow(
+            id: node.path,
+            state: .done,
+            title: node.name,
+            project: place.project,
+            worktree: place.worktree ?? node.name,
+            branch: node.branch,
+            contextPct: nil,
+            costUSD: nil,
+            hosted: false,
+            depth: depth,
+            isBareWorktree: true
+        )
     }
 }
 
@@ -130,6 +194,9 @@ private final class FleetDotView: NSView {
 // One list row: dot, a two-line title/place block, trailing context%+cost, and
 // the four steering buttons. Reused across reloads via configure(row:).
 private final class FleetRowView: NSView {
+    // Broadcast selection checkbox (ROADMAP Phase 35): checked rows are the
+    // "Broadcast to Selected" target set; disabled on unhosted (unsteerable) rows.
+    private let checkbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let dot = FleetDotView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let placeLabel = NSTextField(labelWithString: "")
@@ -140,9 +207,20 @@ private final class FleetRowView: NSView {
     private let archiveButton = NSButton()
 
     var onAction: ((FleetAction) -> Void)?
+    var onToggleCheck: ((Bool) -> Void)?
+
+    // Subagent-tree indent (ROADMAP Phase 31): 0 = a top-level session, 1+ a
+    // nested subagent; bare worktrees hide their (unsteerable) buttons.
+    private var depth = 0
+    private var isBareWorktree = false
+    private static let indentPerLevel: CGFloat = 22
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+
+        checkbox.target = self
+        checkbox.action = #selector(checkToggled)
+        addSubview(checkbox)
 
         addSubview(dot)
 
@@ -179,13 +257,22 @@ private final class FleetRowView: NSView {
         addSubview(button)
     }
 
-    func configure(row: FleetRow) {
-        dot.color = row.state.color
+    func configure(row: FleetRow, checked: Bool) {
+        depth = row.depth
+        isBareWorktree = row.isBareWorktree
+        // Only a hosted (steerable) session can be a broadcast target; a bare
+        // subagent worktree has no session to steer.
+        checkbox.isEnabled = row.hosted && !isBareWorktree
+        checkbox.state = (checked && checkbox.isEnabled) ? .on : .off
+        // A bare subagent worktree (no live session) reads muted; a live row
+        // uses the session-state dot color.
+        dot.color = isBareWorktree ? Theme.textFaint : row.state.color
         titleLabel.stringValue = row.title
-        var place = row.project
-        if let worktree = row.worktree { place += " · " + worktree }
+        titleLabel.textColor = isBareWorktree ? Theme.textDim : Theme.textPrimary
+        var place = isBareWorktree ? "subagent" : row.project
+        if !isBareWorktree, let worktree = row.worktree { place += " · " + worktree }
         if let branch = row.branch, !branch.isEmpty { place += "  ⑂ " + branch }
-        place += "  ·  " + row.state.label
+        if !isBareWorktree { place += "  ·  " + row.state.label }
         placeLabel.stringValue = place
 
         var metrics: [String] = []
@@ -193,24 +280,29 @@ private final class FleetRowView: NSView {
         if let cost = row.costUSD, cost > 0 { metrics.append(String(format: "$%.2f", cost)) }
         metricsLabel.stringValue = metrics.joined(separator: "   ")
 
-        // Only a hosted session's pty can be written to; Focus also needs the
-        // hosting tab. An unhosted (orphaned "done") row shows greyed buttons.
+        // A bare worktree has no session to steer; hide its buttons entirely.
+        // Otherwise only a hosted session's pty can be written to (Focus also
+        // needs the hosting tab); an unhosted "done" row shows greyed buttons.
         for button in [focusButton, interruptButton, continueButton, archiveButton] {
-            button.isEnabled = row.hosted
+            button.isHidden = isBareWorktree
+            button.isEnabled = !isBareWorktree && row.hosted
         }
         // Continue only makes sense once a session is idle/done.
-        continueButton.isEnabled = row.hosted && row.state != .working
+        continueButton.isEnabled = !isBareWorktree && row.hosted && row.state != .working
         needsLayout = true
     }
 
     override func layout() {
         super.layout()
         let h = bounds.height
-        dot.frame = NSRect(x: 14, y: (h - 12) / 2, width: 12, height: 12)
+        let indent = CGFloat(depth) * Self.indentPerLevel
+        checkbox.sizeToFit()
+        checkbox.frame = NSRect(x: 12, y: (h - 18) / 2, width: 18, height: 18)
+        dot.frame = NSRect(x: 34 + indent, y: (h - 12) / 2, width: 12, height: 12)
 
-        // Buttons pinned right, in reverse order.
+        // Buttons pinned right, in reverse order (hidden ones take no space).
         var x = bounds.width - 12
-        for button in [archiveButton, continueButton, interruptButton, focusButton] {
+        for button in [archiveButton, continueButton, interruptButton, focusButton] where !button.isHidden {
             button.sizeToFit()
             let w = max(button.frame.width, 40)
             x -= w
@@ -222,7 +314,7 @@ private final class FleetRowView: NSView {
         let metricsWidth: CGFloat = 130
         metricsLabel.frame = NSRect(x: buttonsLeft - metricsWidth - 12, y: (h - 15) / 2, width: metricsWidth, height: 15)
 
-        let textLeft: CGFloat = 34
+        let textLeft: CGFloat = 54 + indent
         let textRight = metricsLabel.frame.minX - 10
         let textWidth = max(40, textRight - textLeft)
         titleLabel.frame = NSRect(x: textLeft, y: h / 2 + 1, width: textWidth, height: 17)
@@ -233,6 +325,7 @@ private final class FleetRowView: NSView {
     @objc private func interruptTapped() { onAction?(.interrupt) }
     @objc private func continueTapped() { onAction?(.cont) }
     @objc private func archiveTapped() { onAction?(.archive) }
+    @objc private func checkToggled() { onToggleCheck?(checkbox.state == .on) }
 }
 
 // A Kanban card: a compact clickable tile that focuses the session on click.
@@ -313,12 +406,20 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     var onInterrupt: ((String) -> Void)?
     var onContinue: ((String) -> Void)?
     var onArchive: ((String) -> Void)?
+    // Broadcast (ROADMAP Phase 35): fan one instruction across a scope of
+    // sessions — the checked rows, or every live one.
+    var onBroadcast: ((Broadcast.Scope) -> Void)?
     // The set of session ids some pane currently hosts (steerable rows).
     var hostedIds: (() -> Set<String>)?
 
     private let panel: FleetPanel
     private let segmented = NSSegmentedControl(labels: ["List", "Board"], trackingMode: .selectOne, target: nil, action: nil)
+    private let broadcastAllButton = NSButton()
+    private let broadcastSelectedButton = NSButton()
     private let countLabel = NSTextField(labelWithString: "")
+    // Broadcast selection: the row ids checked in the List view; pruned to live
+    // rows on every reload so a finished session's check can't linger.
+    private var checkedIds: Set<String> = []
     private let emptyLabel = NSTextField(labelWithString: "No active Claude sessions.")
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
@@ -330,6 +431,12 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     // repo" so we don't re-shell every reload.
     private var branchCache: [String: String] = [:]
     private var branchInFlight: Set<String> = []
+    // Subagent tree (ROADMAP Phase 31): the repo's worktree list, cached by
+    // cwd (all cwds in one repo resolve to the same set). Re-shelled off the
+    // main thread the first time a cwd is seen; a fresh reload lands the
+    // subagents (and drops the ones whose worktrees Claude Code has removed).
+    private var worktreesCache: [String: [SubagentTreeWorktree]] = [:]
+    private var worktreesInFlight: Set<String> = []
 
     private static let topBarHeight: CGFloat = 44
 
@@ -362,6 +469,13 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
         segmented.controlSize = .small
         segmented.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(segmented)
+
+        // Broadcast controls (Phase 35): "All" fans to every live session, the
+        // selected button to the checked rows (its title carries the count).
+        configureBroadcastButton(broadcastAllButton, title: "Broadcast All", action: #selector(broadcastAllTapped))
+        configureBroadcastButton(broadcastSelectedButton, title: "Broadcast Selected", action: #selector(broadcastSelectedTapped))
+        content.addSubview(broadcastAllButton)
+        content.addSubview(broadcastSelectedButton)
 
         countLabel.font = Theme.usageFont
         countLabel.textColor = Theme.textDim
@@ -406,8 +520,15 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
             segmented.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
             segmented.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
 
+            broadcastAllButton.leadingAnchor.constraint(equalTo: segmented.trailingAnchor, constant: 12),
+            broadcastAllButton.centerYAnchor.constraint(equalTo: segmented.centerYAnchor),
+
+            broadcastSelectedButton.leadingAnchor.constraint(equalTo: broadcastAllButton.trailingAnchor, constant: 6),
+            broadcastSelectedButton.centerYAnchor.constraint(equalTo: segmented.centerYAnchor),
+
             countLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -14),
             countLabel.centerYAnchor.constraint(equalTo: segmented.centerYAnchor),
+            countLabel.leadingAnchor.constraint(greaterThanOrEqualTo: broadcastSelectedButton.trailingAnchor, constant: 8),
 
             scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
@@ -470,15 +591,34 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     private func reload() {
         let sessions = ClaudeSessionMonitor.shared.sessions
         let hosted = hostedIds?() ?? []
-        rows = FleetModel.rows(sessions: sessions, hostedIds: hosted) { [weak self] cwd in
+        let sessionRows = FleetModel.rows(sessions: sessions, hostedIds: hosted) { [weak self] cwd in
             self?.branch(forCwd: cwd)
         }
 
+        // Subagent tree (ROADMAP Phase 31): nest each session's
+        // `isolation: worktree` subagents under it, discovered from the repo's
+        // worktree list. Pruning is implicit — a removed worktree simply drops
+        // out of the gathered list, so its row disappears.
+        let treeSessions: [SubagentTreeSession] = sessions.compactMap { session in
+            guard let cwd = session.cwd, !cwd.isEmpty else { return nil }
+            return SubagentTreeSession(id: session.id, cwd: cwd, state: session.state.label)
+        }
+        let worktrees = gatheredWorktrees(for: sessions)
+        let roots = SubagentTree.build(sessions: treeSessions, worktrees: worktrees)
+        rows = FleetModel.tree(sessionRows: sessionRows, roots: roots)
+
+        // Broadcast (ROADMAP Phase 35): drop checks for rows that are gone or no
+        // longer steerable, so a finished session's check can't linger.
+        let steerable = Set(rows.filter { $0.hosted }.map { $0.id })
+        checkedIds.formIntersection(steerable)
+
+        let sessionCount = rows.filter { !$0.isBareWorktree }.count
         let needsYou = rows.filter { $0.state == .needsInput }.count
         countLabel.stringValue = rows.isEmpty
             ? ""
-            : "\(rows.count) session\(rows.count == 1 ? "" : "s")" + (needsYou > 0 ? " · \(needsYou) need you" : "")
+            : "\(sessionCount) session\(sessionCount == 1 ? "" : "s")" + (needsYou > 0 ? " · \(needsYou) need you" : "")
         emptyLabel.isHidden = !rows.isEmpty
+        refreshBroadcastButtons()
 
         tableView.reloadData()
         if !boardScroll.isHidden { rebuildBoard() }
@@ -518,6 +658,73 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
         return branch.isEmpty ? nil : branch
     }
 
+    // The union of every session repo's worktrees, deduped by path — the raw
+    // material the subagent tree nests. Each distinct session cwd resolves its
+    // repo's worktrees once (cached); uncached cwds kick off an off-thread
+    // `git worktree list` and reload when they land.
+    private func gatheredWorktrees(for sessions: [ClaudeSession]) -> [SubagentTreeWorktree] {
+        var byPath: [String: SubagentTreeWorktree] = [:]
+        for session in sessions {
+            guard let cwd = session.cwd, !cwd.isEmpty else { continue }
+            for worktree in worktrees(forCwd: cwd) {
+                byPath[worktree.path] = worktree
+            }
+        }
+        return Array(byPath.values)
+    }
+
+    private func worktrees(forCwd cwd: String) -> [SubagentTreeWorktree] {
+        if let cached = worktreesCache[cwd] { return cached }
+        guard !worktreesInFlight.contains(cwd) else { return [] }
+        worktreesInFlight.insert(cwd)
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let value = Self.listWorktrees(cwd: cwd)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.worktreesInFlight.remove(cwd)
+                self.worktreesCache[cwd] = value
+                if self.panel.isVisible { self.reload() }
+            }
+        }
+        return []
+    }
+
+    // Parses `git worktree list --porcelain` into (path, branch?) entries. The
+    // porcelain form is blocks of `worktree <path>` / optional `branch
+    // refs/heads/<name>` / `detached`, separated by blank lines.
+    private static func listWorktrees(cwd: String) -> [SubagentTreeWorktree] {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = ["-C", cwd, "worktree", "list", "--porcelain"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return [] }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { return [] }
+        let text = String(decoding: data, as: UTF8.self)
+
+        var result: [SubagentTreeWorktree] = []
+        var path: String?
+        var branch: String?
+        func flush() {
+            if let path { result.append(SubagentTreeWorktree(path: path, branch: branch)) }
+            path = nil
+            branch = nil
+        }
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            if line.hasPrefix("worktree ") {
+                flush()
+                path = String(line.dropFirst("worktree ".count))
+            } else if line.hasPrefix("branch refs/heads/") {
+                branch = String(line.dropFirst("branch refs/heads/".count))
+            }
+        }
+        flush()
+        return result
+    }
+
     // MARK: - Layout mode
 
     @objc private func layoutModeChanged() {
@@ -549,7 +756,7 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
             header.frame = NSRect(x: x, y: viewHeight - headerHeight, width: columnWidth, height: 16)
             boardView.addSubview(header)
 
-            let cards = rows.filter { FleetColumn.column(for: $0.state) == column }
+            let cards = rows.filter { !$0.isBareWorktree && FleetColumn.column(for: $0.state) == column }
             var y = viewHeight - headerHeight - cardHeight
             for row in cards {
                 let card = FleetCardView(frame: NSRect(x: x, y: y, width: columnWidth, height: cardHeight))
@@ -575,7 +782,42 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     @objc private func rowDoubleClicked() {
         let clicked = tableView.clickedRow
         guard rows.indices.contains(clicked) else { return }
-        onFocus?(rows[clicked].id)
+        let row = rows[clicked]
+        // Bare subagent worktrees have no session to focus.
+        guard !row.isBareWorktree else { return }
+        onFocus?(row.id)
+    }
+
+    // MARK: - Broadcast
+
+    private func configureBroadcastButton(_ button: NSButton, title: String, action: Selector) {
+        button.title = title
+        button.bezelStyle = .rounded
+        button.controlSize = .small
+        button.font = .systemFont(ofSize: 11)
+        button.target = self
+        button.action = action
+        button.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    // Enable "All" whenever any steerable session exists, and "Selected" only
+    // when checked rows remain after pruning; the latter's title carries the
+    // live count so the button reads "Broadcast Selected (2)".
+    private func refreshBroadcastButtons() {
+        let hostedCount = rows.filter { $0.hosted }.count
+        broadcastAllButton.isEnabled = hostedCount > 0
+        let selectedCount = checkedIds.count
+        broadcastSelectedButton.isEnabled = selectedCount > 0
+        broadcastSelectedButton.title = selectedCount > 0 ? "Broadcast Selected (\(selectedCount))" : "Broadcast Selected"
+    }
+
+    @objc private func broadcastAllTapped() {
+        onBroadcast?(.allLive)
+    }
+
+    @objc private func broadcastSelectedTapped() {
+        guard !checkedIds.isEmpty else { NSSound.beep(); return }
+        onBroadcast?(.selected(checkedIds))
     }
 
     // MARK: - Table
@@ -590,8 +832,13 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
             return created
         }()
         let fleetRow = rows[row]
-        view.configure(row: fleetRow)
+        view.configure(row: fleetRow, checked: checkedIds.contains(fleetRow.id))
         view.onAction = { [weak self] action in self?.dispatch(action, id: fleetRow.id) }
+        view.onToggleCheck = { [weak self] checked in
+            guard let self else { return }
+            if checked { self.checkedIds.insert(fleetRow.id) } else { self.checkedIds.remove(fleetRow.id) }
+            self.refreshBroadcastButtons()
+        }
         return view
     }
 
