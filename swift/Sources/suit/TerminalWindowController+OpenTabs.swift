@@ -120,6 +120,69 @@ extension TerminalWindowController {
         activate(tab)
     }
 
+    // MARK: - "What changed while I was away" markers (ROADMAP Phase 24)
+
+    // Drops a per-repo checkpoint: every worktree's HEAD sha + a timestamp,
+    // into markers.json. Silent by design — the Git tab's marker button fills
+    // and its tooltip/menu reflect the new mark (no toast system in the app).
+    func markAwayPoint(root explicitRoot: String? = nil) {
+        let root = explicitRoot ?? currentFileIndex().root
+        guard let mainRoot = MarkerCatchUp.mainRoot(root) else {
+            NSSound.beep()
+            return
+        }
+        MarkerStore.shared.setMarker(MarkerCatchUp.mark(mainRoot: mainRoot), forRepo: mainRoot)
+    }
+
+    // "What Changed Since Mark": composes the aggregate diff across every
+    // worktree since the mark into the window's diff tab (reused like
+    // openGitDiff) — the Phase 5 review machinery fed a multi-worktree set.
+    func openCatchUpDiff(root explicitRoot: String? = nil) {
+        let root = explicitRoot ?? currentFileIndex().root
+        guard let mainRoot = MarkerCatchUp.mainRoot(root) else {
+            NSSound.beep()
+            return
+        }
+        guard let marker = MarkerStore.shared.marker(forRepo: mainRoot) else {
+            let alert = NSAlert()
+            alert.messageText = "No marker set"
+            alert.informativeText = "Use “Mark Now” first to record a checkpoint, then come back to see everything that changed across the repo's worktrees since."
+            alert.runModal()
+            return
+        }
+
+        // Which Claude session (by cwd match) is working in each worktree —
+        // resolved fresh on every compose so a Refresh re-attributes.
+        let sessionForPath: (String) -> String? = { path in
+            let match = ClaudeSessionMonitor.shared.sessions.first {
+                guard let cwd = $0.cwd else { return false }
+                return cwd == path || cwd.hasPrefix(path + "/")
+            }
+            guard let match else { return nil }
+            return "\(match.displayName) • \(match.state.label)"
+        }
+
+        let producer: () -> String = {
+            MarkerCatchUp.compose(mainRoot: mainRoot, marker: marker, sessionForPath: sessionForPath).diffText
+        }
+        let composed = MarkerCatchUp.compose(mainRoot: mainRoot, marker: marker, sessionForPath: sessionForPath)
+        let title = "Since \(MarkerCatchUp.shortTime(marker.at)) · \(MarkerCatchUp.fileCount(composed.totalFiles)) +\(composed.totalInsertions) \u{2212}\(composed.totalDeletions)"
+
+        let load = { (content: DiffPaneContent) in
+            content.loadDiffText(composed.diffText, title: title, root: mainRoot, reload: producer)
+        }
+        if let tab = store.tabs.first(where: { $0.content is DiffPaneContent }) {
+            if let content = tab.content as? DiffPaneContent { load(content) }
+            activate(tab)
+            return
+        }
+        let content = DiffPaneContent()
+        let tab = Tab(content: content)
+        store.insert(tab)
+        load(content)
+        activate(tab)
+    }
+
     // Opens (or reuses) the window's transcript tab showing a Claude session's
     // conversation (ROADMAP Phase 7).
     func openTranscript(for session: ClaudeSession) {
