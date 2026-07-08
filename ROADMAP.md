@@ -960,26 +960,36 @@ gesture, made deliberate rather than silent.
   pty (and only those) as one bracketed-paste unit, and that the large-set confirm gates before
   sending.
 
-### Phase 36 — Session task templates / recipes
+### Phase 36 — Session task templates / recipes — ✅ shipped
 
 The Steer pillar. Phase 5 productized worktree tasks; Phase 8 added a prompt library. This fuses
 them: one command spins a worktree + `claude` + a parameterized prompt, so a bugfix / feature /
 refactor / review each launch in a single keystroke instead of a manual setup ritual.
 
-- **Recipes as files**: `~/.suit/recipes/*.md` (the `~/.suit/prompts` pattern) — a first-line/
-  front-matter name plus a body prompt with `<NAME>`/`<SELECTION>`/`<FILE>` placeholders; a few
-  built-ins (bugfix, feature, refactor, review) seeded on first run when the dir is empty.
-- **Launcher**: each recipe surfaces as a "Recipe: <name>" palette entry (+ a New-task / Git-tab
-  menu). Picking one prompts for its parameters (`OverlayPrompt`), runs `WorktreeTasks.createTask`
-  for a slug from the name (or the current checkout, honoring Phase 31's isolation choice), opens
-  the `claude` task tab (the `startClaudeTask` recipe), and — once the session file appears — sends
-  the placeholder-substituted prompt via `SessionControl.send`.
-- **Review recipe**: the built-in "review" recipe reuses the Phase 29 reviewer-agent lane prompt.
-  Recipes echo Autopilot's worker-template shape but stay a manual, interactive launcher — no
-  gating, no auto-merge.
-- **Verification.** Harness seeds a recipe with placeholders, asserts picking it creates the right
-  worktree/branch, opens a `claude` tab there, and sends the fully-substituted prompt into that
-  pty as one unit; a missing recipes dir seeds the built-ins.
+Landed as `Recipes.swift` (the Foundation-only core — `Recipe` parse / placeholder substitution /
+slug, the built-in set, and the dir-scoped seed/load IO, harness-tested — plus `RecipesStore` for
+the `~/.suit/recipes` path) with launcher wiring in `AppDelegate+Palette.swift` (`recipeCommands`)
+and `TerminalWindowController+OpenTabs.swift` (`startRecipeTask` / `recipeContext`).
+
+- **Recipes as files**: `~/.suit/recipes/*.md` (the `~/.suit/prompts` pattern) — an optional
+  `---`-fenced front-matter `name:` (else the file's base name) plus a body prompt with
+  `<NAME>`/`<SELECTION>`/`<FILE>` placeholders; the four built-ins (bug fix, feature, refactor,
+  review) are seeded on first run when the dir is empty.
+- **Launcher**: each recipe surfaces as a "Recipe: <name>" palette entry. Picking one prompts for
+  the task name + the Phase 31 isolation toggle (`OverlayPrompt`), fills `<NAME>` from the input
+  and `<SELECTION>`/`<FILE>` from the focused pane, runs `WorktreeTasks.createTask` (or the current
+  checkout, honoring the isolation choice), opens the `claude` task tab (the `startClaudeTask`
+  recipe), and — once its TUI is up — sends the substituted prompt via `SessionControl.send` (the
+  `startReviewPass` fixed-delay approach — a manual launcher, not Autopilot's session-file
+  handshake).
+- **Review recipe**: the built-in "review" recipe is a read-only review pass echoing the Phase 29
+  reviewer-agent lane, but stays a manual, interactive launcher — no gating, no auto-merge, unlike
+  Autopilot.
+- **Verification.** `scripts/recipes-test.sh` (wired into `scripts/test.sh`) asserts the recipe
+  parser (front-matter name / filename fallback / empty-name fallback), placeholder substitution
+  (all three tokens, missing context → empty, unknown tokens untouched), the slug, the built-in
+  set + file round-trip, and the seed/load IO (seeds an empty dir, leaves a populated one alone,
+  missing dir → empty).
 
 ### Phase 37 — Fleet activity feed / daily digest
 

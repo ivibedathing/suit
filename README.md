@@ -260,6 +260,15 @@ working.
   runs `claude` straight in the current checkout for cheap tasks that don't want the worktree
   churn. The switch's default is a setting (Settings ▸ Claude ▸ "Isolate new tasks in a worktree
   by default").
+- **Session recipes** — parameterized task templates. Drop a `~/.suit/recipes/*.md` file (an
+  optional `---`-fenced `name:` front matter plus a body prompt with `<NAME>` / `<SELECTION>` /
+  `<FILE>` placeholders) and it surfaces as a **Recipe: <name>** palette entry; four built-ins
+  (bug fix, feature, refactor, review) are seeded on first run. Picking one prompts for a task
+  name (with the same **Isolate in worktree** toggle), fills `<NAME>` from your input and
+  `<SELECTION>`/`<FILE>` from the focused viewer/terminal, spins the worktree + `claude`, and
+  sends the substituted prompt in — a bugfix / feature / refactor / review each launching in one
+  keystroke instead of a manual setup ritual. Manual and interactive (no gating or auto-merge,
+  unlike Autopilot).
 - **Background-task monitor** — long-running jobs Claude Code (or you) background — dev servers,
   test watchers, builds — are invisible from Suit's side until you scroll the shell. Launch one
   through the bundled `suit-bg` wrapper (`suit-bg npm run dev`) and it runs detached with its

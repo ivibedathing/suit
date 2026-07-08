@@ -321,7 +321,43 @@ extension AppDelegate {
             PaletteCommand(title: "Toggle Word Wrap", shortcut: nil) { [weak self] in self?.toggleWordWrap(nil) },
             PaletteCommand(title: "Settings…", shortcut: "⌘,") { [weak self] in self?.showSettings(nil) },
             PaletteCommand(title: "Install Claude Code Integration…", shortcut: nil) { [weak self] in self?.installClaudeIntegration(nil) },
-        ] + autopilotPaletteCommands() + sshHostCommands() + promptLibraryCommands()
+        ] + autopilotPaletteCommands() + sshHostCommands() + recipeCommands() + promptLibraryCommands()
+    }
+
+    // Session task recipes (ROADMAP Phase 36): each ~/.suit/recipes/*.md surfaces
+    // as a "Recipe: <name>" entry that spins a worktree + claude + a
+    // parameterized prompt in one keystroke.
+    private func recipeCommands() -> [PaletteCommand] {
+        // Re-read the directory each open so a freshly-added recipe file shows
+        // up without a relaunch (the prompt library's freshness).
+        RecipesStore.shared.reload()
+        return RecipesStore.shared.recipes.map { recipe in
+            PaletteCommand(title: "Recipe: \(recipe.name)", shortcut: nil) { [weak self] in
+                self?.launchRecipe(recipe)
+            }
+        }
+    }
+
+    // Prompts for the task name (+ the Phase 31 isolation toggle), fills the
+    // recipe's <NAME>/<SELECTION>/<FILE> from the input and the focused pane's
+    // context, then launches the task.
+    private func launchRecipe(_ recipe: Recipe) {
+        guard let controller = activeWindowController() else {
+            NSSound.beep()
+            return
+        }
+        let context = controller.recipeContext()
+        OverlayPromptController.shared.ask(
+            caption: "Recipe: \(recipe.name) — task name",
+            placeholder: "task name",
+            toggleLabel: "Isolate in worktree",
+            toggleOn: taskIsolateByDefault,
+            over: controller.window
+        ) { [weak controller] name, isolate in
+            guard !name.isEmpty else { return }
+            let prompt = recipe.filled(name: name, selection: context.selection, file: context.file)
+            controller?.startRecipeTask(named: name, promptText: prompt, isolate: isolate)
+        }
     }
 
     // Saved SSH hosts (the sidebar's SSH tab) as palette entries, so a
