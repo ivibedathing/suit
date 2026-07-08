@@ -308,6 +308,22 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     (anchors recorded at render time), o opens the file under review in the viewer pane.
     Phase 17: `openCommitDiff(root:file:sha:)` reuses the same diff tab to show one commit's
     per-file changes (`git show --format=`), fed by a File History row or a clicked blame sha.
+    Phase 34 added a whole-commit sibling `openCommitDiff(root:sha:)` (`git show --stat --patch`)
+    for commit-graph node clicks (routed via `PaneHost.paneRequestedOpenCommitDiff(sha:root:)`).
+  - `CommitGraph.swift` / `CommitGraphPane.swift` — the commit-graph pane (ROADMAP Phase 34).
+    `CommitGraph.swift` is the UI-free, standalone-compilable core (the RoadmapParser /
+    SubagentTree pattern): `parse` reads the `git log --all --date-order` `%x1f`-delimited output
+    into `RawCommit`s, `layout` runs the classic swim-lane assignment (newest-first, active lanes
+    each awaiting their next commit, converge forks / fan out merges) into `CommitNode`s + resolved
+    `CommitEdge`s + typed ref badges, with an optional `maxNodes` cap flagging truncated parents.
+    `CommitGraphPane.swift` is the Cocoa half: `CommitGraphPaneContent` (a `PaneContent` viewer
+    tab, reused one-per-window like the diff/transcript panes) loads the log off the main thread,
+    refreshes on `GitStatusMonitor.didUpdate`, and grows the cap via "Load more"; `CommitGraphView`
+    draws the lanes/edges/nodes (age-tinted via `GitAgeTint`, HEAD/current-branch in `Theme.accent`,
+    ref pills) and maps a click back to its commit sha → `Pane.openCommitDiff(sha:root:)`. Opened
+    from the Git tab's graph button and the "Show Commit Graph" palette/View-menu entries;
+    round-trips through state restoration (`SavedTab.kind == .commitGraph`, `graphRoot`). Verified
+    by `scripts/commit-graph-harness.sh` against a fixture repo with a fork and a merge.
   - `GitStatus.swift` — git awareness (ROADMAP Phase 5): `GitStatusMonitor` (one per repo root,
     refreshed on that root's `FileIndex.didUpdate`, i.e. FSEvents) parses `git status --porcelain
     -z` into per-path letters + changed-directory set (and the same paths split by porcelain

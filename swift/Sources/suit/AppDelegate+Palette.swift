@@ -15,6 +15,11 @@ extension AppDelegate {
         activeWindowController()?.openGitDiff()
     }
 
+    // ROADMAP Phase 34 — the commit-graph pane for the shown repo.
+    @objc func showCommitGraph(_ sender: Any?) {
+        activeWindowController()?.openCommitGraph()
+    }
+
     // Sidebar folder pinning (ROADMAP Phase 9).
     @objc func selectSidebarFolder(_ sender: Any?) {
         activeWindowController()?.selectSidebarFolder()
@@ -235,6 +240,7 @@ extension AppDelegate {
             PaletteCommand(title: "Open File…", shortcut: "⌘P") { [weak self] in self?.openQuickly(nil) },
             PaletteCommand(title: "Search in Project…", shortcut: "⇧⌘F") { [weak self] in self?.searchInProject(nil) },
             PaletteCommand(title: "Show Git Diff", shortcut: "⌃⌘D") { [weak self] in self?.showGitDiff(nil) },
+            PaletteCommand(title: "Show Commit Graph", shortcut: nil) { [weak self] in self?.showCommitGraph(nil) },
             PaletteCommand(title: "Review Changes (n/p walk files, o opens, c comments)", shortcut: nil) { [weak self] in self?.showGitDiff(nil) },
             PaletteCommand(title: "Send Review to Session…", shortcut: nil) { [weak self] in self?.sendReviewToSession(nil) },
             PaletteCommand(title: "Show Fleet (all sessions)", shortcut: "⇧⌘O") { [weak self] in self?.showFleet(nil) },

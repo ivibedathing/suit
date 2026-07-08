@@ -894,6 +894,27 @@ steers only by editing ROADMAP.md.
   removal, the history row, and `⏸` honored on the next pass; plus full `./build.sh` and a
   manual smoke of the footer row, run tab, and notification click-throughs.
 
+### Phase 34 — Commit graph pane — ✅ shipped
+
+The Read pillar, repo-wide. Phase 17 gave per-line blame and a linear file history; this renders
+the whole commit DAG as a thing you read and click, not a `git log --graph` you squint at in a
+shell. Read-only.
+
+- **`CommitGraphPaneContent`**: a read-only viewer tab rendering `git log --all --parents
+  --date-order` as a custom `NSView` commit graph — nodes (short sha, subject, author, age via
+  `GitAgeTint`) laid out in lanes with edges for parents/merges/forks, and branch/tag/HEAD refs
+  badged on their tip nodes. Parsed off the main thread like `GitBranches`/`GitBlame`.
+- **Interaction**: click a node → `openCommitDiff(root:file:sha:)` (the diff pane already shows a
+  commit's changes, Phase 17) in the window's diff tab; the current branch / HEAD render in accent
+  per `Theme`. Large histories virtualize (cap N nodes with "load more") so the pane stays
+  responsive at monorepo scale.
+- **Refresh + surfacing**: fed by `GitStatusMonitor`'s ref-watching (commits, branch, and worktree
+  ops refresh it without any tracked file changing). Opened from the Git tab + palette "Show Commit
+  Graph"; one per window, reused like the transcript/diff panes.
+- **Verification.** Harness against a fixture repo with a merge and a fork asserts node/edge/lane
+  layout and ref badges are correct, that clicking a node opens that commit's diff, and that the
+  pane round-trips through state restoration.
+
 ## Cross-cutting principles ("works for the user")
 
 - **Keyboard-complete**: every action has a binding and a palette entry; the mouse is optional.

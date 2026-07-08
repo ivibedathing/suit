@@ -187,6 +187,9 @@ extension AppDelegate {
         gitDiffItem.keyEquivalentModifierMask = [.command, .control]
         gitDiffItem.target = self
 
+        let commitGraphItem = viewMenu.addItem(withTitle: "Show Commit Graph", action: #selector(showCommitGraph(_:)), keyEquivalent: "")
+        commitGraphItem.target = self
+
         let showFleetItem = viewMenu.addItem(withTitle: "Show Fleet", action: #selector(showFleet(_:)), keyEquivalent: "o")
         showFleetItem.keyEquivalentModifierMask = [.command, .shift]
         showFleetItem.target = self

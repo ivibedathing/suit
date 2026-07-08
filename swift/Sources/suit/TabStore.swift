@@ -19,6 +19,7 @@ enum TabKind {
     case transcript
     case plan
     case tasks
+    case commitGraph
 
     var symbolName: String {
         switch self {
@@ -32,6 +33,7 @@ enum TabKind {
         case .transcript: return "text.bubble"
         case .plan: return "checklist"
         case .tasks: return "gauge.with.dots.needle.bottom.50percent"
+        case .commitGraph: return "point.3.filled.connected.trianglepath.dotted"
         }
     }
 }
@@ -77,6 +79,7 @@ final class Tab {
         case is PDFPaneContent: return .pdf
         case is FileViewerPaneContent: return .viewer
         case is DiffPaneContent: return .diff
+        case is CommitGraphPaneContent: return .commitGraph
         case is TranscriptPaneContent: return .transcript
         case is PlanApprovalPaneContent: return .plan
         case is BackgroundTaskPaneContent: return .tasks

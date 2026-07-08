@@ -73,6 +73,12 @@ extension TerminalWindowController {
                 reviewComments: comments.isEmpty ? nil : comments,
                 isPreview: tab.isPreview, isPinned: tab.isPinned, customTitle: tab.customTitle
             )
+        case let graph as CommitGraphPaneContent:
+            guard let root = graph.gitRoot else { return nil }
+            return SavedTab(
+                kind: .commitGraph, graphRoot: root,
+                isPreview: tab.isPreview, isPinned: tab.isPinned, customTitle: tab.customTitle
+            )
         default:
             // Transcript tabs: the session won't exist next launch.
             return nil
@@ -177,6 +183,12 @@ extension TerminalWindowController {
             diff.loadGitDiff(root: root)
             diff.restoreComments(tab.reviewComments)
             return diff
+        case .commitGraph:
+            guard let root = tab.graphRoot, FileManager.default.fileExists(atPath: root),
+                  FileIndex.gitRoot(of: root) != nil else { return nil }
+            let graph = CommitGraphPaneContent()
+            graph.load(root: root)
+            return graph
         case .ssh:
             let cwd = tab.cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
             guard let host = tab.sshHostId

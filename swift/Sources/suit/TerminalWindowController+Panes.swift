@@ -62,6 +62,11 @@ extension TerminalWindowController {
         openCommitDiff(root: root, file: relative, sha: sha)
     }
 
+    // Commit-graph node click (ROADMAP Phase 34): open that commit's whole diff.
+    func paneRequestedOpenCommitDiff(sha: String, root: String) {
+        openCommitDiff(root: root, sha: sha)
+    }
+
     // Viewer "Show File History" / palette: reveal the Git tab's File History
     // section for this file.
     func paneRequestedShowFileHistory(forPath path: String) {
