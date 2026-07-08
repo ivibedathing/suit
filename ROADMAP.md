@@ -991,7 +991,40 @@ and `TerminalWindowController+OpenTabs.swift` (`startRecipeTask` / `recipeContex
   set + file round-trip, and the seed/load IO (seeds an empty dir, leaves a populated one alone,
   missing dir → empty).
 
-### Phase 37 — Fleet activity feed / daily digest
+### Phase 37 — Edit files in Suit — 🚧 in progress (worktree-phase-37-edit-files, 2026-07-08)
+
+The Read pillar, crossing into write — the one slice the thesis sanctions ("Light editing, if
+ever, is an additive later phase — not a rewrite"). The read-only viewer becomes editable: type
+into the buffer and save to disk, without turning Suit into an IDE. Selection/copy, jump-to,
+highlighting and the gutter all survive; this adds a caret, undo, and a write-back path on top.
+
+- **Editable buffer**: flip `FileViewerPaneContent`'s `ViewerTextView` to `isEditable = true` +
+  `allowsUndo = true` and give it an `NSTextViewDelegate` (`textDidChange`) — the Notes editor
+  (`NotesView`, the app's existing editable surface) is the template. The insertion point already
+  gets a color (`applyTextColor`); it just becomes visible.
+- **Live viewer refresh**: `textDidChange` re-runs `recomputeLineStarts` → `ruler.lineStarts` +
+  thickness, and re-drives `rehighlight()` / `rebuildMinimap()` — reworked from the current
+  whole-document `applySyntaxAttributes` pass to an edited-range-local re-highlight so it doesn't
+  fight live typing/undo; the `loadGeneration` guard keeps stale async colorings from landing.
+  Gutter state keyed off offsets (changed-lines, blame, bookmarks) is invalidated on edit.
+- **Save**: a debounced atomic write of the buffer to `filePath` (the `NotesStore` pattern — ~1 s
+  debounce, `.write(to:options:.atomic)`, `flush()` on `applicationWillTerminate` so a pending
+  edit is never lost), plus explicit `⌘S`, a dirty dot in the tab strip / pane title bar, and a
+  warn-on-close/quit prompt when a buffer has unsaved edits.
+- **External-change reconciliation**: the file changing on disk underneath (Claude or `$EDITOR`
+  writes it) is detected via the file's mtime / the existing FSEvents index — a clean buffer
+  silently reloads; a dirty buffer warns before clobbering, keeping Claude-writes-the-code the
+  default while never losing the user's in-flight edit.
+- **State restoration**: `SavedTab` gains a dirty flag + the unsaved buffer text so edits survive
+  relaunch (today only `filePath` + scroll are captured); a restored dirty buffer reopens unsaved,
+  a clean one reloads from disk.
+- **Verification.** Factor the dirty-tracking + debounce/atomic-save decision into a Foundation-
+  only core (the `RoadmapParser`/`Recipes` pattern) and add a harness (wired into `scripts/test.sh`)
+  asserting: an edit marks dirty and schedules exactly one write, the flush writes the buffer
+  bytes atomically, an external clean-buffer change reloads while a dirty one warns, and a
+  round-tripped `SavedTab` restores dirty text vs. reloads a clean file.
+
+### Phase 38 — Fleet activity feed / daily digest
 
 The Orchestrate pillar, over time. Phase 28 is a live snapshot of who's busy; this is the
 chronological record of what *moved* across the fleet — sessions finishing, PRs merging, CI
@@ -1013,7 +1046,7 @@ failing, Autopilot running — plus a "what happened today" recap.
   newest-first with correct routing targets, and that the daily digest rolls up the right day's
   counts.
 
-### Phase 38 — GitHub PR review inbox
+### Phase 39 — GitHub PR review inbox
 
 The Verify pillar, outward. Phase 21 ships *your* branches; Phase 16 comments on *local* diffs.
 This reviews other people's PRs end-to-end without leaving Suit — pull them, read the diff with
@@ -1033,7 +1066,7 @@ line comments, submit the review.
   lists the right PRs, the diff loads with comments anchored to the right lines, and Submit builds
   the exact `gh pr review` argv/body from the draft.
 
-### Phase 39 — File time-travel scrubber
+### Phase 40 — File time-travel scrubber
 
 The Read pillar, along the time axis. Phase 17's file history is a *list*; this makes it a
 *scrubber* — drag the open file backward through its commits and watch it change, with the
@@ -1053,7 +1086,7 @@ diff to the neighbouring revision shown. Read-only and non-destructive (no check
   that revision's exact content and the correct diff-to-neighbour, and that leaving time-travel
   restores the working-tree view with no residue.
 
-### Phase 40 — Saved layouts / named workspaces
+### Phase 41 — Saved layouts / named workspaces
 
 A Foundation piece. State restoration already reopens the *last* layout automatically; this makes
 layouts nameable and switchable — a "review" layout, a "debug" layout — on top of the same
@@ -1072,7 +1105,7 @@ capture/replay machinery.
   it, and asserts the tab list + split tree + visible tabs match; a layout referencing a deleted
   file restores with that pane collapsed out.
 
-### Phase 41 — Cost budget guardrails + auto-pause
+### Phase 42 — Cost budget guardrails + auto-pause
 
 The Orchestrate pillar. Phase 23 makes spend legible; this acts on it — per-session and per-task
 spend caps that warn, or (opt-in) interrupt, when a run blows past its budget.
@@ -1083,7 +1116,7 @@ spend caps that warn, or (opt-in) interrupt, when a run blows past its budget.
 - **Trip actions**: crossing a cap posts a notification via `ClaudeAttentionCenter` (a distinct
   `budget-*` identifier, click → the pane) and, when auto-interrupt is enabled, sends Esc over the
   pty (`SessionControl` interrupt) to halt the run — never silently; every trip is logged to the
-  activity feed (Phase 37).
+  activity feed (Phase 38).
 - **Autopilot interlock**: the Autopilot budget modes (`AutopilotScheduler`) gate run *starts*;
   this is the per-run kill-switch — an in-flight run that blows a task cap trips here,
   complementing the global 5h/weekly ceilings.
@@ -1091,7 +1124,7 @@ spend caps that warn, or (opt-in) interrupt, when a run blows past its budget.
   once at the threshold and (in auto-interrupt mode) an Esc reaches the right pty, and that a
   session staying under its cap never trips.
 
-### Phase 42 — Command history search (native ⌃R)
+### Phase 43 — Command history search (native ⌃R)
 
 The Navigate pillar, for the shell. The terminal's reverse-i-search, made native and cross-pane:
 search past commands from any pane, pick one, and re-run it in a pane of your choice.
@@ -1132,7 +1165,9 @@ search past commands from any pane, pick one, and re-run it in a pane of your ch
   controlled here, and the JSON-file handshake degrades gracefully (no file → pane is just a
   terminal).
 - **Scope creep toward "editor"**: the viewer will tempt. Hold the line: selection+copy and
-  jump-to yes; typing into the buffer no.
+  jump-to yes; typing into the buffer no — *except* the one deliberate, autosave-guarded slice in
+  Phase 37 (the thesis's sanctioned "additive later phase"). That stays the boundary; anything
+  beyond it (multi-file refactors, project-wide rename, an editor UI) is Claude's job, not Suit's.
 
 ## First move
 
