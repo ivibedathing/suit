@@ -161,7 +161,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate, NSTextFieldDel
         effect.addSubview(scrollView)
     }
 
-    // Large item sets (the fuzzy file opener feeds every file in a monorepo)
+    // Large item sets (the fuzzy file opener feeds every file in a large repo)
     // stay snappy by only materializing the best matches in the table.
     private static let maxVisibleResults = 250
 

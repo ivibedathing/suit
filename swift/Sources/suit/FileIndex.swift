@@ -9,7 +9,7 @@ final class FileIndex {
     static let didUpdate = Notification.Name("dev.kosych.suit.FileIndexDidUpdate")
 
     // Marker file → badge shown on that directory in the Files sidebar. What
-    // makes the browser "monorepo-aware": sub-project roots read as projects,
+    // makes the browser "multi-project-aware": sub-project roots read as projects,
     // not just folders.
     static let subprojectMarkers: [String: String] = [
         "go.mod": "go",
@@ -151,7 +151,7 @@ final class FileIndex {
             guard let badge = subprojectMarkers[name] else { continue }
             let directory = (path as NSString).deletingLastPathComponent
             // First marker wins; markers deeper in vendored trees still badge
-            // their own directory, which is what a monorepo section list wants.
+            // their own directory, which is what a multi-project section list wants.
             if badges[directory] == nil {
                 badges[directory] = badge
             }

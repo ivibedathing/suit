@@ -5,11 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app growing from a terminal into a Claude-code-first cockpit for
-monorepo work (see `ROADMAP.md` for the phased plan). Today it's a native app bundle (Dock icon,
+codebase work (see `ROADMAP.md` for the phased plan). Today it's a native app bundle (Dock icon,
 own bundle identifier, own TCC permission entries) whose windows host split trees of terminal
 panes, each running an interactive shell (`/bin/zsh -l -i`) directly via SwiftTerm's pty (see
 `PaneContent.swift`). Swift/AppKit is the product/UI layer; heavy non-UI logic (indexing,
-monorepo analysis) may live in a Go sidecar if it outgrows Swift.
+codebase analysis) may live in a Go sidecar if it outgrows Swift.
 
 - `swift/Sources/suit/` — the AppKit app. This is the product layer (per `ROADMAP.md`), no
   longer a "keep it minimal" shell; UI features live here.
@@ -185,11 +185,10 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     plan); `ClaudeModeControl.payload(from:to:)` is the pure `ESC[Z`×N (back-tab) string that
     cycles from a believed mode to a target; `ClaudeModeTracker.shared` remembers the last mode
     Suit sent per session, and `effectiveMode(for:)` prefers the session JSON's `permission_mode`
-    readback, else last-sent, else agent. The title bar's `ModeControlView` (in
-    `PaneTitleBarView.swift`, shown only for a live Claude tab) and the `Claude: Ask/Plan/Agent
-    Mode` palette entries both route through `paneRequestedSwitchClaudeMode` /
-    `AppDelegate.switchClaudeMode(_:forSessionId:)`, which writes the payload and records the new
-    belief. Purely a control surface — no Claude-side changes; readback is best-effort (the
+    readback, else last-sent, else agent. The `Claude: Ask/Plan/Agent Mode` palette entries route
+    through `AppDelegate.switchClaudeMode(_:forSessionId:)`, which writes the payload and records
+    the new belief (there is no per-pane title-bar control — the mode switch lives only on the
+    palette). Purely a control surface — no Claude-side changes; readback is best-effort (the
     `suit-session-state.sh` hook writes `permission_mode` when the hook JSON carries it).
   - `PlanParsing.swift` / `PlanApprovalPane.swift` — the plan-approval surface (ROADMAP Phase 26).
     `PlanParser` (pure, UI-free) scans a session's JSONL transcript for the latest `ExitPlanMode`
@@ -538,6 +537,42 @@ is unaffected. Until a fixed CLT or full Xcode is installed, SwiftTerm is vendor
 the Swift shell is compiled directly with `swiftc` (see `build.sh`) instead of via a `Package.swift`.
 If you add a new Swift dependency, vendor its source the same way rather than reaching for SPM —
 re-check whether `swift build` works before going back to a `Package.swift`.
+
+## Testing
+
+There is no XCTest target (no SwiftPM/Xcode project — see above). Instead, the pure, UI-free
+logic that features rest on is verified by **standalone harnesses**: each compiles just the
+relevant Foundation-only source file(s) against a small assertion driver and runs it — no app, no
+UI. Run them all from one entrypoint:
+
+```
+scripts/test.sh                   # fast suite (feedback-routing + mode-plan), ~seconds
+scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
+scripts/test.sh --list            # list the harnesses
+```
+
+The individual harnesses (each also runnable directly) are `scripts/feedback-routing-test.sh`
+(`FeedbackRouting.swift`), `scripts/mode-plan-harness.sh` (`ClaudeMode.swift` + `PlanParsing.swift`),
+and `scripts/autopilot-harness.sh` (the full Autopilot pipeline, offscreen with everything faked).
+This is why testable logic is kept in Foundation-only files with no app dependencies (the
+`RoadmapParser`/`AutopilotScheduler`/`FeedbackRouting` pattern) — a harness can compile it in
+isolation. When you add such logic, add a harness for it and wire it into the `HARNESSES` list in
+`scripts/test.sh`. UI/chrome changes are instead guarded by the committed reference render — see
+`design/render-reference.sh` (ROADMAP Phase 15).
+
+## Agent tooling
+
+This repo is set up for coding agents (Claude Code and others):
+
+- `AGENTS.md` — the concise front-door / 60-second orientation (this `CLAUDE.md` remains the
+  source of truth for the full file map and rationale). Keep the two in sync when the build/test
+  commands or the load-bearing rules change.
+- `.claude/commands/` — repo slash commands: `/build`, `/test`, `/claim-phase`,
+  `/render-reference`, `/orient`, `/find-file` (quick file search by name).
+- `.claude/settings.json` — if present, the shared permission allowlist for the safe, repeated
+  commands (build, `swiftc`, `scripts/test.sh`, read-only `git`/`gh`, search) so agents aren't
+  prompted mid-loop. It intentionally does **not** auto-allow `git push` (asks) or force-push
+  (denied). `.claude/worktrees/` stays git-ignored.
 
 ## Workflow
 

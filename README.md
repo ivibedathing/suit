@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Stop Using IDE Terminal.</strong><br>
-  A native macOS terminal that's growing into a Claude-code-first cockpit for monorepo work.
+  A native macOS terminal that's growing into a Claude-code-first cockpit for codebase work.
 </p>
 
 <p align="center">
@@ -25,7 +25,7 @@ entries — whose windows host browser-style tabs of terminals, file viewers, di
 transcripts. Each shell runs directly over a real pty via
 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm), and everything above the terminal (tabs,
 splits, search, git, Claude session awareness, Autopilot) is native AppKit — built to make
-Claude-code-driven work on a large monorepo feel like a first-class desktop app rather than a wall
+Claude-code-driven work on any codebase feel like a first-class desktop app rather than a wall
 of terminal panes.
 
 ## Table of contents
@@ -48,7 +48,7 @@ of terminal panes.
 
 ## Why Suit
 
-Working in a big monorepo with Claude Code means juggling many terminals, files, diffs and running
+Working in a large codebase with Claude Code means juggling many terminals, files, diffs and running
 sessions at once — and a plain terminal emulator makes you track all of it in your head. Suit puts
 a native cockpit around that workflow: browser-style tabs and splits, an integrated file
 viewer / search / git sidebar, awareness of which panes have live Claude sessions (and which need
@@ -201,12 +201,10 @@ working.
   two-click gesture. Sent as one bracketed-paste unit (multi-line selections stay intact) and
   submitted; a session picker appears when several are live, defaulting to the last one you
   targeted. An optional setting prepends the source location (`From <file>:<lines>:`).
-- **Mode control** — every Claude tab's title bar carries an **Ask · Plan · Agent** segmented
-  control; clicking a segment switches Claude's permission mode by writing the right number of
-  Shift+Tab presses into the pane's pty (so you never have to guess which invisible mode a pane
-  is in). The same switch is on the palette (`Claude: Ask/Plan/Agent Mode`). The shown mode reads
-  back from the session's `permission_mode` when the hooks report it, else reflects the last mode
-  Suit sent.
+- **Mode control** — switch a Claude session's permission mode from the palette
+  (`Claude: Ask/Plan/Agent Mode`), which writes the right number of Shift+Tab presses into the
+  session's pty (so you never have to guess which invisible mode a pane is in). The switch tracks
+  the session's `permission_mode` when the hooks report it, else the last mode Suit sent.
 - **Plan review** — when a session in Plan mode proposes a plan (Claude's `ExitPlanMode`), open it
   with `Claude: Review Plan…`: the plan renders read-only as numbered steps with **Approve & Run**
   / **Edit** / **Discard** buttons that inject the matching choice into the session. A *Refresh*
@@ -419,6 +417,10 @@ swiftc -O swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell && /tmp/suit-shell
 ```
 
+There is no XCTest target; the pure, UI-free logic is covered by standalone harnesses. Run them
+all with `scripts/test.sh` (fast suite) or `scripts/test.sh --all` (includes the ~4-minute
+Autopilot pipeline harness) — see the "Testing" section in `CLAUDE.md`.
+
 Two integrations are wired up from inside the app rather than by hand:
 
 - **Claude Code integration** — app menu ▸ *Install Claude Code Integration…* copies the
@@ -441,9 +443,12 @@ Two integrations are wired up from inside the app rather than by hand:
 | `swift/Sources/suit/` | The AppKit app — UI, tabs, sidebar, git / Claude / Autopilot logic |
 | `swift/Vendor/SwiftTerm/` | Vendored SwiftTerm source (no SPM — see `CLAUDE.md`) |
 | `scripts/claude/` | Statusline + session-state hook scripts installed into `~/.suit` |
+| `scripts/test.sh` | Runs the standalone logic harnesses (`*-test.sh` / `*-harness.sh`) |
 | `design/` | App icon and the committed reference render used to catch visual drift |
 | `Resources/Info.plist` | App bundle metadata and permission usage strings |
 | `build.sh` | Builds everything and assembles `build/Suit.app` |
+| `AGENTS.md` | Concise front-door for coding agents (60-second orientation) |
+| `.claude/commands/` | Repo slash commands: `/build`, `/test`, `/claim-phase`, `/find-file`, `/orient`, … |
 | `CLAUDE.md` | Full architecture breakdown and contributor guidance |
 | `ROADMAP.md` | The phased plan Suit is growing through (and Autopilot's steering file) |
 
@@ -451,9 +456,14 @@ Two integrations are wired up from inside the app rather than by hand:
 
 This is a personal project, but the workflow is documented if you want to hack on it:
 
-- Read `CLAUDE.md` for the architecture, the dev loop, and why the build avoids SwiftPM.
+- Read `AGENTS.md` for the 60-second orientation, then `CLAUDE.md` for the full architecture, the
+  dev loop, and why the build avoids SwiftPM.
 - Start each change on its own branch in its own git worktree — never work directly in the main
   checkout — so concurrent Claude Code sessions don't step on each other's edits.
+- Claim a `ROADMAP.md` phase (append `🚧` to its heading on main) before starting it; `/claim-phase`
+  automates this.
+- Run `scripts/test.sh` before committing non-UI changes, and regenerate the reference render
+  (`design/render-reference.sh`) after chrome edits.
 - After implementing a `ROADMAP.md` phase, document the user-facing behavior (shortcuts,
   settings) in this README so it stays a current description of what the app does.
 
