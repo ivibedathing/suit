@@ -83,6 +83,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         controller.onBroadcast = { [weak self] scope in self?.presentBroadcast(scope: scope) }
         return controller
     }()
+    // Fleet activity feed / daily digest (ROADMAP Phase 38): a floating
+    // cross-window timeline of what *moved* — sessions finishing, PRs/CI,
+    // Autopilot runs — with a "what happened today" recap. The recorder is the
+    // producer side (session transitions + the once-daily digest); the panel is
+    // the reader. A row click routes to the thing it names.
+    lazy var activityFeed: ActivityFeedController = {
+        let controller = ActivityFeedController()
+        controller.onFocusSession = { [weak self] id in self?.focusSession(withId: id) }
+        controller.onOpenPR = { url in
+            guard let link = URL(string: url) else { NSSound.beep(); return }
+            NSWorkspace.shared.open(link)
+        }
+        controller.onOpenAutopilotLog = { [weak self] in self?.openAutopilotLog() }
+        return controller
+    }()
+    lazy var activityRecorder: ActivityRecorder = ActivityRecorder { [weak self] digest in
+        self?.attentionCenter?.postAutopilotEvent(
+            title: "What happened today",
+            body: digest.summary,
+            identifier: "activity-digest"
+        )
+    }
     // Cross-transcript search (ROADMAP Phase 20): a floating "Search
     // Transcripts…" panel; a picked result opens that session's transcript pane
     // in the active window, anchored to the matching line.
@@ -171,10 +193,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             // without the wrapper's exit trap firing changes no record file, so
             // the same heartbeat re-runs the liveness sweep that catches it.
             BackgroundTaskStore.shared.reload()
+            // Fleet activity feed (ROADMAP Phase 38): deliver yesterday's digest
+            // once per calendar day, on the first heartbeat past local midnight.
+            self.activityRecorder.maybePostDailyDigest()
         }
         attentionCenter = ClaudeAttentionCenter { [weak self] sessionId in
             self?.focusSession(withId: sessionId)
         }
+        // Fleet activity feed (ROADMAP Phase 38): start recording session
+        // transitions now, so the feed captures movement even before it's first
+        // opened. The recorder is lazily created here (its first didUpdate seeds
+        // the baseline without recording the already-live sessions).
+        _ = activityRecorder
         // Autopilot notification click-through (§2.11): a live run tab is the
         // interesting surface, otherwise the log — the footer row's routing.
         attentionCenter?.onAutopilotEvent = { [weak self] _ in
@@ -184,6 +214,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             } else {
                 self.openAutopilotLog()
             }
+        }
+        // Activity digest click-through (ROADMAP Phase 38): open the feed.
+        attentionCenter?.onActivityEvent = { [weak self] in
+            self?.activityFeed.show(relativeTo: self?.activeWindowController()?.window)
         }
 
         // Autopilot (ROADMAP Phase 32): the engine hangs off the same 3 s

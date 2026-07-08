@@ -170,9 +170,10 @@ extension AutopilotEngine {
 
     func block(_ reason: AutopilotBlockReason, _ message: String, phaseId: Int?) {
         blockedMessage = message
+        let at = Date().timeIntervalSince1970
         store.setBlocked(AutopilotStore.Blocked(
             reason: reason.rawValue, message: message,
-            at: Date().timeIntervalSince1970, phaseId: phaseId
+            at: at, phaseId: phaseId
         ))
         store.log("blocked (\(reason.rawValue)): \(message)")
         // §2.11: a block is always news — the attention center presents it
@@ -181,6 +182,8 @@ extension AutopilotEngine {
             title: phaseId.map { "Autopilot blocked — Phase \($0)" } ?? "Autopilot blocked",
             body: message, identifier: "autopilot-blocked"
         )
+        // Fleet activity feed (ROADMAP Phase 38): a block is feed-worthy.
+        appDelegate?.recordAutopilotBlocked(reason: reason.rawValue, message: message, phaseId: phaseId, at: at)
         setState(.blocked(reason))
     }
 

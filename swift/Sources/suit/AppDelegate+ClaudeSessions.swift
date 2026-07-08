@@ -73,6 +73,11 @@ extension AppDelegate {
         fleetDashboard.toggle(relativeTo: activeWindowController()?.window)
     }
 
+    // ROADMAP Phase 38 — the fleet activity feed / daily digest panel.
+    @objc func showActivityFeed(_ sender: Any?) {
+        activityFeed.toggle(relativeTo: activeWindowController()?.window)
+    }
+
     // MARK: - Broadcast (ROADMAP Phase 35)
 
     // The steerable targets a broadcast will reach, each paired with its
