@@ -183,6 +183,10 @@ working.
   **Stop** (close the session's tab); double-clicking a row focuses it. A **Board** toggle lays
   the same sessions out Kanban-style (Running / Needs you / Done), one card per worktree —
   click a card to jump to it. Actions are only enabled for sessions a pane still hosts.
+  A session that fans out into `isolation: worktree` **subagents** shows them nested (indented)
+  underneath it — one row per subagent worktree (name + branch), muted when it has no live
+  session of its own — discovered from the repo's worktree list and pruned automatically as
+  Claude Code removes each finished subagent's checkout.
 - **Broadcast** — fan one instruction across many sessions at once (iTerm's "send to all
   sessions"). Check rows in the fleet dashboard and hit **Broadcast Selected (N)**, or
   **Broadcast All** for every live session — either opens the composer aimed at that set; type
@@ -227,8 +231,24 @@ working.
   searched with ripgrep. Results are readable snippets — prompts, replies, tool calls — grouped
   by session (name · project · date), and clicking one opens that session's transcript anchored
   to the matching line.
-- **Worktree tasks** — "New Claude Task…" (⌃⌘T) creates a git worktree on a task branch and
-  opens a pane running `claude` in it; finishing the task merges or discards the worktree.
+- **Worktree tasks** — "New Claude Task…" (⌃⌘T) opens a pane running `claude` for a named task;
+  finishing the task merges or discards its worktree. The prompt carries an **Isolate in
+  worktree** switch — on (the default) spins a dedicated git worktree on a `task/…` branch, off
+  runs `claude` straight in the current checkout for cheap tasks that don't want the worktree
+  churn. The switch's default is a setting (Settings ▸ Claude ▸ "Isolate new tasks in a worktree
+  by default").
+- **Background-task monitor** — long-running jobs Claude Code (or you) background — dev servers,
+  test watchers, builds — are invisible from Suit's side until you scroll the shell. Launch one
+  through the bundled `suit-bg` wrapper (`suit-bg npm run dev`) and it runs detached with its
+  output captured to a log, tracked by the monitor pane: a terminal's right-click ▸ **Show
+  Background Tasks** (or the palette's **Show Background Tasks**) opens a live list of that shell's
+  background jobs — **command**, a status dot (**running** / **done** / **failed**), the
+  **listening port** when detectable — over a live tail of the selected task's captured output.
+  A job that **fails** (or crashes) pulses the monitor tab's strip item like a bell and folds a
+  "N failed" suffix into its header, so a dev server that fell over is noticed without spelunking
+  scrollback. Records live in `~/.suit/tasks/` (written by `suit-bg`, atomic, no dependencies) and
+  are pruned a day after their process ends. The wrapper ships in the app bundle
+  (`Suit.app/Contents/Resources/suit-bg.sh`) — symlink it onto your `PATH` to use it as `suit-bg`.
 
 ### Autopilot
 

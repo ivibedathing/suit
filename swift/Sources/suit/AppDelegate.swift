@@ -35,6 +35,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // (the strip's ✦ button, ⌃⌘C, the palette) — e.g. "--continue" or
     // "--model opus". A raw string handed to the shell, not validated.
     var claudeSessionArgs = ""
+    // New Claude Task isolation default (ROADMAP Phase 31): whether the
+    // "New Claude Task" prompt's "Isolate in worktree" switch starts on. On
+    // reproduces Phase 5's always-a-worktree behavior; off runs claude in the
+    // current checkout. The prompt's per-task choice overrides it.
+    var taskIsolateByDefault = true
     // Bell responses (PaneTerminalView.bell): the white pane flash and the
     // Dock-icon bounce while the app is inactive.
     var bellFlashEnabled = true
@@ -150,6 +155,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self, selector: #selector(claudeSessionsUpdated(_:)),
             name: ClaudeSessionMonitor.didUpdate, object: nil
         )
+        // Start the background-task record watcher up front (ROADMAP Phase 30),
+        // so tracked jobs surface even before the first heartbeat.
+        _ = BackgroundTaskStore.shared
         sessionRefreshTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.sessionRefreshTick += 1
@@ -159,6 +167,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 self.remapClaudeSessions()
             }
             AutopilotEngine.shared.tick()
+            // Background-task monitor (ROADMAP Phase 30): a job that crashed
+            // without the wrapper's exit trap firing changes no record file, so
+            // the same heartbeat re-runs the liveness sweep that catches it.
+            BackgroundTaskStore.shared.reload()
         }
         attentionCenter = ClaudeAttentionCenter { [weak self] sessionId in
             self?.focusSession(withId: sessionId)

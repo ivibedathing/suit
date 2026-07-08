@@ -106,6 +106,12 @@ extension SettingsWindowController {
         claudeArgsHint.textColor = Theme.textDim
         let claudeHintRow = row(label: "", controls: [claudeArgsHint])
 
+        // New-task isolation default (ROADMAP Phase 31): whether the "New
+        // Claude Task" prompt's "Isolate in worktree" switch starts on.
+        taskIsolateCheckbox.target = self
+        taskIsolateCheckbox.action = #selector(taskIsolateChanged)
+        let taskIsolateRow = row(label: "New task:", controls: [taskIsolateCheckbox])
+
         // Set as Goal (ROADMAP Phase 18): whether "Set as Goal" from a viewer
         // selection carries a `From <file>:<lines>:` line into the goal.
         goalProvenanceCheckbox.target = self
@@ -181,7 +187,7 @@ extension SettingsWindowController {
             sectionHeader("File Viewer"),
             wordWrapRow,
             sectionHeader("Claude"),
-            claudeArgsRow, claudeHintRow, goalProvenanceRow,
+            claudeArgsRow, claudeHintRow, taskIsolateRow, goalProvenanceRow,
             sectionHeader("Autopilot"),
             autopilotEnabledRow, autopilotProjectRow, autopilotModeRow, autopilotNightRow,
             autopilotFiveHourRow, autopilotWeeklyRow, autopilotHardStopRow, autopilotPaceRow,

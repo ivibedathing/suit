@@ -789,7 +789,7 @@ session that wrote the change — routing it there by hand is the slow part of s
   worktrees, asserts each is attributed to the correct session and that Route injects the composed
   prompt into the right pty as one unit; ambiguous attribution surfaces a picker.
 
-### Phase 30 — Background-task monitor (dev servers · tests · builds) — 🚧 in progress (worktree-phase-30-background-task-monitor, 2026-07-08)
+### Phase 30 — Background-task monitor (dev servers · tests · builds) — ✅ shipped
 
 Claude Code backgrounds long-running processes (Ctrl+B) and tails them via BashOutput; from
 Suit's side those processes are invisible until you scroll the shell. Making them tracked panes
@@ -807,7 +807,7 @@ blocking the agent or spelunking scrollback.
   clean, one that fails), asserts the monitor lists each with correct status/port and tails new
   log lines, and that a failure raises the strip-item attention signal.
 
-### Phase 31 — Per-session worktree isolation choice + subagent tree — 🚧 in progress (worktree-phase-31-isolation-subagent-tree, 2026-07-08)
+### Phase 31 — Per-session worktree isolation choice + subagent tree — ✅ shipped
 
 Phase 5 made "New task" always spin a worktree; this makes isolation an explicit per-session
 *choice* and renders nested subagent worktrees (Claude Code's `isolation: worktree` subagents,

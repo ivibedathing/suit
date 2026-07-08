@@ -171,6 +171,11 @@ extension AppDelegate {
         saveSettings()
     }
 
+    func taskIsolateByDefaultChanged(_ enabled: Bool) {
+        taskIsolateByDefault = enabled
+        saveSettings()
+    }
+
     func bellFlashChanged(_ enabled: Bool) {
         bellFlashEnabled = enabled
         saveSettings()
@@ -236,6 +241,9 @@ extension AppDelegate {
         }
         if let args = defaults.string(forKey: "claudeSessionArgs") {
             claudeSessionArgs = args
+        }
+        if defaults.object(forKey: "taskIsolateByDefault") != nil {
+            taskIsolateByDefault = defaults.bool(forKey: "taskIsolateByDefault")
         }
         // Autopilot (§2.9): bare camelCase keys, one per table row.
         autopilotEnabled = defaults.bool(forKey: "autopilotEnabled")
@@ -303,6 +311,7 @@ extension AppDelegate {
         defaults.set(bellDockBounceEnabled, forKey: "bellDockBounceEnabled")
         defaults.set(goalPrependProvenanceEnabled, forKey: "goalPrependProvenanceEnabled")
         defaults.set(claudeSessionArgs, forKey: "claudeSessionArgs")
+        defaults.set(taskIsolateByDefault, forKey: "taskIsolateByDefault")
         defaults.set(autopilotEnabled, forKey: "autopilotEnabled")
         defaults.set(autopilotProjectRoot, forKey: "autopilotProjectRoot")
         defaults.set(autopilotMode.rawValue, forKey: "autopilotMode")

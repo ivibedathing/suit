@@ -108,6 +108,18 @@ extension AppDelegate {
         presentBroadcast(scope: .allLive)
     }
 
+    // ROADMAP Phase 30 — the background-task monitor. Scoped to the focused
+    // terminal pane's shell when there is one, otherwise the whole window's
+    // tracked tasks.
+    @objc func showBackgroundTasks(_ sender: Any?) {
+        guard let controller = activeWindowController() else { NSSound.beep(); return }
+        if let shellPid = controller.focusedPane()?.terminalContent?.shellPid, shellPid > 0 {
+            controller.openBackgroundTasks(forShellPid: shellPid, title: "Background Tasks")
+        } else {
+            controller.openBackgroundTasks(forShellPid: 0, title: "Background Tasks")
+        }
+    }
+
     // Opens the prompt composer aimed at `session` — @-completion works over
     // the file index of the session's cwd (so paths complete against the
     // project claude is actually in), falling back to the active window's.
