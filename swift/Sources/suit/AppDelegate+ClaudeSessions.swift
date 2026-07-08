@@ -179,6 +179,75 @@ extension AppDelegate {
         sendReview(from: content)
     }
 
+    // ROADMAP Phase 39 — submit the diff tab's review straight to GitHub as a
+    // `gh pr review`. One dialog picks the verdict (Approve / Request Changes /
+    // Comment) and an optional overall note; the line comments (Phase 16) fold
+    // into the body via PRReviewComposer. Confirmed before send, posted off the
+    // main thread, and the inbox refreshes on success.
+    func submitPRReview(from content: DiffPaneContent) {
+        guard let pr = content.reviewingPR else { NSSound.beep(); return }
+        let comments = content.reviewDraft.comments
+
+        let alert = NSAlert()
+        alert.messageText = "Submit review for PR #\(pr.number)"
+        let summary = comments.isEmpty ? "no line comments" : "\(comments.count) line comment\(comments.count == 1 ? "" : "s")"
+        alert.informativeText = "\(pr.title)\n\nIncludes \(summary). Pick a verdict and add an optional overall note:"
+
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 92))
+        let picker = NSSegmentedControl(labels: PRReviewDecision.allCases.map { $0.label },
+                                        trackingMode: .selectOne, target: nil, action: nil)
+        picker.selectedSegment = 0
+        picker.frame = NSRect(x: 0, y: 64, width: 340, height: 24)
+        let note = NSTextField(frame: NSRect(x: 0, y: 0, width: 340, height: 56))
+        note.placeholderString = "Overall note (required for Request Changes / Comment)…"
+        accessory.addSubview(picker)
+        accessory.addSubview(note)
+        alert.accessoryView = accessory
+        alert.addButton(withTitle: "Submit")
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = note
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        // Segment order matches PRReviewDecision.allCases (approve/request/comment).
+        let index = max(0, picker.selectedSegment)
+        let decision = PRReviewDecision.allCases[index]
+        let body = PRReviewComposer.composeBody(overall: note.stringValue, comments: comments)
+        if decision.requiresBody && body.isEmpty {
+            let warn = NSAlert()
+            warn.messageText = "A “\(decision.label)” review needs a note"
+            warn.informativeText = "Add an overall note or at least one line comment, then submit again."
+            warn.runModal()
+            return
+        }
+
+        let root = pr.root, number = pr.number
+        DispatchQueue.global(qos: .userInitiated).async { [weak self, weak content] in
+            let result = GitHubCLI.prReview(root: root, number: number, decision: decision, body: body)
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    content?.reviewDraft.clear()
+                    content?.reviewChanged()
+                    self?.activeWindowController()?.reloadPRInbox()
+                case .failure(let error):
+                    let a = NSAlert()
+                    a.messageText = "Couldn’t submit review for PR #\(number)"
+                    a.informativeText = error.message
+                    a.alertStyle = .warning
+                    a.runModal()
+                }
+            }
+        }
+    }
+
+    @objc func submitPRReviewCommand(_ sender: Any?) {
+        guard let content = activeWindowController()?.currentDiffContent, content.reviewingPR != nil else {
+            NSSound.beep()
+            return
+        }
+        submitPRReview(from: content)
+    }
+
     // ROADMAP Phase 29 — route a machine-feedback event (CI failure, PR review
     // comments, merge conflict) into its originating session as one structured
     // prompt. When attribution resolved a single session whose pty is hosted,

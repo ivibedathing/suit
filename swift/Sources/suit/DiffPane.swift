@@ -56,6 +56,12 @@ final class DiffPaneContent: NSObject, PaneContent {
     var reload: (() -> String)?
     var gitRoot: String?
 
+    // Set while this diff tab is reviewing a GitHub PR (ROADMAP Phase 39): the
+    // number + repo root "Submit Review" posts to, and the title for the compose
+    // header. nil for an ordinary git-diff tab.
+    struct ReviewingPR { let number: Int; let root: String; let title: String }
+    var reviewingPR: ReviewingPR?
+
     var view: NSView { containerView }
     var focusTarget: NSView { modePicker.selectedSegment == 0 ? unifiedText : leftText }
     var defaultTitle: String { "Diff" }

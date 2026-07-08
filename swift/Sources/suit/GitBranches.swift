@@ -337,6 +337,46 @@ enum GitHubCLI {
         DispatchQueue.global(qos: .userInitiated).async { _ = run(gh, cwd: root, args) }
     }
 
+    // MARK: - PR review inbox (ROADMAP Phase 39)
+
+    // Open PRs that involve me — authored, assigned, or review-requested — as a
+    // review inbox (`PRReviewInbox`). Two `gh pr list --search` passes (involves
+    // covers authored/assigned/commented; review-requested is its own qualifier)
+    // are unioned and deduped by number. Empty on any failure (gh missing / not
+    // authed / offline), so the inbox section just stays hidden.
+    static func reviewInbox(root: String) -> [PRReviewItem] {
+        guard let gh = resolvedPath else { return [] }
+        let fields = "number,title,author,headRefName,url,statusCheckRollup"
+        var byNumber: [Int: PRReviewItem] = [:]
+        for query in ["is:open involves:@me", "is:open review-requested:@me"] {
+            guard case .success(let output) = run(gh, cwd: root, [
+                "pr", "list", "--search", query, "--limit", "50", "--json", fields,
+            ]) else { continue }
+            for item in PRReviewInbox.parseList(output) where byNumber[item.number] == nil {
+                byNumber[item.number] = item
+            }
+        }
+        return byNumber.values.sorted { $0.number > $1.number }
+    }
+
+    // A PR's unified diff (`gh pr diff <n>`), fed straight into a DiffPaneContent.
+    // Empty on failure so the caller shows an empty diff rather than erroring.
+    static func prDiff(root: String, number: Int) -> String {
+        guard let gh = resolvedPath,
+              case .success(let output) = run(gh, cwd: root, ["pr", "diff", "\(number)"])
+        else { return "" }
+        return output
+    }
+
+    // Submit a review on a PR (`gh pr review <n> --approve|--request-changes|
+    // --comment [--body …]`). The argv is composed by the UI-free
+    // `PRReviewComposer`. Success carries gh's stdout; failure its error text
+    // (already-reviewed, can't-approve-own-PR, not authed) verbatim.
+    static func prReview(root: String, number: Int, decision: PRReviewDecision, body: String) -> Result<String, WorktreeTaskError> {
+        guard let gh = resolvedPath else { return .failure(WorktreeTaskError(message: "The gh CLI isn’t installed.")) }
+        return run(gh, cwd: root, PRReviewComposer.reviewArguments(number: number, decision: decision, body: body))
+    }
+
     // gh with stdout/stderr captured; stderr's first line is the error message.
     // gh has no `-C` flag (that's a git-ism) — it's pointed at a repo by its
     // working directory instead.

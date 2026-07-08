@@ -102,6 +102,12 @@ extension DiffPaneContent {
         send.target = self
         send.isEnabled = !reviewDraft.isEmpty
 
+        // Submit straight to GitHub when this diff is a PR under review (Phase 39).
+        if reviewingPR != nil {
+            let submit = menu.addItem(withTitle: "Submit as PR Review…", action: #selector(submitPRReview), keyEquivalent: "")
+            submit.target = self
+        }
+
         let clear = menu.addItem(withTitle: "Clear Review", action: #selector(clearReview), keyEquivalent: "")
         clear.target = self
         clear.isEnabled = !reviewDraft.isEmpty
@@ -127,6 +133,10 @@ extension DiffPaneContent {
 
     @objc private func sendReview() {
         (NSApp.delegate as? AppDelegate)?.sendReview(from: self)
+    }
+
+    @objc private func submitPRReview() {
+        (NSApp.delegate as? AppDelegate)?.submitPRReview(from: self)
     }
 
     @objc private func clearReview() {

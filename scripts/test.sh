@@ -25,6 +25,7 @@ HARNESSES=(
   "broadcast|scripts/broadcast-test.sh|fast"
   "recipes|scripts/recipes-test.sh|fast"
   "file-edit|scripts/file-edit-test.sh|fast"
+  "pr-review|scripts/pr-review-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 

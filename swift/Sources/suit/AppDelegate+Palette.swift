@@ -38,6 +38,11 @@ extension AppDelegate {
         activeWindowController()?.showFeedbackInbox()
     }
 
+    // ROADMAP Phase 39 — reveal the Git tab's PR review inbox and refresh it.
+    @objc func showPRReviewInbox(_ sender: Any?) {
+        activeWindowController()?.showPRReviewInbox()
+    }
+
     // ROADMAP Phase 22 — file:line bookmarks.
     @objc func showBookmarks(_ sender: Any?) {
         activeWindowController()?.showBookmarks()
@@ -266,6 +271,8 @@ extension AppDelegate {
             PaletteCommand(title: "Show Background Tasks", shortcut: nil) { [weak self] in self?.showBackgroundTasks(nil) },
             PaletteCommand(title: "Show Feedback Inbox", shortcut: nil) { [weak self] in self?.showFeedbackInbox(nil) },
             PaletteCommand(title: "Route Feedback to Session…", shortcut: nil) { [weak self] in self?.routeFeedbackFromPalette(nil) },
+            PaletteCommand(title: "Show PR Review Inbox", shortcut: nil) { [weak self] in self?.showPRReviewInbox(nil) },
+            PaletteCommand(title: "Submit PR Review…", shortcut: nil) { [weak self] in self?.submitPRReviewCommand(nil) },
             PaletteCommand(title: "New Claude Session", shortcut: "⌃⌘C") { [weak self] in self?.newClaudeSession(nil) },
             PaletteCommand(title: "New Claude Task…", shortcut: "⌃⌘T") { [weak self] in self?.newClaudeTask(nil) },
             PaletteCommand(title: "Open Claude Transcript…", shortcut: nil) { [weak self] in self?.openClaudeTranscript(nil) },

@@ -195,4 +195,15 @@ extension TerminalWindowController {
     func currentFeedbackEvents() -> [FeedbackEvent] {
         sidebar.gitView.feedbackEvents
     }
+
+    // Reveal the Git tab's PR review inbox and refresh it (palette, Phase 39).
+    func showPRReviewInbox() {
+        showGit()
+        sidebar.gitView.loadReviewInbox()
+    }
+
+    // Re-fetch the inbox after a review is submitted, so the row reflects it.
+    func reloadPRInbox() {
+        sidebar.gitView.loadReviewInbox()
+    }
 }

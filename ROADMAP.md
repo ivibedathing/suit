@@ -1046,25 +1046,32 @@ failing, Autopilot running — plus a "what happened today" recap.
   newest-first with correct routing targets, and that the daily digest rolls up the right day's
   counts.
 
-### Phase 39 — GitHub PR review inbox
+### Phase 39 — GitHub PR review inbox — ✅ shipped
 
 The Verify pillar, outward. Phase 21 ships *your* branches; Phase 16 comments on *local* diffs.
 This reviews other people's PRs end-to-end without leaving Suit — pull them, read the diff with
-line comments, submit the review.
+line comments, submit the review. Landed as `PRReview.swift` (the Foundation-only parse/compose
+core) + `GitView+PRInbox.swift` (the Git-tab section) + `GitHubCLI` verbs, verified by
+`scripts/pr-review-test.sh`.
 
-- **Inbox**: a Git-tab section + palette "Show PR Review Inbox" listing open PRs via `gh`
-  (`gh pr list --search` for authored / assigned / review-requested), each row title + author +
-  branch + a check-rollup glyph (`GitHubCLI`, with the Phase 21 no-gh degradation), loaded off the
-  main thread in a second pass so the list never waits on the network.
-- **Review in the diff pane**: opening a PR fetches its diff (`gh pr diff`) into a
-  `DiffPaneContent` and enables Phase 16 line comments (`DiffReview`) against it, walkable with
-  `n`/`p`.
-- **Submit**: "Submit Review" composes the `DiffReviewDraft` into `gh pr review
-  --approve|--request-changes|--comment --body …` (per-line comments folded into the body where
-  the CLI can't post them inline), confirmed before send; the row state refreshes afterward.
-- **Verification.** Harness against a fixture PR (fake `gh` via `SUIT_GH_PATH`) asserts the inbox
-  lists the right PRs, the diff loads with comments anchored to the right lines, and Submit builds
-  the exact `gh pr review` argv/body from the draft.
+- **Inbox**: a Git-tab "PR Review Inbox — N" section + palette "Show PR Review Inbox" listing open
+  PRs that involve me via `gh` (`GitHubCLI.reviewInbox` unions `gh pr list --search "is:open
+  involves:@me"` and `review-requested:@me`), each row the title + `#N` + check glyph + author +
+  branch (`PRReviewInbox.parseList`, with the Phase 21 no-gh degradation), loaded off the main
+  thread + token-guarded like the branch/feedback passes so the list never waits on the network.
+- **Review in the diff pane**: clicking a row (or "Review Changes") fetches its diff off-thread
+  (`gh pr diff <n>`) into the window's `DiffPaneContent` (tagged with the PR number), enabling the
+  Phase 16 line comments (`DiffReview`) against it, walkable with `n`/`p`; the row's "Open on
+  GitHub" opens the PR page.
+- **Submit**: the diff's Review menu "Submit as PR Review…" (and palette "Submit PR Review…") pops
+  one dialog — verdict (Approve / Request Changes / Comment) + optional overall note — then
+  `PRReviewComposer` folds the draft's line comments into the body and `GitHubCLI.prReview` runs
+  `gh pr review <n> --approve|--request-changes|--comment [--body …]` off-thread; the draft clears
+  and the inbox refreshes on success, gh's error surfaces verbatim on failure.
+- **Verification.** `scripts/pr-review-test.sh` (wired into `scripts/test.sh`) asserts the
+  `gh pr list` JSON parse (fields / author.login / dedup / newest-first / check summary), the
+  verdict→flag mapping, the body composition (grouped by file, sorted by line, overall note), and
+  the exact `gh pr review` argv for each verdict (bare approve omits `--body`).
 
 ### Phase 40 — File time-travel scrubber
 

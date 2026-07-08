@@ -238,6 +238,10 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.gitView.onStartReviewPass = { [weak self] event in
             self?.startReviewPass(for: event)
         }
+        // PR review inbox row → open that PR's diff for review (ROADMAP Phase 39).
+        sidebar.gitView.onOpenPR = { [weak self] pr in
+            self?.openPRDiff(pr)
+        }
         sidebar.recentFolders.onSelect = { [weak self] path in
             var isDirectory: ObjCBool = false
             guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
