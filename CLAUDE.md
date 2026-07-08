@@ -539,6 +539,42 @@ the Swift shell is compiled directly with `swiftc` (see `build.sh`) instead of v
 If you add a new Swift dependency, vendor its source the same way rather than reaching for SPM —
 re-check whether `swift build` works before going back to a `Package.swift`.
 
+## Testing
+
+There is no XCTest target (no SwiftPM/Xcode project — see above). Instead, the pure, UI-free
+logic that features rest on is verified by **standalone harnesses**: each compiles just the
+relevant Foundation-only source file(s) against a small assertion driver and runs it — no app, no
+UI. Run them all from one entrypoint:
+
+```
+scripts/test.sh                   # fast suite (feedback-routing + mode-plan), ~seconds
+scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
+scripts/test.sh --list            # list the harnesses
+```
+
+The individual harnesses (each also runnable directly) are `scripts/feedback-routing-test.sh`
+(`FeedbackRouting.swift`), `scripts/mode-plan-harness.sh` (`ClaudeMode.swift` + `PlanParsing.swift`),
+and `scripts/autopilot-harness.sh` (the full Autopilot pipeline, offscreen with everything faked).
+This is why testable logic is kept in Foundation-only files with no app dependencies (the
+`RoadmapParser`/`AutopilotScheduler`/`FeedbackRouting` pattern) — a harness can compile it in
+isolation. When you add such logic, add a harness for it and wire it into the `HARNESSES` list in
+`scripts/test.sh`. UI/chrome changes are instead guarded by the committed reference render — see
+`design/render-reference.sh` (ROADMAP Phase 15).
+
+## Agent tooling
+
+This repo is set up for coding agents (Claude Code and others):
+
+- `AGENTS.md` — the concise front-door / 60-second orientation (this `CLAUDE.md` remains the
+  source of truth for the full file map and rationale). Keep the two in sync when the build/test
+  commands or the load-bearing rules change.
+- `.claude/commands/` — repo slash commands: `/build`, `/test`, `/claim-phase`,
+  `/render-reference`, `/orient`.
+- `.claude/settings.json` — if present, the shared permission allowlist for the safe, repeated
+  commands (build, `swiftc`, `scripts/test.sh`, read-only `git`/`gh`, search) so agents aren't
+  prompted mid-loop. It intentionally does **not** auto-allow `git push` (asks) or force-push
+  (denied). `.claude/worktrees/` stays git-ignored.
+
 ## Workflow
 
 Always start a new feature/task on its own new branch in its own git worktree (`EnterWorktree`) —

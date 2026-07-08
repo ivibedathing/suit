@@ -407,6 +407,10 @@ swiftc -O swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell && /tmp/suit-shell
 ```
 
+There is no XCTest target; the pure, UI-free logic is covered by standalone harnesses. Run them
+all with `scripts/test.sh` (fast suite) or `scripts/test.sh --all` (includes the ~4-minute
+Autopilot pipeline harness) — see the "Testing" section in `CLAUDE.md`.
+
 Two integrations are wired up from inside the app rather than by hand:
 
 - **Claude Code integration** — app menu ▸ *Install Claude Code Integration…* copies the
@@ -429,9 +433,12 @@ Two integrations are wired up from inside the app rather than by hand:
 | `swift/Sources/suit/` | The AppKit app — UI, tabs, sidebar, git / Claude / Autopilot logic |
 | `swift/Vendor/SwiftTerm/` | Vendored SwiftTerm source (no SPM — see `CLAUDE.md`) |
 | `scripts/claude/` | Statusline + session-state hook scripts installed into `~/.suit` |
+| `scripts/test.sh` | Runs the standalone logic harnesses (`*-test.sh` / `*-harness.sh`) |
 | `design/` | App icon and the committed reference render used to catch visual drift |
 | `Resources/Info.plist` | App bundle metadata and permission usage strings |
 | `build.sh` | Builds everything and assembles `build/Suit.app` |
+| `AGENTS.md` | Concise front-door for coding agents (60-second orientation) |
+| `.claude/commands/` | Repo slash commands: `/build`, `/test`, `/claim-phase`, `/orient`, … |
 | `CLAUDE.md` | Full architecture breakdown and contributor guidance |
 | `ROADMAP.md` | The phased plan Suit is growing through (and Autopilot's steering file) |
 
@@ -439,9 +446,14 @@ Two integrations are wired up from inside the app rather than by hand:
 
 This is a personal project, but the workflow is documented if you want to hack on it:
 
-- Read `CLAUDE.md` for the architecture, the dev loop, and why the build avoids SwiftPM.
+- Read `AGENTS.md` for the 60-second orientation, then `CLAUDE.md` for the full architecture, the
+  dev loop, and why the build avoids SwiftPM.
 - Start each change on its own branch in its own git worktree — never work directly in the main
   checkout — so concurrent Claude Code sessions don't step on each other's edits.
+- Claim a `ROADMAP.md` phase (append `🚧` to its heading on main) before starting it; `/claim-phase`
+  automates this.
+- Run `scripts/test.sh` before committing non-UI changes, and regenerate the reference render
+  (`design/render-reference.sh`) after chrome edits.
 - After implementing a `ROADMAP.md` phase, document the user-facing behavior (shortcuts,
   settings) in this README so it stays a current description of what the app does.
 
