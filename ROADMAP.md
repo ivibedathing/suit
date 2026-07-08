@@ -789,7 +789,7 @@ session that wrote the change — routing it there by hand is the slow part of s
   worktrees, asserts each is attributed to the correct session and that Route injects the composed
   prompt into the right pty as one unit; ambiguous attribution surfaces a picker.
 
-### Phase 30 — Background-task monitor (dev servers · tests · builds)
+### Phase 30 — Background-task monitor (dev servers · tests · builds) — ✅ shipped
 
 Claude Code backgrounds long-running processes (Ctrl+B) and tails them via BashOutput; from
 Suit's side those processes are invisible until you scroll the shell. Making them tracked panes

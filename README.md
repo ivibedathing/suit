@@ -223,6 +223,18 @@ working.
   to the matching line.
 - **Worktree tasks** — "New Claude Task…" (⌃⌘T) creates a git worktree on a task branch and
   opens a pane running `claude` in it; finishing the task merges or discards the worktree.
+- **Background-task monitor** — long-running jobs Claude Code (or you) background — dev servers,
+  test watchers, builds — are invisible from Suit's side until you scroll the shell. Launch one
+  through the bundled `suit-bg` wrapper (`suit-bg npm run dev`) and it runs detached with its
+  output captured to a log, tracked by the monitor pane: a terminal's right-click ▸ **Show
+  Background Tasks** (or the palette's **Show Background Tasks**) opens a live list of that shell's
+  background jobs — **command**, a status dot (**running** / **done** / **failed**), the
+  **listening port** when detectable — over a live tail of the selected task's captured output.
+  A job that **fails** (or crashes) pulses the monitor tab's strip item like a bell and folds a
+  "N failed" suffix into its header, so a dev server that fell over is noticed without spelunking
+  scrollback. Records live in `~/.suit/tasks/` (written by `suit-bg`, atomic, no dependencies) and
+  are pruned a day after their process ends. The wrapper ships in the app bundle
+  (`Suit.app/Contents/Resources/suit-bg.sh`) — symlink it onto your `PATH` to use it as `suit-bg`.
 
 ### Autopilot
 

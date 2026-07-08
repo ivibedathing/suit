@@ -78,6 +78,10 @@ final class PaneTerminalView: LocalProcessTerminalView {
         footerItem.target = pane
         footerItem.state = (pane?.isFooter == true) ? .on : .off
 
+        // Background-task monitor for this pane's shell (ROADMAP Phase 30).
+        let tasksItem = menu.addItem(withTitle: "Show Background Tasks", action: #selector(Pane.showBackgroundTasks(_:)), keyEquivalent: "")
+        tasksItem.target = pane
+
         // Only offered inside a task worktree (ROADMAP Phase 5).
         if WorktreeTasks.isTaskWorktree(pane?.workingDirectory) {
             let finishItem = menu.addItem(withTitle: "Finish Claude Task…", action: #selector(Pane.finishClaudeTask(_:)), keyEquivalent: "")
