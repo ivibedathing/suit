@@ -154,6 +154,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self, selector: #selector(claudeSessionsUpdated(_:)),
             name: ClaudeSessionMonitor.didUpdate, object: nil
         )
+        // Start the background-task record watcher up front (ROADMAP Phase 30),
+        // so tracked jobs surface even before the first heartbeat.
+        _ = BackgroundTaskStore.shared
         sessionRefreshTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.sessionRefreshTick += 1
@@ -163,6 +166,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 self.remapClaudeSessions()
             }
             AutopilotEngine.shared.tick()
+            // Background-task monitor (ROADMAP Phase 30): a job that crashed
+            // without the wrapper's exit trap firing changes no record file, so
+            // the same heartbeat re-runs the liveness sweep that catches it.
+            BackgroundTaskStore.shared.reload()
         }
         attentionCenter = ClaudeAttentionCenter { [weak self] sessionId in
             self?.focusSession(withId: sessionId)
