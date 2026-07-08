@@ -410,6 +410,63 @@ extension TerminalWindowController {
         }
     }
 
+    // Session task recipe (ROADMAP Phase 36): the startClaudeTask recipe plus a
+    // parameterized prompt. Spins the worktree (or current checkout, honoring
+    // Phase 31's isolation choice), opens the `claude` tab, and — once its TUI
+    // is up — sends the already-substituted recipe prompt (the startReviewPass
+    // fixed-delay approach; this is a manual, interactive launcher, not the
+    // Autopilot session-file handshake).
+    func startRecipeTask(named name: String, promptText: String, isolate: Bool = true) {
+        let root = currentFileIndex().root
+        let directory: String
+        if TaskLaunch.usesWorktree(isolate: isolate) {
+            switch WorktreeTasks.createTask(projectRoot: root, name: name) {
+            case .failure(let error):
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = "Recipe Task"
+                alert.informativeText = error.message
+                alert.runModal()
+                return
+            case .success(let worktree):
+                directory = TaskLaunch.checkoutDirectory(isolate: isolate, currentRoot: root, worktreeDirectory: worktree)
+            }
+        } else {
+            directory = TaskLaunch.checkoutDirectory(isolate: isolate, currentRoot: root, worktreeDirectory: nil)
+        }
+        let content = TerminalPaneContent()
+        let tab = Tab(content: content)
+        tab.customTitle = name
+        store.insert(tab)
+        content.start(in: directory)
+        activate(tab)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
+            content?.terminalView.send(txt: "claude\r")
+        }
+        let trimmed = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak content] in
+            guard let content else { return }
+            SessionControl.send(text: trimmed, to: content, submit: true, submitDelay: 0.5)
+        }
+    }
+
+    // The <FILE> / <SELECTION> a recipe fills from the focused pane: the viewer's
+    // open file + selected text, or a terminal's selection. Empty when there's
+    // no such context (the placeholders then collapse to nothing).
+    func recipeContext() -> (file: String, selection: String) {
+        guard let content = focusedPane()?.content else { return ("", "") }
+        if let viewer = content as? FileViewerPaneContent {
+            let range = viewer.textView.selectedRange()
+            let selection = range.length > 0 ? (viewer.textView.string as NSString).substring(with: range) : ""
+            return (viewer.filePath ?? "", selection)
+        }
+        if let terminal = content as? TerminalPaneContent {
+            return ("", terminal.terminalView.getSelection() ?? "")
+        }
+        return ("", "")
+    }
+
     // ROADMAP Phase 29 (reviewer-agent lane, optional): open a fresh claude in
     // the feedback event's worktree, primed to review the branch's changes with
     // the machine feedback as context — a dedicated review pass alongside the

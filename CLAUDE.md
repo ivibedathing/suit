@@ -224,6 +224,18 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     with `@`-completion over the session-cwd's `FileIndex` inserting repo-relative paths. The
     terminal right-click's "Send Selection to Claude Session" opens it prefilled with the
     selection fenced in ``` so one line of context + Enter pipes an error/diff/log line over.
+  - `Recipes.swift` — session task templates / recipes (ROADMAP Phase 36), the UI-free,
+    standalone-compilable core (Foundation-only, verified by `scripts/recipes-test.sh`): the
+    `Recipe` model with `parse(fileName:contents:)` (an optional `---`-fenced front-matter `name:`,
+    else the file's base name; body after the fence) and `filled(name:selection:file:)`
+    (`<NAME>`/`<SELECTION>`/`<FILE>` substitution, missing context → empty), the filename `slug`,
+    and `RecipeLibrary` (the four built-ins — bug fix / feature / refactor / review — plus the
+    dir-scoped `seedIfEmpty`/`load` IO). `RecipesStore.shared` layers the `~/.suit/recipes` path
+    (`$HOME`-first) + a `didUpdate` on top. Surfaced by `AppDelegate.recipeCommands()` as
+    "Recipe: <name>" palette entries → `launchRecipe` (OverlayPrompt for the task name + isolation
+    toggle) → `TerminalWindowController.startRecipeTask` (the `startClaudeTask` recipe + the
+    `startReviewPass` fixed-delay prompt send), with `recipeContext()` pulling `<FILE>`/`<SELECTION>`
+    from the focused viewer/terminal. A manual, interactive launcher — no gating/auto-merge.
   - `ClaudeAttention.swift` — `ClaudeAttentionCenter` (ROADMAP Phase 7): watches session updates
     and, on a transition into needs-input while the app is inactive, posts a UNUserNotification
     (click → activate + focus that pane via `AppDelegate.focusSession(withId:)`); Dock badge =
@@ -608,13 +620,14 @@ relevant Foundation-only source file(s) against a small assertion driver and run
 UI. Run them all from one entrypoint:
 
 ```
-scripts/test.sh                   # fast suite (feedback-routing + mode-plan), ~seconds
+scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes), ~seconds
 scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
 scripts/test.sh --list            # list the harnesses
 ```
 
 The individual harnesses (each also runnable directly) are `scripts/feedback-routing-test.sh`
 (`FeedbackRouting.swift`), `scripts/mode-plan-harness.sh` (`ClaudeMode.swift` + `PlanParsing.swift`),
+`scripts/recipes-test.sh` (`Recipes.swift` — recipe parse / substitution / seed / load),
 and `scripts/autopilot-harness.sh` (the full Autopilot pipeline, offscreen with everything faked).
 This is why testable logic is kept in Foundation-only files with no app dependencies (the
 `RoadmapParser`/`AutopilotScheduler`/`FeedbackRouting` pattern) — a harness can compile it in
