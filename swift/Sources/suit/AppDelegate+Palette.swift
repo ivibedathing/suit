@@ -28,9 +28,23 @@ extension AppDelegate {
         activeWindowController()?.showGit()
     }
 
+    // ROADMAP Phase 29 — reveal the Git tab's Feedback inbox and refresh it.
+    @objc func showFeedbackInbox(_ sender: Any?) {
+        activeWindowController()?.showFeedbackInbox()
+    }
+
     // ROADMAP Phase 22 — file:line bookmarks.
     @objc func showBookmarks(_ sender: Any?) {
         activeWindowController()?.showBookmarks()
+    }
+
+    // ROADMAP Phase 24 — "what changed while I was away" markers.
+    @objc func markAwayPoint(_ sender: Any?) {
+        activeWindowController()?.markAwayPoint()
+    }
+
+    @objc func showCatchUpDiff(_ sender: Any?) {
+        activeWindowController()?.openCatchUpDiff()
     }
 
     // Routed through the responder chain to the focused file viewer (like
@@ -219,6 +233,9 @@ extension AppDelegate {
             PaletteCommand(title: "Show Git Diff", shortcut: "⌃⌘D") { [weak self] in self?.showGitDiff(nil) },
             PaletteCommand(title: "Review Changes (n/p walk files, o opens, c comments)", shortcut: nil) { [weak self] in self?.showGitDiff(nil) },
             PaletteCommand(title: "Send Review to Session…", shortcut: nil) { [weak self] in self?.sendReviewToSession(nil) },
+            PaletteCommand(title: "Show Fleet (all sessions)", shortcut: "⇧⌘O") { [weak self] in self?.showFleet(nil) },
+            PaletteCommand(title: "Show Feedback Inbox", shortcut: nil) { [weak self] in self?.showFeedbackInbox(nil) },
+            PaletteCommand(title: "Route Feedback to Session…", shortcut: nil) { [weak self] in self?.routeFeedbackFromPalette(nil) },
             PaletteCommand(title: "New Claude Session", shortcut: "⌃⌘C") { [weak self] in self?.newClaudeSession(nil) },
             PaletteCommand(title: "New Claude Task…", shortcut: "⌃⌘T") { [weak self] in self?.newClaudeTask(nil) },
             PaletteCommand(title: "Open Claude Transcript…", shortcut: nil) { [weak self] in self?.openClaudeTranscript(nil) },
@@ -227,7 +244,13 @@ extension AppDelegate {
             PaletteCommand(title: "Claude: Prompt Session…", shortcut: nil) { [weak self] in self?.promptClaudeSession(nil) },
             PaletteCommand(title: "Claude: Continue Session", shortcut: nil) { [weak self] in self?.continueClaudeSession(nil) },
             PaletteCommand(title: "Claude: Compact Session (/compact)", shortcut: nil) { [weak self] in self?.compactClaudeSession(nil) },
+            PaletteCommand(title: "Claude: Compact Focused Session (/compact)", shortcut: "⌃⌘K") { [weak self] in self?.compactFocusedSession(nil) },
+            PaletteCommand(title: "Claude: Slash Command Menu…", shortcut: "⌃⌘/") { [weak self] in self?.showSlashCommandMenu(nil) },
             PaletteCommand(title: "Claude: Interrupt Session (Esc)", shortcut: nil) { [weak self] in self?.interruptClaudeSession(nil) },
+            PaletteCommand(title: "Claude: Ask Mode", shortcut: nil) { [weak self] in self?.setSessionModeAsk(nil) },
+            PaletteCommand(title: "Claude: Plan Mode", shortcut: nil) { [weak self] in self?.setSessionModePlan(nil) },
+            PaletteCommand(title: "Claude: Agent Mode", shortcut: nil) { [weak self] in self?.setSessionModeAgent(nil) },
+            PaletteCommand(title: "Claude: Review Plan…", shortcut: nil) { [weak self] in self?.openPlanForReview(nil) },
             PaletteCommand(title: "Set Selection as Claude Goal", shortcut: nil) { [weak self] in self?.setSelectionAsGoalFromFocused(nil) },
             PaletteCommand(title: "Go to Line…", shortcut: "⌘L") { NSApp.sendAction(#selector(ViewerTextView.goToLine(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Toggle Blame", shortcut: "⌃⌘B") { NSApp.sendAction(#selector(ViewerTextView.toggleBlame(_:)), to: nil, from: nil) },
@@ -253,6 +276,8 @@ extension AppDelegate {
             PaletteCommand(title: "Show Notes", shortcut: nil) { [weak self] in self?.showNotes(nil) },
             PaletteCommand(title: "Show Git", shortcut: nil) { [weak self] in self?.showGit(nil) },
             PaletteCommand(title: "Show Bookmarks", shortcut: nil) { [weak self] in self?.showBookmarks(nil) },
+            PaletteCommand(title: "Mark Now (checkpoint for “what changed”)", shortcut: nil) { [weak self] in self?.markAwayPoint(nil) },
+            PaletteCommand(title: "What Changed Since Mark", shortcut: nil) { [weak self] in self?.showCatchUpDiff(nil) },
             PaletteCommand(title: "Toggle Bookmark", shortcut: "⇧⌘L") { [weak self] in self?.toggleBookmark(nil) },
             PaletteCommand(title: "Increase Font Size", shortcut: "⌘=") { [weak self] in self?.increaseFontSize(nil) },
             PaletteCommand(title: "Decrease Font Size", shortcut: "⌘-") { [weak self] in self?.decreaseFontSize(nil) },

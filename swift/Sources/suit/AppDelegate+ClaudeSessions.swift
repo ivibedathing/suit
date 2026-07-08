@@ -32,6 +32,47 @@ extension AppDelegate {
         action.perform(on: terminal)
     }
 
+    // Fleet dashboard (ROADMAP Phase 28) routes its per-row verbs by session id.
+    func performQuickAction(_ action: SessionQuickAction, onSessionId id: String) {
+        guard let terminal = terminalContent(forSessionId: id) else {
+            NSSound.beep()
+            return
+        }
+        action.perform(on: terminal)
+    }
+
+    // MARK: - Fleet-supervision dashboard (ROADMAP Phase 28)
+
+    // Every session id some pane currently hosts, across all windows — the
+    // steerable rows in the dashboard (an unhosted "done" file can't be written).
+    func hostedSessionIds() -> Set<String> {
+        var ids = Set<String>()
+        for controller in windowControllers {
+            for tab in controller.store.tabs {
+                if let id = tab.claudeSession?.id, tab.content is TerminalPaneContent {
+                    ids.insert(id)
+                }
+            }
+        }
+        return ids
+    }
+
+    // Archive/Stop: close the tab hosting the session, wherever it lives —
+    // the same path as ⌘W on that tab (confirms if a foreground process runs).
+    func archiveSession(withId id: String) {
+        for controller in windowControllers {
+            if let tab = controller.store.tabs.first(where: { $0.claudeSession?.id == id }) {
+                controller.closeTab(tab)
+                return
+            }
+        }
+        NSSound.beep()
+    }
+
+    @objc func showFleet(_ sender: Any?) {
+        fleetDashboard.toggle(relativeTo: activeWindowController()?.window)
+    }
+
     // Opens the prompt composer aimed at `session` — @-completion works over
     // the file index of the session's cwd (so paths complete against the
     // project claude is actually in), falling back to the active window's.
@@ -91,6 +132,55 @@ extension AppDelegate {
         sendReview(from: content)
     }
 
+    // ROADMAP Phase 29 — route a machine-feedback event (CI failure, PR review
+    // comments, merge conflict) into its originating session as one structured
+    // prompt. When attribution resolved a single session whose pty is hosted,
+    // send straight there and focus it; otherwise fall back to the picker (the
+    // phase's caveat: ambiguous attribution never guesses). Uses the longer
+    // submit delay since a failure log can be multi-KB.
+    func routeFeedback(_ event: FeedbackEvent) {
+        let prompt = FeedbackRouting.composePrompt(for: event)
+        if let id = event.sessionId, let terminal = terminalContent(forSessionId: id) {
+            SessionControl.send(text: prompt, to: terminal, submit: true, submitDelay: 0.5)
+            focusSession(withId: id)
+            return
+        }
+        withSession(placeholder: "Route feedback to session…") { [weak self] session in
+            guard let self, let terminal = self.terminalContent(forSessionId: session.id) else {
+                NSSound.beep()
+                return
+            }
+            SessionControl.send(text: prompt, to: terminal, submit: true, submitDelay: 0.5)
+            self.focusSession(withId: session.id)
+        }
+    }
+
+    // Palette "Route Feedback to Session…": gathers the active window's Git-tab
+    // feedback events; one routes directly, several show a picker to choose
+    // which event to route (each event then resolves its own target session).
+    @objc func routeFeedbackFromPalette(_ sender: Any?) {
+        guard let controller = activeWindowController() else { NSSound.beep(); return }
+        let events = controller.currentFeedbackEvents()
+        switch events.count {
+        case 0:
+            NSSound.beep()
+        case 1:
+            routeFeedback(events[0])
+        default:
+            paletteFileIndex = nil
+            commandPalette.show(
+                relativeTo: controller.window,
+                commands: events.map { event in
+                    let target = event.branch ?? (event.worktreePath as NSString).lastPathComponent
+                    return PaletteCommand(title: "\(event.kind.label): \(event.title) · \(target)", shortcut: nil) { [weak self] in
+                        self?.routeFeedback(event)
+                    }
+                },
+                placeholder: "Route which feedback…"
+            )
+        }
+    }
+
     // Palette entry points: with several sessions they go through a picker
     // palette (same machinery as Open Claude Transcript).
     @objc func promptClaudeSession(_ sender: Any?) {
@@ -117,6 +207,46 @@ extension AppDelegate {
         }
     }
 
+    // MARK: - Live slash-command menu (ROADMAP Phase 27)
+
+    // The command menu: pick a session (picker when several are live), then a
+    // palette of that session's available slash commands — built-ins plus the
+    // discovered custom commands and skills — each injected into its pty.
+    @objc func showSlashCommandMenu(_ sender: Any?) {
+        withSession(placeholder: "Slash command in session…") { [weak self] session in
+            self?.presentSlashCommands(for: session)
+        }
+    }
+
+    private func presentSlashCommands(for session: ClaudeSession) {
+        guard let terminal = terminalContent(forSessionId: session.id) else {
+            NSSound.beep()
+            return
+        }
+        let catalog = SlashCommandCatalog.forSession(cwd: session.cwd)
+        let project = (session.cwd as NSString?)?.lastPathComponent ?? session.displayName
+        paletteFileIndex = nil
+        commandPalette.show(
+            relativeTo: activeWindowController()?.window,
+            commands: catalog.map { command in
+                PaletteCommand(title: command.menuTitle, shortcut: command.source.rawValue) { [weak terminal] in
+                    guard let terminal else { NSSound.beep(); return }
+                    SessionControl.send(text: command.name, to: terminal, submit: true)
+                }
+            },
+            placeholder: "Slash command → \(project)"
+        )
+    }
+
+    // The context bar action (Phase 27): /compact the focused pane's session
+    // directly (no picker) — the keyboard binding behind the title-bar meter tap.
+    @objc func compactFocusedSession(_ sender: Any?) {
+        guard let pane = activeWindowController()?.focusedPane(), pane.compactContextSession() else {
+            NSSound.beep()
+            return
+        }
+    }
+
     // Runs `body` on the one session, or shows a session-picker palette when
     // several are live. Only sessions whose pty is actually hosted by some
     // pane are offered — the others can't be written to.
@@ -140,6 +270,76 @@ extension AppDelegate {
                 placeholder: placeholder
             )
         }
+    }
+
+    // MARK: - Mode control (ROADMAP Phase 26)
+
+    // Switch a session to a permission mode by writing Shift+Tab presses into
+    // its pty — the palette-side counterpart of the title bar's mode control.
+    // Session-scoped (not pane-scoped) so it works even when the session's tab
+    // is backgrounded; the visible pane, if any, repaints its control.
+    func switchClaudeMode(_ target: ClaudeMode, forSessionId id: String) {
+        guard let terminal = terminalContent(forSessionId: id),
+              let session = ClaudeSessionMonitor.shared.sessions.first(where: { $0.id == id }) else {
+            NSSound.beep()
+            return
+        }
+        let current = ClaudeModeTracker.shared.effectiveMode(for: session)
+        let payload = ClaudeModeControl.payload(from: current, to: target)
+        if !payload.isEmpty {
+            terminal.terminalView.send(txt: payload)
+        }
+        ClaudeModeTracker.shared.record(target, forSessionId: id)
+        terminal.pane?.refreshChrome()
+    }
+
+    @objc func setSessionModeAsk(_ sender: Any?) {
+        withSession(placeholder: "Set Ask mode in session…") { [weak self] in self?.switchClaudeMode(.ask, forSessionId: $0.id) }
+    }
+
+    @objc func setSessionModePlan(_ sender: Any?) {
+        withSession(placeholder: "Set Plan mode in session…") { [weak self] in self?.switchClaudeMode(.plan, forSessionId: $0.id) }
+    }
+
+    @objc func setSessionModeAgent(_ sender: Any?) {
+        withSession(placeholder: "Set Agent mode in session…") { [weak self] in self?.switchClaudeMode(.agent, forSessionId: $0.id) }
+    }
+
+    // MARK: - Plan approval (ROADMAP Phase 26)
+
+    // Palette: open a session's plan-approval pane. One session opens directly;
+    // several go through the picker, exactly like Open Claude Transcript.
+    @objc func openPlanForReview(_ sender: Any?) {
+        guard let controller = activeWindowController() else { return }
+        let sessions = ClaudeSessionMonitor.shared.sessions
+        switch sessions.count {
+        case 0:
+            NSSound.beep()
+        case 1:
+            controller.openPlanApproval(for: sessions[0])
+        default:
+            paletteFileIndex = nil
+            commandPalette.show(
+                relativeTo: controller.window,
+                commands: sessions.map { session in
+                    let project = (session.cwd as NSString?)?.lastPathComponent ?? ""
+                    return PaletteCommand(title: "\(session.displayName) — \(session.state.label) · \(project)", shortcut: nil) { [weak controller] in
+                        controller?.openPlanApproval(for: session)
+                    }
+                },
+                placeholder: "Open plan for session…"
+            )
+        }
+    }
+
+    // Dispatch a plan-approval button into the session's pty: the exact hotkey
+    // for the matching ExitPlanMode menu option, submitted with a return.
+    func dispatchPlanApproval(_ action: PlanApprovalAction, forSessionId id: String) {
+        guard let terminal = terminalContent(forSessionId: id) else {
+            NSSound.beep()
+            return
+        }
+        SessionControl.send(text: action.ptyPayload, to: terminal, submit: true)
     }
 
     // MARK: - Set as Goal (ROADMAP Phase 18)

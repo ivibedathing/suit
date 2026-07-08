@@ -120,6 +120,69 @@ extension TerminalWindowController {
         activate(tab)
     }
 
+    // MARK: - "What changed while I was away" markers (ROADMAP Phase 24)
+
+    // Drops a per-repo checkpoint: every worktree's HEAD sha + a timestamp,
+    // into markers.json. Silent by design — the Git tab's marker button fills
+    // and its tooltip/menu reflect the new mark (no toast system in the app).
+    func markAwayPoint(root explicitRoot: String? = nil) {
+        let root = explicitRoot ?? currentFileIndex().root
+        guard let mainRoot = MarkerCatchUp.mainRoot(root) else {
+            NSSound.beep()
+            return
+        }
+        MarkerStore.shared.setMarker(MarkerCatchUp.mark(mainRoot: mainRoot), forRepo: mainRoot)
+    }
+
+    // "What Changed Since Mark": composes the aggregate diff across every
+    // worktree since the mark into the window's diff tab (reused like
+    // openGitDiff) — the Phase 5 review machinery fed a multi-worktree set.
+    func openCatchUpDiff(root explicitRoot: String? = nil) {
+        let root = explicitRoot ?? currentFileIndex().root
+        guard let mainRoot = MarkerCatchUp.mainRoot(root) else {
+            NSSound.beep()
+            return
+        }
+        guard let marker = MarkerStore.shared.marker(forRepo: mainRoot) else {
+            let alert = NSAlert()
+            alert.messageText = "No marker set"
+            alert.informativeText = "Use “Mark Now” first to record a checkpoint, then come back to see everything that changed across the repo's worktrees since."
+            alert.runModal()
+            return
+        }
+
+        // Which Claude session (by cwd match) is working in each worktree —
+        // resolved fresh on every compose so a Refresh re-attributes.
+        let sessionForPath: (String) -> String? = { path in
+            let match = ClaudeSessionMonitor.shared.sessions.first {
+                guard let cwd = $0.cwd else { return false }
+                return cwd == path || cwd.hasPrefix(path + "/")
+            }
+            guard let match else { return nil }
+            return "\(match.displayName) • \(match.state.label)"
+        }
+
+        let producer: () -> String = {
+            MarkerCatchUp.compose(mainRoot: mainRoot, marker: marker, sessionForPath: sessionForPath).diffText
+        }
+        let composed = MarkerCatchUp.compose(mainRoot: mainRoot, marker: marker, sessionForPath: sessionForPath)
+        let title = "Since \(MarkerCatchUp.shortTime(marker.at)) · \(MarkerCatchUp.fileCount(composed.totalFiles)) +\(composed.totalInsertions) \u{2212}\(composed.totalDeletions)"
+
+        let load = { (content: DiffPaneContent) in
+            content.loadDiffText(composed.diffText, title: title, root: mainRoot, reload: producer)
+        }
+        if let tab = store.tabs.first(where: { $0.content is DiffPaneContent }) {
+            if let content = tab.content as? DiffPaneContent { load(content) }
+            activate(tab)
+            return
+        }
+        let content = DiffPaneContent()
+        let tab = Tab(content: content)
+        store.insert(tab)
+        load(content)
+        activate(tab)
+    }
+
     // Opens (or reuses) the window's transcript tab showing a Claude session's
     // conversation (ROADMAP Phase 7).
     func openTranscript(for session: ClaudeSession) {
@@ -129,6 +192,21 @@ extension TerminalWindowController {
             return
         }
         let content = TranscriptPaneContent()
+        let tab = Tab(content: content)
+        store.insert(tab)
+        content.load(session: session)
+        activate(tab)
+    }
+
+    // Opens (or reuses) the window's plan-approval tab showing a Claude
+    // session's proposed plan (ROADMAP Phase 26), reused like the transcript.
+    func openPlanApproval(for session: ClaudeSession) {
+        if let tab = store.tabs.first(where: { $0.content is PlanApprovalPaneContent }) {
+            (tab.content as? PlanApprovalPaneContent)?.load(session: session)
+            activate(tab)
+            return
+        }
+        let content = PlanApprovalPaneContent()
         let tab = Tab(content: content)
         store.insert(tab)
         content.load(session: session)
@@ -198,6 +276,36 @@ extension TerminalWindowController {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
                 content?.terminalView.send(txt: "claude\r")
             }
+        }
+    }
+
+    // ROADMAP Phase 29 (reviewer-agent lane, optional): open a fresh claude in
+    // the feedback event's worktree, primed to review the branch's changes with
+    // the machine feedback as context — a dedicated review pass alongside the
+    // working session. The instruction is sent after a beat, once claude's TUI
+    // is up (the composer's fixed-delay approach, not Autopilot's session-file
+    // handshake — this is a one-off manual action, not an autonomous loop).
+    func startReviewPass(for event: FeedbackEvent) {
+        let directory = event.worktreePath
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: directory, isDirectory: &isDirectory), isDirectory.boolValue else {
+            NSSound.beep()
+            return
+        }
+        let content = TerminalPaneContent()
+        let tab = Tab(content: content)
+        let label = event.branch.map { ($0 as NSString).lastPathComponent } ?? (directory as NSString).lastPathComponent
+        tab.customTitle = "Review — \(label)"
+        store.insert(tab)
+        content.start(in: directory)
+        activate(tab)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
+            content?.terminalView.send(txt: "claude\r")
+        }
+        let prompt = FeedbackRouting.reviewPassPrompt(for: event)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak content] in
+            guard let content else { return }
+            SessionControl.send(text: prompt, to: content, submit: true, submitDelay: 0.5)
         }
     }
 

@@ -184,4 +184,15 @@ extension TerminalWindowController {
         }
         sidebar.select(tab: .bookmarks)
     }
+
+    // Reveal the Git tab's Feedback inbox and refresh it (palette, Phase 29).
+    func showFeedbackInbox() {
+        showGit()
+        sidebar.gitView.loadFeedbackData()
+    }
+
+    // The active window's gathered feedback events, for palette routing (Phase 29).
+    func currentFeedbackEvents() -> [FeedbackEvent] {
+        sidebar.gitView.feedbackEvents
+    }
 }

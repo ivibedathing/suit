@@ -74,6 +74,26 @@ extension TerminalWindowController {
         sidebar.gitView.showFileHistory(absolutePath: (path as NSString).standardizingPath)
     }
 
+    // Ask · Plan · Agent control (ROADMAP Phase 26): drive the Claude session in
+    // `pane`'s tab to the requested mode by writing the right number of Shift+Tab
+    // presses into its pty, then remember the new belief so the control reflects
+    // it and the next switch cycles correctly.
+    func paneRequestedSwitchClaudeMode(_ pane: Pane, to target: ClaudeMode) {
+        guard let session = pane.tab.claudeSession,
+              let terminal = pane.terminalContent else {
+            NSSound.beep()
+            return
+        }
+        let current = ClaudeModeTracker.shared.effectiveMode(for: session)
+        let payload = ClaudeModeControl.payload(from: current, to: target)
+        if !payload.isEmpty {
+            terminal.terminalView.send(txt: payload)
+        }
+        ClaudeModeTracker.shared.record(target, forSessionId: session.id)
+        pane.refreshChrome()
+        reloadStrip()
+    }
+
     // A path relative to a git root, for the file-scoped git commands.
     private func relativePath(of path: String, inRoot root: String) -> String {
         let standardized = (path as NSString).standardizingPath

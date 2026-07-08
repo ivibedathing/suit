@@ -180,6 +180,27 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     (`resolveFileReference`, cwd-relative like the terminal's Cmd-click links) open in the viewer
     pane. Opened from the "Open Claude Transcript…" palette entry
     (multiple sessions → palette picker); one transcript pane per window, reused like viewers.
+  - `ClaudeMode.swift` — the Ask · Plan · Agent permission-mode control (ROADMAP Phase 26).
+    `ClaudeMode` (ask/plan/agent) with a fixed Shift+Tab cycle order (default → acceptEdits →
+    plan); `ClaudeModeControl.payload(from:to:)` is the pure `ESC[Z`×N (back-tab) string that
+    cycles from a believed mode to a target; `ClaudeModeTracker.shared` remembers the last mode
+    Suit sent per session, and `effectiveMode(for:)` prefers the session JSON's `permission_mode`
+    readback, else last-sent, else agent. The title bar's `ModeControlView` (in
+    `PaneTitleBarView.swift`, shown only for a live Claude tab) and the `Claude: Ask/Plan/Agent
+    Mode` palette entries both route through `paneRequestedSwitchClaudeMode` /
+    `AppDelegate.switchClaudeMode(_:forSessionId:)`, which writes the payload and records the new
+    belief. Purely a control surface — no Claude-side changes; readback is best-effort (the
+    `suit-session-state.sh` hook writes `permission_mode` when the hook JSON carries it).
+  - `PlanParsing.swift` / `PlanApprovalPane.swift` — the plan-approval surface (ROADMAP Phase 26).
+    `PlanParser` (pure, UI-free) scans a session's JSONL transcript for the latest `ExitPlanMode`
+    tool call and returns its `plan` markdown split into ordered steps (list items, else prose
+    lines); `PlanApprovalAction` maps Approve & Run / Edit / Discard onto ExitPlanMode's menu
+    hotkeys `1`/`2`/`3`. `PlanApprovalPaneContent` renders the plan read-only as numbered steps
+    with a footer of those buttons (each dispatched via `AppDelegate.dispatchPlanApproval` →
+    `SessionControl.send`) plus a Refresh that re-parses; opened by `Claude: Review Plan…`
+    (`TerminalWindowController.openPlanApproval`), one per window, reused like the transcript pane.
+    `scripts/mode-plan-harness.sh` compiles both pure files against a `ClaudeSession` stub and
+    asserts the switch payloads, plan parsing, and approval payloads.
   - `StateRestoration.swift` — the Codable layout snapshot (cross-cutting "state restoration"):
     `SavedAppState`/`SavedWindow` mirror each window's ordered tab list (terminal cwd, viewer
     path + first visible line, diff root, preview/pinned flags, custom title), MRU order, active
@@ -303,6 +324,27 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     uncommitted); `GitFileHistory.compute` runs `git log --follow` into `[FileCommit]`
     (newest-first). `GitAgeTint.color(forTime:now:)` shades recent commits bright fading to faint
     over ~2 years (log scale), amber for uncommitted — shared by the blame gutter and history rows.
+  - `FeedbackRouting.swift` — feedback-loop routing (ROADMAP Phase 29), the UI-free,
+    standalone-compilable core (the `RoadmapParser`/`AutopilotScheduler`/`DiffReview` pattern,
+    Foundation-only): the `FeedbackEvent` model (kind = ciFailure/prComment/mergeConflict, its
+    worktree, branch, PR number, detail, and the attributed `sessionId`; `id` dedupes by
+    kind+worktree+PR) plus the deterministic pieces — `conflictedFiles(porcelain:)` (unmerged
+    XY codes: any `U`, `AA`, `DD`), `parsePRFeedback(json:)` / `parseFailingChecks(json:)` over
+    gh's `reviews,comments` / `statusCheckRollup` JSON, `attributeSession(worktreePath:sessions:)`
+    (a single physical-path cwd match wins; 0 or >1 → nil so routing falls back to a picker,
+    never guesses), and `composePrompt(for:)` / `reviewPassPrompt(for:)` (fenced so bracketed
+    paste keeps the log/comments one input unit). Verified by `scripts/feedback-routing-test.sh`.
+  - `FeedbackInbox.swift` — the Phase 29 IO layer: `FeedbackInbox.gather(root:prByBranch:sessions:)`
+    iterates the repo's worktrees (`git worktree list --porcelain`), reads each one's conflict
+    state (pure git, so conflicts show without gh), and — for worktrees whose branch has an open
+    PR — pulls failing-check detail + a failed-run log tail and PR review comments via the new
+    `GitHubCLI.failingChecks` / `failedRunLog` / `prFeedback`, attributing each event to its
+    session. Runs off the main thread; takes a `SessionRef` snapshot read on the main thread so
+    it never touches `ClaudeSessionMonitor` off-thread. Surfaced by `GitView+Feedback.swift` (the
+    Git tab's top "Feedback — N" section + `GitFeedbackRowView`, loaded token-guarded like the
+    branch pass) and routed by `AppDelegate.routeFeedback(_:)` → `SessionControl.send` (the
+    resolved session, else the `withSession` picker) with palette verbs "Show Feedback Inbox" /
+    "Route Feedback to Session…"; the reviewer-agent lane is `TerminalWindowController.startReviewPass(for:)`.
   - `WorktreeTasks.swift` — worktree orchestration (ROADMAP Phase 5): `createTask` makes
     `.claude/worktrees/<slug>` on branch `task/<slug>`; `finish` merges (refusing on uncommitted
     changes) or discards, then removes worktree + branch. `removeAfterRemoteMerge` (Phase 32)
@@ -506,6 +548,14 @@ concurrent Claude Code sessions working other phases never interfere with each o
 Multiple agents have written overlapping changes here before when working straight in the primary
 working directory; a fresh branch + worktree per task keeps them from stepping on each other's
 edits. Exit with `keep` if the work should persist for later, `remove` once it's merged/abandoned.
+
+**Claim a phase before you start it, so concurrent sessions don't collide.** The moment you pick
+a `ROADMAP.md` phase to implement, mark it claimed by appending ` 🚧 in progress (<branch>, <date>)`
+to that phase's `### Phase N — …` heading in `ROADMAP.md` on the main checkout, and commit just
+that one-line change to main before creating the worktree. Before picking a phase, read the
+`ROADMAP.md` headings and skip any already marked `🚧` (claimed), `✅` (shipped), or `⏸` (skipped) —
+take the first phase in document order that has none of these. Replace the `🚧` marker with `✅`
+when the phase ships (or remove it if you abandon the work) so the roadmap stays truthful.
 
 After implementing any phase from `ROADMAP.md`, document the new feature(s) in `README.md` —
 write up what shipped (user-facing behavior, shortcuts, settings) as part of the same task, so

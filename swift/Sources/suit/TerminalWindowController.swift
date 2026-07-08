@@ -208,6 +208,14 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.gitView.onOpenCommitDiff = { [weak self] path, sha in
             self?.paneRequestedOpenCommitDiff(forFile: path, sha: sha)
         }
+        // Away markers (ROADMAP Phase 24): drop a checkpoint / review the
+        // aggregate catch-up diff since it.
+        sidebar.gitView.onMarkNow = { [weak self] root in
+            self?.markAwayPoint(root: root)
+        }
+        sidebar.gitView.onCatchUp = { [weak self] root in
+            self?.openCatchUpDiff(root: root)
+        }
         // Switching worktrees is a pin: the whole sidebar (browser, search,
         // git) repoints there, but stays on the Git tab — the user is
         // mid-review, not mid-browse.
@@ -216,6 +224,14 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         }
         sidebar.gitView.onTaskFinished = { [weak self] mainRoot in
             self?.pinSidebar(toDirectory: mainRoot, showFiles: false)
+        }
+        // Feedback inbox row → route the event into its session, or start a
+        // dedicated review pass in its worktree (ROADMAP Phase 29).
+        sidebar.gitView.onRouteFeedback = { event in
+            (NSApp.delegate as? AppDelegate)?.routeFeedback(event)
+        }
+        sidebar.gitView.onStartReviewPass = { [weak self] event in
+            self?.startReviewPass(for: event)
         }
         sidebar.recentFolders.onSelect = { [weak self] path in
             var isDirectory: ObjCBool = false

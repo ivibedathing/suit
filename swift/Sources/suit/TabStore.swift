@@ -17,6 +17,7 @@ enum TabKind {
     case pdf
     case diff
     case transcript
+    case plan
 
     var symbolName: String {
         switch self {
@@ -28,6 +29,7 @@ enum TabKind {
         case .pdf: return "doc.text.image"
         case .diff: return "plus.forwardslash.minus"
         case .transcript: return "text.bubble"
+        case .plan: return "checklist"
         }
     }
 }
@@ -74,6 +76,7 @@ final class Tab {
         case is FileViewerPaneContent: return .viewer
         case is DiffPaneContent: return .diff
         case is TranscriptPaneContent: return .transcript
+        case is PlanApprovalPaneContent: return .plan
         default: return .terminal
         }
     }

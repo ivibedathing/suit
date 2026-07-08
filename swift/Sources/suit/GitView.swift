@@ -28,6 +28,14 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     // Open a commit's per-file diff (absolute file path, full sha) — File
     // History rows (ROADMAP Phase 17).
     var onOpenCommitDiff: ((String, String) -> Void)?
+    // Drop an away-marker for the shown repo (ROADMAP Phase 24).
+    var onMarkNow: ((String) -> Void)?
+    // Show the aggregate catch-up diff since the last marker.
+    var onCatchUp: ((String) -> Void)?
+    // Route a feedback event into its originating Claude session (Phase 29).
+    var onRouteFeedback: ((FeedbackEvent) -> Void)?
+    // Kick a dedicated review pass in the event's worktree (Phase 29, optional).
+    var onStartReviewPass: ((FeedbackEvent) -> Void)?
 
     enum Row {
         case section(String)
@@ -35,12 +43,14 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         case file(path: String, letter: Character)
         case branch(GitBranchInfo)
         case commit(FileCommit)
+        case feedback(FeedbackEvent)
     }
 
     private static let headerHeight: CGFloat = 28
 
     private let branchIcon = NSImageView(frame: .zero)
     let branchButton = NSButton(frame: .zero)
+    private let markerButton = NSButton(frame: .zero)
     private let fullDiffButton = NSButton(frame: .zero)
     private let separator = NSBox(frame: .zero)
     private let scrollView = NSScrollView(frame: .zero)
@@ -65,6 +75,16 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var historyCommits: [FileCommit] = []
     var historyGeneration = 0
 
+    // The shown repo's main-checkout path, resolved once per repo switch —
+    // markers are keyed by it (ROADMAP Phase 24). Kept off `reload()`'s hot
+    // FSEvents path since it shells out to git.
+    private var markerMainRoot: String?
+    // Feedback inbox (Phase 29): CI failures / PR review comments / merge
+    // conflicts across the repo's worktrees, gathered off the main thread and
+    // token-guarded against a superseded root, same pattern as the branch load.
+    var feedbackEvents: [FeedbackEvent] = []
+    var feedbackToken = 0
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
@@ -86,6 +106,13 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         branchButton.toolTip = "Switch worktree or branch"
         branchButton.setAccessibilityLabel("Switch worktree or branch")
         addSubview(branchButton)
+
+        markerButton.isBordered = false
+        markerButton.imagePosition = .imageOnly
+        markerButton.target = self
+        markerButton.action = #selector(openMarkerMenu)
+        markerButton.contentTintColor = Theme.textDim
+        addSubview(markerButton)
 
         fullDiffButton.image = NSImage(systemSymbolName: "plusminus", accessibilityDescription: "Show Full Diff")?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 11, weight: .medium))
@@ -130,6 +157,10 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             self, selector: #selector(statusChanged(_:)),
             name: GitStatusMonitor.didUpdate, object: nil
         )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(markerChanged),
+            name: MarkerStore.didUpdate, object: nil
+        )
         reload()
     }
 
@@ -150,6 +181,9 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         if root != gitRoot {
             gitRoot = root
             monitor = root.map { GitStatusMonitor.shared(forRoot: $0) }
+            // Markers are repo-wide (keyed by the main checkout); resolve it
+            // once here rather than on every FSEvents-driven reload.
+            markerMainRoot = root.flatMap { MarkerCatchUp.mainRoot($0) }
             // Drop the previous repo's branch/PR cache immediately so a stale
             // list never shows while the new one loads.
             branches = []
@@ -158,6 +192,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             historyPath = nil
             historyCommits = []
             historyGeneration += 1
+            // The feedback inbox is repo-scoped too.
+            feedbackEvents = []
         }
         monitor?.refresh()
         reload()
@@ -177,6 +213,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             branchButton.isEnabled = false
             branchButton.toolTip = nil
             fullDiffButton.isEnabled = false
+            markerButton.isEnabled = false
+            refreshMarkerButton()
             emptyLabel.stringValue = "Not a git repository."
             emptyLabel.isHidden = false
             tableView.reloadData()
@@ -184,11 +222,20 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         }
         branchButton.isEnabled = true
         fullDiffButton.isEnabled = true
+        markerButton.isEnabled = true
+        refreshMarkerButton()
         emptyLabel.isHidden = true
 
         let branch = monitor.currentBranch ?? "detached HEAD"
         setBranchTitle("\(branch) — \((monitor.root as NSString).lastPathComponent)")
         branchButton.toolTip = (monitor.root as NSString).abbreviatingWithTildeInPath
+
+        // Feedback inbox first — machine feedback that needs routing is the
+        // "who needs me right now" of the review workflow (Phase 29).
+        if !feedbackEvents.isEmpty {
+            rows.append(.section("Feedback — \(feedbackEvents.count)"))
+            rows += feedbackEvents.map { .feedback($0) }
+        }
 
         let staged = monitor.stagedByPath.sorted { $0.key < $1.key }
         let unstaged = monitor.unstagedByPath.sorted { $0.key < $1.key }
@@ -243,10 +290,15 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             y: headerY + (Self.headerHeight - buttonSize) / 2,
             width: buttonSize, height: buttonSize
         )
+        markerButton.frame = NSRect(
+            x: fullDiffButton.frame.minX - 4 - buttonSize,
+            y: headerY + (Self.headerHeight - buttonSize) / 2,
+            width: buttonSize, height: buttonSize
+        )
         let branchX = branchIcon.frame.maxX + 4
         branchButton.frame = NSRect(
             x: branchX, y: headerY + (Self.headerHeight - 18) / 2,
-            width: max(0, fullDiffButton.frame.minX - 6 - branchX), height: 18
+            width: max(0, markerButton.frame.minX - 6 - branchX), height: 18
         )
         separator.frame = NSRect(x: 0, y: headerY, width: bounds.width, height: 1)
         scrollView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: max(0, headerY - 1))
@@ -281,6 +333,9 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             if let historyPath {
                 onOpenCommitDiff?(historyPath, commit.sha)
             }
+        case let .feedback(event):
+            // Clicking a feedback row routes it to its session (Phase 29).
+            onRouteFeedback?(event)
         default:
             break
         }
@@ -289,6 +344,62 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     @objc private func showFullDiff() {
         guard let root = gitRoot else { return }
         onShowFullDiff?(root)
+    }
+
+    // MARK: - Away marker (ROADMAP Phase 24)
+
+    private var currentMarker: MarkerStore.Marker? {
+        markerMainRoot.flatMap { MarkerStore.shared.marker(forRepo: $0) }
+    }
+
+    // Flag icon fills once a marker exists; the tooltip carries when it was set.
+    private func refreshMarkerButton() {
+        let marker = currentMarker
+        let symbol = marker == nil ? "flag" : "flag.fill"
+        markerButton.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Away marker")?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 11, weight: .medium))
+        if let marker {
+            markerButton.toolTip = "Marked \(MarkerCatchUp.shortTime(marker.at)) — what changed since"
+        } else {
+            markerButton.toolTip = "Mark now — checkpoint for “what changed while I was away”"
+        }
+    }
+
+    @objc private func openMarkerMenu() {
+        guard gitRoot != nil else { return }
+        let menu = NSMenu()
+
+        if let marker = currentMarker {
+            menu.addItem(Self.headerItem("Marked \(MarkerCatchUp.shortTime(marker.at))"))
+            let catchUp = menu.addItem(withTitle: "What Changed Since Mark", action: #selector(catchUpItem), keyEquivalent: "")
+            catchUp.target = self
+            menu.addItem(.separator())
+        }
+        let markItem = menu.addItem(
+            withTitle: currentMarker == nil ? "Mark Now" : "Re-mark Now",
+            action: #selector(markNowItem), keyEquivalent: ""
+        )
+        markItem.target = self
+
+        menu.popUp(
+            positioning: nil,
+            at: NSPoint(x: markerButton.frame.minX, y: markerButton.frame.minY - 2),
+            in: self
+        )
+    }
+
+    @objc private func markNowItem() {
+        guard let root = gitRoot else { return }
+        onMarkNow?(root)
+    }
+
+    @objc private func catchUpItem() {
+        guard let root = gitRoot else { return }
+        onCatchUp?(root)
+    }
+
+    @objc private func markerChanged() {
+        refreshMarkerButton()
     }
 
     // MARK: - Context menu
@@ -312,6 +423,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             buildFileMenu(menu, path: path, letter: letter)
         case let .branch(info):
             buildBranchMenu(menu, branch: info)
+        case let .feedback(event):
+            buildFeedbackMenu(menu, event: event)
         default:
             break
         }
@@ -385,6 +498,15 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             }()
             view.configure(commit: commit)
             return view
+        case .feedback(let event):
+            let identifier = NSUserInterfaceItemIdentifier("gitFeedbackRow")
+            let view = tableView.makeView(withIdentifier: identifier, owner: self) as? GitFeedbackRowView ?? {
+                let created = GitFeedbackRowView(frame: .zero)
+                created.identifier = identifier
+                return created
+            }()
+            view.configure(event: event, sessionName: sessionName(for: event))
+            return view
         }
     }
 
@@ -392,7 +514,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         switch rows[row] {
         case .section:
             return 20
-        case .commit:
+        case .commit, .feedback:
             return 34
         default:
             return 24
@@ -401,7 +523,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
 
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch rows[row] {
-        case .file, .branch, .commit:
+        case .file, .branch, .commit, .feedback:
             return true
         default:
             return false

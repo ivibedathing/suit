@@ -143,6 +143,27 @@ working.
   the branch, body from its commits), **Open on GitHub**, and **Checkout**. When a PR exists it
   shows a `#N` badge with a ✓/✕/• checks glyph. Everything degrades gracefully without the `gh`
   CLI — the menu still checks out, and shows a hint to install gh.
+- **"What changed while I was away"** — start Claude sessions across a repo's worktrees, step
+  away, and come back to *one* diff of everything that moved. The Git tab's ⚑ button (or the
+  palette's **Mark Now**) records a per-repo checkpoint — every worktree's HEAD plus a timestamp,
+  in `~/.suit/markers.json`; the flag fills once a mark is set. **What Changed Since Mark**
+  (⚑ menu or palette) then composes an aggregate diff across *all* the repo's worktrees — each
+  worktree's commits, staged, unstaged, and newly-created files since the mark — into one review
+  set in the diff tab, walkable with the usual `n`/`p`/`o`/`c`. A summary header leads it:
+  files-touched and `+ins −del` per worktree, and which Claude session (matched by cwd) is
+  working there, so the catch-up reads as "session X changed these 6 files". Worktrees created
+  after the mark diff from their merge-base, so only their new work shows.
+- **Feedback inbox** — a **Feedback** section at the top of the Git tab surfaces machine feedback
+  across the repo's worktrees: **CI failures** (failing checks + a tail of the failed run's log,
+  via `gh`), **PR review comments** (reviews + conversation comments, via `gh`), and **merge
+  conflicts** (unmerged files, pure git — shown even when GitHub is unreachable). Each row is
+  attributed to the **originating Claude session** (resolved by the same worktree/cwd session
+  map) and shows `→ <session>`, or `route to a session…` when attribution is ambiguous. Click a
+  row (or right-click ▸ **Route to Session…**) to compose the failure log / comments / conflict
+  list into one structured prompt and inject it into that session's pty — with a session picker
+  when the match is ambiguous, never a guess. Right-click ▸ **Start Review Pass in Worktree**
+  kicks a fresh `claude` in the worktree primed to review the branch. Palette: **Show Feedback
+  Inbox**, **Route Feedback to Session…**.
 - **Notes** — a free-text scratch tab in the sidebar backed by `~/.suit/notes.txt`;
   right-click a terminal selection to append it as a note.
 
@@ -154,16 +175,42 @@ working.
   usage, and the Sessions sidebar sorts sessions "needs you first".
 - **Attention** — a session that needs input while Suit is inactive posts a notification
   (click to jump to its pane) and badges the Dock with the needs-input count.
+- **Fleet dashboard** — "Show Fleet" (⇧⌘O, or the command palette) opens a floating,
+  cross-window panel listing every live Claude session as a row — status dot, current task,
+  project · worktree · branch, context %, and cost — sorted needs-you-first, so one glance
+  answers "who needs me right now" without hunting through tabs. Each row steers the session
+  in place: **Focus** (bring its window + pane forward), **Esc** (interrupt), **Continue**, and
+  **Stop** (close the session's tab); double-clicking a row focuses it. A **Board** toggle lays
+  the same sessions out Kanban-style (Running / Needs you / Done), one card per worktree —
+  click a card to jump to it. Actions are only enabled for sessions a pane still hosts.
 - **Talk-back** — send prompts into any session's pty: quick actions (Prompt… / Continue /
   /compact / Interrupt), a floating composer with `@`-completion over repo files, a prompt
   library (`~/.suit/prompts/*.md`), or right-click ▸ "Send Selection to Claude Session" to pipe
   an error/diff/log line over with context.
+- **Slash-command menu** — "Slash Command Menu…" (⌃⌘/, or the command palette) lists a chosen
+  session's available commands — Claude's built-ins (`/context`, `/compact`, `/clear`, `/usage`,
+  …), your custom `~/.claude/commands/*.md`, and skills (each project's own `.claude/` is scanned
+  too) — and dispatches the one you pick straight into that session's pty. A session picker appears
+  first when several are live.
+- **One-tap /compact** — the pane title bar's context-% meter is a button: click it (or press
+  ⌃⌘K, "Compact Focused Session") to send `/compact` into the focused session, so acting on a
+  full context window is one tap instead of a typed command.
 - **Set as Goal** — select code or prose in a file viewer, transcript, or terminal, then
   right-click ▸ "Set as Goal" (or the palette's "Set Selection as Claude Goal") to send
   `/goal <selection>` into a chosen session — turning "this is what I want done" into a
   two-click gesture. Sent as one bracketed-paste unit (multi-line selections stay intact) and
   submitted; a session picker appears when several are live, defaulting to the last one you
   targeted. An optional setting prepends the source location (`From <file>:<lines>:`).
+- **Mode control** — every Claude tab's title bar carries an **Ask · Plan · Agent** segmented
+  control; clicking a segment switches Claude's permission mode by writing the right number of
+  Shift+Tab presses into the pane's pty (so you never have to guess which invisible mode a pane
+  is in). The same switch is on the palette (`Claude: Ask/Plan/Agent Mode`). The shown mode reads
+  back from the session's `permission_mode` when the hooks report it, else reflects the last mode
+  Suit sent.
+- **Plan review** — when a session in Plan mode proposes a plan (Claude's `ExitPlanMode`), open it
+  with `Claude: Review Plan…`: the plan renders read-only as numbered steps with **Approve & Run**
+  / **Edit** / **Discard** buttons that inject the matching choice into the session. A *Refresh*
+  re-parses the latest plan from the transcript.
 - **Transcripts** — open a live-tailing, read-only render of any session's transcript; file
   paths in it are clickable like terminal links.
 - **Checkpoint timeline** — "Open Checkpoint Timeline…" shows a session's automatic pre-change
@@ -306,12 +353,19 @@ The full list also lives in-app under **Settings (⌘,) ▸ Shortcuts**.
 | ⌃⌘C | New Claude session |
 | ⌃⌘T | New Claude task |
 | ⌃⌘F | Search transcripts |
+| ⌃⌘/ | Slash-command menu |
+| ⌃⌘K | Compact focused session (/compact) |
+| ⇧⌘O | Show fleet dashboard |
 
 Show File History (palette / viewer right-click) lists the open file's commits in the Git tab.
 
 In a focused diff pane, `n` / `p` walk the changed files, `o` opens the file under review, and
 `c` adds a review comment on the line at the caret (batched to a Claude session with Send
 Review to Session…).
+
+The Git tab's Feedback section (CI failures / PR review comments / merge conflicts) routes each
+item to its originating Claude session — click a row or use the palette's **Show Feedback Inbox**
+and **Route Feedback to Session…**.
 
 ### Appearance
 
