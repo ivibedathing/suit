@@ -10,6 +10,11 @@ final class ViewerTextView: NSTextView {
         viewerContent?.promptForLine()
     }
 
+    // ROADMAP Phase 37 — write the editable buffer to disk (⌘S / palette).
+    @objc func saveFile(_ sender: Any?) {
+        viewerContent?.save()
+    }
+
     @objc func toggleBlame(_ sender: Any?) {
         viewerContent?.toggleBlame()
     }
@@ -52,6 +57,15 @@ final class ViewerTextView: NSTextView {
             if content.goToDefinition(atCharacterOffset: charIndex) { return }
         }
         super.mouseDown(with: event)
+    }
+
+    // Grey out File ▸ Save unless there's an editable file with unsaved edits
+    // (Phase 37). Other actions keep NSTextView's own validation.
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(saveFile(_:)) {
+            return viewerContent?.canSave ?? false
+        }
+        return super.validateUserInterfaceItem(item)
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {

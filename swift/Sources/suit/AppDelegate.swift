@@ -219,6 +219,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationWillTerminate(_ notification: Notification) {
         // A debounced notes save may still be pending; the timer dies with us.
         NotesStore.shared.flush()
+        // Likewise flush any editable viewer's pending autosave (Phase 37), so
+        // the sub-second debounce window never loses edits across a quit — the
+        // file on disk is then current and restoration just reloads it.
+        for controller in windowControllers {
+            for tab in controller.store.tabs {
+                controller.flushDirtyViewer(tab)
+            }
+        }
         SavedAppState(windows: windowControllers.map { $0.captureState() }).save()
         guard let pane = activeWindowController()?.focusedPane(),
               let cwd = pane.workingDirectory else { return }

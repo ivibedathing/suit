@@ -75,6 +75,10 @@ final class Tab {
     // The Claude session running in this tab's terminal, if any — kept per
     // tab so attention routes through background tabs (strip dot pulses).
     var claudeSession: ClaudeSession?
+    // Unsaved edits in an editable viewer tab (Phase 37): drives the dirty dot
+    // in the strip + pane header and the warn-before-close/quit guards. Set via
+    // contentDirtyDidChange so a backgrounded tab still repaints the strip.
+    var isDirty = false
 
     init(content: PaneContent) {
         self.content = content
@@ -128,6 +132,15 @@ final class Tab {
     func contentProcessDidExit(_ status: ProcessExitStatus?) {
         exitStatus = status
         store?.tabProcessDidExit(self)
+    }
+
+    // The editable viewer's dirty state flipped (Phase 37) — repaint the strip
+    // and header. Routed here (not through Pane) so a background viewer tab's
+    // autosave clearing its dot still reaches the strip.
+    func contentDirtyDidChange(_ dirty: Bool) {
+        guard isDirty != dirty else { return }
+        isDirty = dirty
+        store?.tabDidChange(self)
     }
 
     func wantsAttention() {

@@ -24,6 +24,23 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     var syntaxSpans: [SyntaxSpan] = []
     var baseTextColor: NSColor = .textColor
 
+    // MARK: - Editing (ROADMAP Phase 37)
+
+    // Saved-vs-buffer tracking; the pure decisions live in FileEdit.swift.
+    var editState = FileEditState()
+    // True only when a real text file is loaded — the error placeholders
+    // (binary / too large / unreadable) stay read-only.
+    var isEditableFile = false
+    // Debounced autosave (the NotesStore pattern) and debounced re-highlight so
+    // colouring doesn't run on every keystroke.
+    var autosaveTimer: Timer?
+    var rehighlightTimer: Timer?
+    // The file's on-disk mtime at our last load/save, to detect outside edits.
+    var savedModificationDate: Date?
+    // Set while we assign textView.string ourselves, so a programmatic reload
+    // is never mistaken for a user edit.
+    var isLoadingProgrammatically = false
+
     // Files past this stop being useful to scroll through and start being a
     // memory problem; the viewer refuses rather than beachballing.
     private static let maxFileSize = 8 * 1024 * 1024
@@ -39,9 +56,12 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
 
     override init() {
         textView = ViewerTextView(frame: .zero)
+        // Read-only until a real text file loads (Phase 37 — load() flips this
+        // on for editable content, off for binary/too-large/error placeholders).
         textView.isEditable = false
         textView.isSelectable = true
         textView.isRichText = false
+        textView.allowsUndo = true
         textView.usesFindBar = true
         textView.isIncrementalSearchingEnabled = true
         textView.textContainerInset = NSSize(width: 4, height: 4)
@@ -65,6 +85,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
 
         super.init()
         textView.viewerContent = self
+        textView.delegate = self
         container = ViewerContainerView(scrollView: scrollView, minimap: minimap)
 
         // Gutter click toggles the bookmark on that line (ROADMAP Phase 22).
@@ -100,6 +121,13 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
             self, selector: #selector(bookmarksChanged),
             name: BookmarksStore.didUpdate, object: nil
         )
+        // Editable viewer (Phase 37): when the app regains focus, check whether
+        // the open file was rewritten underneath us (Claude / $EDITOR) and
+        // reconcile — a clean buffer reloads, a dirty one prompts.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appBecameActive),
+            name: NSApplication.didBecomeActiveNotification, object: nil
+        )
     }
 
     // MARK: - Changed regions (ROADMAP Phase 5)
@@ -126,6 +154,9 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         loadGeneration += 1
 
         let text: String
+        // Only real, in-bounds text is editable; the placeholders below stay
+        // read-only so a save can never write a "Binary file" stub over a file.
+        var editable = false
         if let data = FileManager.default.contents(atPath: standardized) {
             if data.count > Self.maxFileSize {
                 text = "\(standardized)\n\nFile is too large for the viewer (\(data.count / (1024 * 1024)) MB)."
@@ -133,12 +164,26 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
                 text = "\(standardized)\n\nBinary file (\(data.count) bytes)."
             } else {
                 text = String(decoding: data, as: UTF8.self)
+                editable = true
             }
         } else {
             text = "\(standardized)\n\nCould not read file."
         }
 
+        // Editing state (Phase 37): the loaded text becomes the clean baseline;
+        // record the file's mtime so an outside rewrite is detectable.
+        isEditableFile = editable
+        textView.isEditable = editable
+        editState.markLoaded(text)
+        savedModificationDate = modificationDate(ofPath: standardized)
+        autosaveTimer?.invalidate(); autosaveTimer = nil
+        rehighlightTimer?.invalidate(); rehighlightTimer = nil
+
+        isLoadingProgrammatically = true
         textView.string = text
+        isLoadingProgrammatically = false
+        // Fresh document — don't let undo reach back into a previous file's edits.
+        textView.undoManager?.removeAllActions()
         recomputeLineStarts(for: text)
         ruler.lineStarts = lineStarts
         ruler.updateThickness()
@@ -160,13 +205,16 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         refreshBookmarks()
 
         tab?.contentTitleDidChange((standardized as NSString).lastPathComponent)
+        // A reload starts clean — drop any leftover dirty indicator.
+        tab?.contentDirtyDidChange(false)
+        pane?.refreshChrome()
 
         if let line {
             jump(toLine: line)
         }
     }
 
-    private func recomputeLineStarts(for text: String) {
+    func recomputeLineStarts(for text: String) {
         var starts = [0]
         let ns = text as NSString
         var index = 0
@@ -355,6 +403,8 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     }
 
     func teardown() {
+        autosaveTimer?.invalidate()
+        rehighlightTimer?.invalidate()
         NotificationCenter.default.removeObserver(self)
     }
 }

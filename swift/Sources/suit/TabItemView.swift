@@ -123,11 +123,23 @@ final class TabItemView: NSView {
         isHoveredTab = hovered
         needsDisplay = true
 
-        showsClose = !tab.isPinned && (active || hovered)
+        // A dirty (unsaved) viewer tab reserves the close slot even while idle
+        // so its indicator stays visible (Phase 37); the slot shows an accent
+        // dot, flipping to the ✕ on hover so the tab is still closable.
+        showsClose = !tab.isPinned && (active || hovered || tab.isDirty)
         closeLabel.isHidden = !showsClose
-        // The close box gets its own hover square inside the tab.
-        closeLabel.layer?.backgroundColor = closeHovered ? Theme.hover.cgColor : nil
-        closeLabel.textColor = closeHovered ? Theme.textPrimary : Theme.textDim
+        if tab.isDirty && !closeHovered {
+            closeLabel.stringValue = "●"
+            closeLabel.font = .systemFont(ofSize: 8, weight: .bold)
+            closeLabel.textColor = Theme.accent
+            closeLabel.layer?.backgroundColor = nil
+        } else {
+            closeLabel.stringValue = "✕"
+            closeLabel.font = .systemFont(ofSize: 9, weight: .semibold)
+            // The close box gets its own hover square inside the tab.
+            closeLabel.layer?.backgroundColor = closeHovered ? Theme.hover.cgColor : nil
+            closeLabel.textColor = closeHovered ? Theme.textPrimary : Theme.textDim
+        }
 
         // Session dot (or the red failed dot once the shell is gone) —
         // attention routes through background tabs (ROADMAP Phase 4/6).

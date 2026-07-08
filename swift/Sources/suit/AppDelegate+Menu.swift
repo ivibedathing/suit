@@ -25,6 +25,10 @@ extension AppDelegate {
         let fileMenu = NSMenu(title: "File")
         let openQuicklyItem = fileMenu.addItem(withTitle: "Open Quickly…", action: #selector(openQuickly(_:)), keyEquivalent: "p")
         openQuicklyItem.target = self
+        // ⌘S — responder-chain routed to the focused editable viewer (Phase 37);
+        // auto-disabled (and the write no-ops) when no editable file is focused.
+        fileMenu.addItem(.separator())
+        fileMenu.addItem(withTitle: "Save", action: #selector(ViewerTextView.saveFile(_:)), keyEquivalent: "s")
         fileMenuItem.submenu = fileMenu
 
         let editMenuItem = NSMenuItem()

@@ -282,6 +282,7 @@ extension AppDelegate {
             PaletteCommand(title: "Claude: Agent Mode", shortcut: nil) { [weak self] in self?.setSessionModeAgent(nil) },
             PaletteCommand(title: "Claude: Review Plan…", shortcut: nil) { [weak self] in self?.openPlanForReview(nil) },
             PaletteCommand(title: "Set Selection as Claude Goal", shortcut: nil) { [weak self] in self?.setSelectionAsGoalFromFocused(nil) },
+            PaletteCommand(title: "Save File", shortcut: "⌘S") { NSApp.sendAction(#selector(ViewerTextView.saveFile(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Go to Line…", shortcut: "⌘L") { NSApp.sendAction(#selector(ViewerTextView.goToLine(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Toggle Blame", shortcut: "⌃⌘B") { NSApp.sendAction(#selector(ViewerTextView.toggleBlame(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Show File History", shortcut: nil) { NSApp.sendAction(#selector(ViewerTextView.showFileHistory(_:)), to: nil, from: nil) },

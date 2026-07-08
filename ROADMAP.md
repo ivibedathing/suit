@@ -991,38 +991,38 @@ and `TerminalWindowController+OpenTabs.swift` (`startRecipeTask` / `recipeContex
   set + file round-trip, and the seed/load IO (seeds an empty dir, leaves a populated one alone,
   missing dir → empty).
 
-### Phase 37 — Edit files in Suit — 🚧 in progress (worktree-phase-37-edit-files, 2026-07-08)
+### Phase 37 — Edit files in Suit — ✅ shipped
 
 The Read pillar, crossing into write — the one slice the thesis sanctions ("Light editing, if
 ever, is an additive later phase — not a rewrite"). The read-only viewer becomes editable: type
-into the buffer and save to disk, without turning Suit into an IDE. Selection/copy, jump-to,
-highlighting and the gutter all survive; this adds a caret, undo, and a write-back path on top.
+into the buffer and it autosaves to disk, without turning Suit into an IDE. Selection/copy,
+jump-to, highlighting and the gutter all survive; this adds a caret, undo, and a write-back path
+on top. Landed as `FileEdit.swift` (the Foundation-only save/dirty/reconcile core) +
+`FileViewerPane+Editing.swift` (the Cocoa wiring), verified by `scripts/file-edit-test.sh`.
 
-- **Editable buffer**: flip `FileViewerPaneContent`'s `ViewerTextView` to `isEditable = true` +
-  `allowsUndo = true` and give it an `NSTextViewDelegate` (`textDidChange`) — the Notes editor
-  (`NotesView`, the app's existing editable surface) is the template. The insertion point already
-  gets a color (`applyTextColor`); it just becomes visible.
+- **Editable buffer**: `FileViewerPaneContent`'s `ViewerTextView` gains `isEditable`/`allowsUndo`
+  and an `NSTextViewDelegate` (`textDidChange`) — the Notes editor (`NotesView`) is the template.
+  Editing is enabled only for real, in-bounds text; the binary / too-large / unreadable
+  placeholders stay read-only so a save can never write a stub over a file.
 - **Live viewer refresh**: `textDidChange` re-runs `recomputeLineStarts` → `ruler.lineStarts` +
-  thickness, and re-drives `rehighlight()` / `rebuildMinimap()` — reworked from the current
-  whole-document `applySyntaxAttributes` pass to an edited-range-local re-highlight so it doesn't
-  fight live typing/undo; the `loadGeneration` guard keeps stale async colorings from landing.
-  Gutter state keyed off offsets (changed-lines, blame, bookmarks) is invalidated on edit.
-- **Save**: a debounced atomic write of the buffer to `filePath` (the `NotesStore` pattern — ~1 s
-  debounce, `.write(to:options:.atomic)`, `flush()` on `applicationWillTerminate` so a pending
-  edit is never lost), plus explicit `⌘S`, a dirty dot in the tab strip / pane title bar, and a
-  warn-on-close/quit prompt when a buffer has unsaved edits.
-- **External-change reconciliation**: the file changing on disk underneath (Claude or `$EDITOR`
-  writes it) is detected via the file's mtime / the existing FSEvents index — a clean buffer
-  silently reloads; a dirty buffer warns before clobbering, keeping Claude-writes-the-code the
-  default while never losing the user's in-flight edit.
-- **State restoration**: `SavedTab` gains a dirty flag + the unsaved buffer text so edits survive
-  relaunch (today only `filePath` + scroll are captured); a restored dirty buffer reopens unsaved,
-  a clean one reloads from disk.
-- **Verification.** Factor the dirty-tracking + debounce/atomic-save decision into a Foundation-
-  only core (the `RoadmapParser`/`Recipes` pattern) and add a harness (wired into `scripts/test.sh`)
-  asserting: an edit marks dirty and schedules exactly one write, the flush writes the buffer
-  bytes atomically, an external clean-buffer change reloads while a dirty one warns, and a
-  round-tripped `SavedTab` restores dirty text vs. reloads a clean file.
+  thickness synchronously, bumps `loadGeneration` so any in-flight async colouring drops, and
+  debounces `rehighlight()` / `rebuildMinimap()` (~0.25 s) so highlighting doesn't run per
+  keystroke or fight live typing.
+- **Save**: a debounced atomic write of the buffer to `filePath` (the `NotesStore` pattern — 1 s
+  debounce, `.write(to:options:.atomic)` in `FileEditWriter`), plus explicit `⌘S` (File ▸ Save /
+  palette "Save File", auto-disabled when clean) and a dirty dot in the tab strip (the close slot,
+  flipping to ✕ on hover) and pane title bar. Pending edits flush on tab close and on
+  `applicationWillTerminate`, so the sub-second debounce window never loses work across a quit.
+- **External-change reconciliation**: on app re-activation the file's mtime is checked; if it moved
+  (Claude or `$EDITOR` rewrote it), `FileEditState.resolveExternalChange` decides — a matching disk
+  is our own save echoing back (ignore), a clean buffer silently reloads (scroll preserved), and a
+  dirty buffer prompts Keep-My-Edits / Reload-from-Disk. Keeps Claude-writes-the-code the default
+  while never silently losing the user's in-flight edit.
+- **Verification.** The dirty-tracking + reconcile decision + atomic writer live in the
+  Foundation-only `FileEdit.swift` (the `RoadmapParser`/`Recipes` pattern); `scripts/file-edit-test.sh`
+  (wired into `scripts/test.sh`) asserts the dirty flag flips on first divergence and clears on
+  revert/save/load, the reconcile decision returns ignore/reload/warn for each disk-vs-buffer case,
+  and the atomic write round-trips exact bytes (including a shorter overwrite leaving no residue).
 
 ### Phase 38 — Fleet activity feed / daily digest
 

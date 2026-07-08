@@ -112,12 +112,21 @@ working.
   Project / Sub-project / Pane Directory scopes; results stream in grouped by file.
 - **Open quickly** (⌘P) — fuzzy-find any file in the project index; ⌘K opens the command
   palette over every app command plus your prompt library.
-- **File viewer** — files open as read-only tabs (deduped by path) with syntax highlighting, a
+- **File viewer** — files open as tabs (deduped by path) with syntax highlighting, a
   minimap, line numbers, go-to-line (⌘L), and orange marks on lines changed since HEAD.
   Cmd-click a path in any terminal (with optional `:line`) to jump straight to it. Files are
   first-class tabs: every open (sidebar click, ⌘P, search hit, Cmd-click link) opens the
   file's own tab or re-activates it if the path is already open — files never load one on top
   of another, so opening three files leaves three tabs.
+- **Edit files** — the viewer is editable: type into the buffer (undo with ⌘Z) and it
+  **autosaves** to disk on a short debounce, or save now with **⌘S** (File ▸ Save / palette
+  "Save File"). An accent dot on the tab (in place of its close ✕ until you hover) and in the
+  pane header marks unsaved edits; pending edits also flush when you close the tab or quit.
+  Binary, over-8 MB, and unreadable files stay read-only. If a file changes on disk underneath
+  you — Claude or `$EDITOR` rewrote it — Suit notices when it regains focus: a clean buffer
+  silently reloads (keeping your scroll), and one with unsaved edits asks whether to keep your
+  edits or reload from disk. Editing stays a deliberate, bounded slice — Suit is still
+  viewer-first, with Claude doing the heavy code-writing.
 - **Blame gutter** — Toggle Blame (⌃⌘B) shows a per-line column of the last-touching commit
   (short sha + author, tinted by age) beside the line numbers; the full commit subject is on
   hover, and clicking a line's sha opens that commit's diff.
@@ -397,6 +406,7 @@ The full list also lives in-app under **Settings (⌘,) ▸ Shortcuts**.
 | ⌘G | Find next |
 | ⇧⌘G | Find previous |
 | ⌘E | Use selection for find |
+| ⌘S | Save the edited file (file viewer) |
 | ⌘L | Go to line (file viewer) |
 | ⇧⌘L | Toggle bookmark on the current line (file viewer) |
 | ⌃⌘J | Go to definition (file viewer; also Cmd-click) |

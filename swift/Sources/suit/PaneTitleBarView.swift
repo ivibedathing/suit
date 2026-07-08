@@ -10,6 +10,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
     private let label = NSTextField(labelWithString: "")
     private let statusDot = NSView(frame: .zero)
     private let contextLabel = NSTextField(labelWithString: "")
+    private let dirtyDot = NSView(frame: .zero)
     private var mouseDownLocation: NSPoint?
 
     override init(frame frameRect: NSRect) {
@@ -38,6 +39,14 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         contextLabel.textColor = Theme.textFaint
         contextLabel.isHidden = true
         addSubview(contextLabel)
+
+        // Unsaved-edits indicator for the editable viewer (Phase 37): a small
+        // accent dot on the right, alongside the session/context chrome.
+        dirtyDot.wantsLayer = true
+        dirtyDot.layer?.cornerRadius = 2.5
+        dirtyDot.layer?.backgroundColor = Theme.accent.cgColor
+        dirtyDot.isHidden = true
+        addSubview(dirtyDot)
     }
 
     // Phase 27 — the context meter reads as a one-tap /compact whenever a live
@@ -94,6 +103,17 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         }
     }
 
+    // The open file has unsaved edits (editable viewer, Phase 37). Shown as an
+    // accent dot in the header; the strip carries the same flag on the tab.
+    var isDirty: Bool = false {
+        didSet {
+            guard isDirty != oldValue else { return }
+            dirtyDot.isHidden = !isDirty
+            needsLayout = true
+            setFrameSize(frame.size)
+        }
+    }
+
     private func updateStatusDot() {
         statusDot.layer?.removeAnimation(forKey: "suit.pulse")
         if let exitStatus {
@@ -140,6 +160,11 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         statusDot.frame = NSRect(x: right - dotSize, y: (bounds.height - dotSize) / 2, width: dotSize, height: dotSize)
         if !statusDot.isHidden {
             right = statusDot.frame.minX - 6
+        }
+        let dirtySize: CGFloat = 5
+        dirtyDot.frame = NSRect(x: right - dirtySize, y: (bounds.height - dirtySize) / 2, width: dirtySize, height: dirtySize)
+        if !dirtyDot.isHidden {
+            right = dirtyDot.frame.minX - 6
         }
 
         let left = iconView.frame.maxX + 6
