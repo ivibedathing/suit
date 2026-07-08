@@ -268,6 +268,56 @@ enum GitHubCLI {
         }
     }
 
+    // The reviewer feedback on a PR (Phase 29): review summaries + conversation
+    // comments from `gh pr view <n> --json reviews,comments`, parsed by the
+    // UI-free `FeedbackRouting`. Nil on any failure (gh missing / not authed /
+    // offline) so the feedback inbox just skips that PR.
+    static func prFeedback(root: String, number: Int) -> FeedbackRouting.PRFeedback? {
+        guard let gh = resolvedPath,
+              case .success(let output) = run(gh, cwd: root, ["pr", "view", "\(number)", "--json", "reviews,comments"]),
+              let data = output.data(using: .utf8)
+        else { return nil }
+        return FeedbackRouting.parsePRFeedback(json: data)
+    }
+
+    // The failing checks on a PR (Phase 29): the per-check detail behind the
+    // `pr list` traffic light, from `gh pr view <n> --json statusCheckRollup`.
+    static func failingChecks(root: String, number: Int) -> [FeedbackRouting.CheckFailure] {
+        guard let gh = resolvedPath,
+              case .success(let output) = run(gh, cwd: root, ["pr", "view", "\(number)", "--json", "statusCheckRollup"]),
+              let data = output.data(using: .utf8)
+        else { return [] }
+        return FeedbackRouting.parseFailingChecks(json: data)
+    }
+
+    // A best-effort tail of the failed CI run's log for the branch (Phase 29):
+    // find the newest failed run (`gh run list`) and pull only its failed steps
+    // (`gh run view --log-failed`), capped so a huge log can't blow up the
+    // routed prompt. Empty when gh can't surface it (Actions off, no failed run,
+    // permissions) — the routed prompt then leans on the failing-check names.
+    static func failedRunLog(root: String, branch: String, maxBytes: Int = 6000) -> String {
+        guard let gh = resolvedPath,
+              case .success(let listing) = run(gh, cwd: root, [
+                  "run", "list", "--branch", branch, "--limit", "20",
+                  "--json", "databaseId,conclusion",
+              ]),
+              let data = listing.data(using: .utf8),
+              let runs = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return "" }
+        let failedId = runs.first(where: {
+            let conclusion = ($0["conclusion"] as? String)?.uppercased() ?? ""
+            return ["FAILURE", "TIMED_OUT", "CANCELLED", "STARTUP_FAILURE"].contains(conclusion)
+        })?["databaseId"] as? Int
+        guard let failedId,
+              case .success(let log) = run(gh, cwd: root, ["run", "view", "\(failedId)", "--log-failed"])
+        else { return "" }
+        let trimmed = log.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.utf8.count <= maxBytes { return trimmed }
+        // Keep the tail — the failure message is at the end of a build log.
+        let tail = String(decoding: Array(trimmed.utf8.suffix(maxBytes)), as: UTF8.self)
+        return "…(truncated)\n" + tail
+    }
+
     // Whether gh has credentials for the repo's host (`gh auth status` exits 0).
     // False when gh isn't installed.
     static func isAuthenticated(root: String) -> Bool {

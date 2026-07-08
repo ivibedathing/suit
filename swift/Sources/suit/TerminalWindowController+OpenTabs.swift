@@ -279,6 +279,36 @@ extension TerminalWindowController {
         }
     }
 
+    // ROADMAP Phase 29 (reviewer-agent lane, optional): open a fresh claude in
+    // the feedback event's worktree, primed to review the branch's changes with
+    // the machine feedback as context — a dedicated review pass alongside the
+    // working session. The instruction is sent after a beat, once claude's TUI
+    // is up (the composer's fixed-delay approach, not Autopilot's session-file
+    // handshake — this is a one-off manual action, not an autonomous loop).
+    func startReviewPass(for event: FeedbackEvent) {
+        let directory = event.worktreePath
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: directory, isDirectory: &isDirectory), isDirectory.boolValue else {
+            NSSound.beep()
+            return
+        }
+        let content = TerminalPaneContent()
+        let tab = Tab(content: content)
+        let label = event.branch.map { ($0 as NSString).lastPathComponent } ?? (directory as NSString).lastPathComponent
+        tab.customTitle = "Review — \(label)"
+        store.insert(tab)
+        content.start(in: directory)
+        activate(tab)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
+            content?.terminalView.send(txt: "claude\r")
+        }
+        let prompt = FeedbackRouting.reviewPassPrompt(for: event)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak content] in
+            guard let content else { return }
+            SessionControl.send(text: prompt, to: content, submit: true, submitDelay: 0.5)
+        }
+    }
+
     // A task tab finished (worktree merged/discarded and removed): close it
     // without the usual running-process confirmation — the user just confirmed
     // the whole task's fate in the finish dialog.

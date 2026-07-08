@@ -20,6 +20,9 @@ extension GitView {
                 guard let self, token == self.loadToken, root == self.gitRoot else { return }
                 self.branches = list
                 self.reload()
+                // Conflicts need no gh, so gather feedback now; the PR pass
+                // below refreshes it once CI/review data is available.
+                self.loadFeedbackData()
                 self.loadPullRequests(root: root, token: token)
             }
         }
@@ -34,6 +37,9 @@ extension GitView {
                 guard let self, token == self.loadToken, root == self.gitRoot else { return }
                 self.prByBranch = prs
                 self.reload()
+                // Now that PRs are known, re-gather so CI failures and review
+                // comments join the conflict events already shown.
+                self.loadFeedbackData()
             }
         }
     }

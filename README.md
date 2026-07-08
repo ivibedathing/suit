@@ -153,6 +153,17 @@ working.
   files-touched and `+ins −del` per worktree, and which Claude session (matched by cwd) is
   working there, so the catch-up reads as "session X changed these 6 files". Worktrees created
   after the mark diff from their merge-base, so only their new work shows.
+- **Feedback inbox** — a **Feedback** section at the top of the Git tab surfaces machine feedback
+  across the repo's worktrees: **CI failures** (failing checks + a tail of the failed run's log,
+  via `gh`), **PR review comments** (reviews + conversation comments, via `gh`), and **merge
+  conflicts** (unmerged files, pure git — shown even when GitHub is unreachable). Each row is
+  attributed to the **originating Claude session** (resolved by the same worktree/cwd session
+  map) and shows `→ <session>`, or `route to a session…` when attribution is ambiguous. Click a
+  row (or right-click ▸ **Route to Session…**) to compose the failure log / comments / conflict
+  list into one structured prompt and inject it into that session's pty — with a session picker
+  when the match is ambiguous, never a guess. Right-click ▸ **Start Review Pass in Worktree**
+  kicks a fresh `claude` in the worktree primed to review the branch. Palette: **Show Feedback
+  Inbox**, **Route Feedback to Session…**.
 - **Notes** — a free-text scratch tab in the sidebar backed by `~/.suit/notes.txt`;
   right-click a terminal selection to append it as a note.
 
@@ -351,6 +362,10 @@ Show File History (palette / viewer right-click) lists the open file's commits i
 In a focused diff pane, `n` / `p` walk the changed files, `o` opens the file under review, and
 `c` adds a review comment on the line at the caret (batched to a Claude session with Send
 Review to Session…).
+
+The Git tab's Feedback section (CI failures / PR review comments / merge conflicts) routes each
+item to its originating Claude session — click a row or use the palette's **Show Feedback Inbox**
+and **Route Feedback to Session…**.
 
 ### Appearance
 

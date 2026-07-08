@@ -769,7 +769,7 @@ tabs.
   dashboard lists them sorted needs-you-first with correct fields, that Focus resolves to the
   right pane, and that row actions inject the right payloads.
 
-### Phase 29 — Automated feedback-loop routing (CI / PR / conflicts → the right session)
+### Phase 29 — Automated feedback-loop routing (CI / PR / conflicts → the right session) — ✅ shipped
 
 Phase 16 batches *your* review comments to a session; this closes the loop on *machine* feedback.
 When CI fails, a reviewer leaves PR comments, or a merge conflicts, the fix belongs in the exact

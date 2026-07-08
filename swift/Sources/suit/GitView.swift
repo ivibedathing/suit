@@ -32,6 +32,10 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var onMarkNow: ((String) -> Void)?
     // Show the aggregate catch-up diff since the last marker.
     var onCatchUp: ((String) -> Void)?
+    // Route a feedback event into its originating Claude session (Phase 29).
+    var onRouteFeedback: ((FeedbackEvent) -> Void)?
+    // Kick a dedicated review pass in the event's worktree (Phase 29, optional).
+    var onStartReviewPass: ((FeedbackEvent) -> Void)?
 
     enum Row {
         case section(String)
@@ -39,6 +43,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         case file(path: String, letter: Character)
         case branch(GitBranchInfo)
         case commit(FileCommit)
+        case feedback(FeedbackEvent)
     }
 
     private static let headerHeight: CGFloat = 28
@@ -74,6 +79,11 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     // markers are keyed by it (ROADMAP Phase 24). Kept off `reload()`'s hot
     // FSEvents path since it shells out to git.
     private var markerMainRoot: String?
+    // Feedback inbox (Phase 29): CI failures / PR review comments / merge
+    // conflicts across the repo's worktrees, gathered off the main thread and
+    // token-guarded against a superseded root, same pattern as the branch load.
+    var feedbackEvents: [FeedbackEvent] = []
+    var feedbackToken = 0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -182,6 +192,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             historyPath = nil
             historyCommits = []
             historyGeneration += 1
+            // The feedback inbox is repo-scoped too.
+            feedbackEvents = []
         }
         monitor?.refresh()
         reload()
@@ -217,6 +229,13 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         let branch = monitor.currentBranch ?? "detached HEAD"
         setBranchTitle("\(branch) — \((monitor.root as NSString).lastPathComponent)")
         branchButton.toolTip = (monitor.root as NSString).abbreviatingWithTildeInPath
+
+        // Feedback inbox first — machine feedback that needs routing is the
+        // "who needs me right now" of the review workflow (Phase 29).
+        if !feedbackEvents.isEmpty {
+            rows.append(.section("Feedback — \(feedbackEvents.count)"))
+            rows += feedbackEvents.map { .feedback($0) }
+        }
 
         let staged = monitor.stagedByPath.sorted { $0.key < $1.key }
         let unstaged = monitor.unstagedByPath.sorted { $0.key < $1.key }
@@ -314,6 +333,9 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             if let historyPath {
                 onOpenCommitDiff?(historyPath, commit.sha)
             }
+        case let .feedback(event):
+            // Clicking a feedback row routes it to its session (Phase 29).
+            onRouteFeedback?(event)
         default:
             break
         }
@@ -401,6 +423,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             buildFileMenu(menu, path: path, letter: letter)
         case let .branch(info):
             buildBranchMenu(menu, branch: info)
+        case let .feedback(event):
+            buildFeedbackMenu(menu, event: event)
         default:
             break
         }
@@ -474,6 +498,15 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             }()
             view.configure(commit: commit)
             return view
+        case .feedback(let event):
+            let identifier = NSUserInterfaceItemIdentifier("gitFeedbackRow")
+            let view = tableView.makeView(withIdentifier: identifier, owner: self) as? GitFeedbackRowView ?? {
+                let created = GitFeedbackRowView(frame: .zero)
+                created.identifier = identifier
+                return created
+            }()
+            view.configure(event: event, sessionName: sessionName(for: event))
+            return view
         }
     }
 
@@ -481,7 +514,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         switch rows[row] {
         case .section:
             return 20
-        case .commit:
+        case .commit, .feedback:
             return 34
         default:
             return 24
@@ -490,7 +523,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
 
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch rows[row] {
-        case .file, .branch, .commit:
+        case .file, .branch, .commit, .feedback:
             return true
         default:
             return false
