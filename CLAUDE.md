@@ -568,7 +568,7 @@ This repo is set up for coding agents (Claude Code and others):
   source of truth for the full file map and rationale). Keep the two in sync when the build/test
   commands or the load-bearing rules change.
 - `.claude/commands/` — repo slash commands: `/build`, `/test`, `/claim-phase`,
-  `/render-reference`, `/orient`.
+  `/render-reference`, `/orient`, `/find-file` (quick file search by name).
 - `.claude/settings.json` — if present, the shared permission allowlist for the safe, repeated
   commands (build, `swiftc`, `scripts/test.sh`, read-only `git`/`gh`, search) so agents aren't
   prompted mid-loop. It intentionally does **not** auto-allow `git push` (asks) or force-push

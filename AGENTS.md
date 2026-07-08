@@ -71,7 +71,7 @@ subsystem's pure, UI-free logic against an assertion driver — run them with
 - `Resources/Info.plist` — bundle metadata (id `dev.kosych.suit`); add
   `NS*UsageDescription` keys here for new permissions.
 - `.claude/commands/` — repo slash commands: `/build`, `/test`, `/claim-phase`,
-  `/render-reference`, `/orient`.
+  `/render-reference`, `/orient`, `/find-file`.
 
 ## Conventions
 

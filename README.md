@@ -436,7 +436,7 @@ Two integrations are wired up from inside the app rather than by hand:
 | `Resources/Info.plist` | App bundle metadata and permission usage strings |
 | `build.sh` | Builds everything and assembles `build/Suit.app` |
 | `AGENTS.md` | Concise front-door for coding agents (60-second orientation) |
-| `.claude/commands/` | Repo slash commands: `/build`, `/test`, `/claim-phase`, `/orient`, … |
+| `.claude/commands/` | Repo slash commands: `/build`, `/test`, `/claim-phase`, `/find-file`, `/orient`, … |
 | `CLAUDE.md` | Full architecture breakdown and contributor guidance |
 | `ROADMAP.md` | The phased plan Suit is growing through (and Autopilot's steering file) |
 
