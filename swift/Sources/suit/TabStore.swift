@@ -18,6 +18,7 @@ enum TabKind {
     case diff
     case transcript
     case plan
+    case tasks
 
     var symbolName: String {
         switch self {
@@ -30,6 +31,7 @@ enum TabKind {
         case .diff: return "plus.forwardslash.minus"
         case .transcript: return "text.bubble"
         case .plan: return "checklist"
+        case .tasks: return "gauge.with.dots.needle.bottom.50percent"
         }
     }
 }
@@ -77,6 +79,7 @@ final class Tab {
         case is DiffPaneContent: return .diff
         case is TranscriptPaneContent: return .transcript
         case is PlanApprovalPaneContent: return .plan
+        case is BackgroundTaskPaneContent: return .tasks
         default: return .terminal
         }
     }

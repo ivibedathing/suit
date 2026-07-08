@@ -41,6 +41,7 @@ protocol PaneHost: AnyObject {
     func paneRequestedOpenCommitDiff(forFile path: String, sha: String)
     func paneRequestedShowFileHistory(forPath path: String)
     func paneRequestedSwitchClaudeMode(_ pane: Pane, to mode: ClaudeMode)
+    func paneRequestedShowBackgroundTasks(_ pane: Pane)
     func paneFinishedTask(_ pane: Pane)
     // Tab-grain drag & drop (browser-tab model): a strip-dragged tab dropped
     // on this pane — shown in its viewport, or split out onto an edge. The
@@ -258,6 +259,11 @@ final class Pane: NSObject {
 
     @objc func makeFooter(_ sender: Any?) {
         host?.paneRequestedFooter(self)
+    }
+
+    // Open the background-task monitor for this pane's shell (ROADMAP Phase 30).
+    @objc func showBackgroundTasks(_ sender: Any?) {
+        host?.paneRequestedShowBackgroundTasks(self)
     }
 
     // Finish this pane's task worktree (ROADMAP Phase 5): merge or discard the

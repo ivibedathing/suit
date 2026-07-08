@@ -94,6 +94,17 @@ extension TerminalWindowController {
         reloadStrip()
     }
 
+    // Background-task monitor for a pane's shell (ROADMAP Phase 30): a terminal
+    // pane scopes to its own shell's job subtree; any other pane kind opens the
+    // window-wide monitor (shellPid 0).
+    func paneRequestedShowBackgroundTasks(_ pane: Pane) {
+        if let shellPid = pane.terminalContent?.shellPid, shellPid > 0 {
+            openBackgroundTasks(forShellPid: shellPid, title: "Background Tasks")
+        } else {
+            openBackgroundTasks(forShellPid: 0, title: "Background Tasks")
+        }
+    }
+
     // A path relative to a git root, for the file-scoped git commands.
     private func relativePath(of path: String, inRoot root: String) -> String {
         let standardized = (path as NSString).standardizingPath

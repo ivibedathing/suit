@@ -228,6 +228,29 @@ extension TerminalWindowController {
         activate(tab)
     }
 
+    // Opens (or reuses) the window's background-task monitor tab (ROADMAP
+    // Phase 30), scoped to a shell's process subtree — the background jobs
+    // launched from that pane's terminal. A shellPid of 0 shows every tracked
+    // task (the window-wide fallback when no terminal pane is focused). Reused
+    // like the transcript pane; the monitor pane is bound to its shell at
+    // creation, so a re-open for a different shell replaces the tab's content.
+    func openBackgroundTasks(forShellPid shellPid: Int32, title: String) {
+        if let tab = store.tabs.first(where: { $0.content is BackgroundTaskPaneContent }) {
+            let existing = tab.content as? BackgroundTaskPaneContent
+            // Same shell → just re-activate; different shell → swap in a fresh
+            // monitor bound to the new shell (the pane can't rebind live).
+            if existing?.rootShellPid == shellPid {
+                activate(tab)
+                return
+            }
+            forceCloseTab(tab)
+        }
+        let content = BackgroundTaskPaneContent(shellPid: shellPid, title: title)
+        let tab = Tab(content: content)
+        store.insert(tab)
+        activate(tab)
+    }
+
     // Opens (or reuses) the window's transcript tab for an explicit transcript
     // file — how cross-transcript search (Phase 20) jumps to a historical
     // session, anchoring the pane on the matching line.
