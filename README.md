@@ -201,12 +201,10 @@ working.
   two-click gesture. Sent as one bracketed-paste unit (multi-line selections stay intact) and
   submitted; a session picker appears when several are live, defaulting to the last one you
   targeted. An optional setting prepends the source location (`From <file>:<lines>:`).
-- **Mode control** — every Claude tab's title bar carries an **Ask · Plan · Agent** segmented
-  control; clicking a segment switches Claude's permission mode by writing the right number of
-  Shift+Tab presses into the pane's pty (so you never have to guess which invisible mode a pane
-  is in). The same switch is on the palette (`Claude: Ask/Plan/Agent Mode`). The shown mode reads
-  back from the session's `permission_mode` when the hooks report it, else reflects the last mode
-  Suit sent.
+- **Mode control** — switch a Claude session's permission mode from the palette
+  (`Claude: Ask/Plan/Agent Mode`), which writes the right number of Shift+Tab presses into the
+  session's pty (so you never have to guess which invisible mode a pane is in). The switch tracks
+  the session's `permission_mode` when the hooks report it, else the last mode Suit sent.
 - **Plan review** — when a session in Plan mode proposes a plan (Claude's `ExitPlanMode`), open it
   with `Claude: Review Plan…`: the plan renders read-only as numbered steps with **Approve & Run**
   / **Edit** / **Discard** buttons that inject the matching choice into the session. A *Refresh*

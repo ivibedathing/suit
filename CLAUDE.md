@@ -185,11 +185,10 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     plan); `ClaudeModeControl.payload(from:to:)` is the pure `ESC[Z`×N (back-tab) string that
     cycles from a believed mode to a target; `ClaudeModeTracker.shared` remembers the last mode
     Suit sent per session, and `effectiveMode(for:)` prefers the session JSON's `permission_mode`
-    readback, else last-sent, else agent. The title bar's `ModeControlView` (in
-    `PaneTitleBarView.swift`, shown only for a live Claude tab) and the `Claude: Ask/Plan/Agent
-    Mode` palette entries both route through `paneRequestedSwitchClaudeMode` /
-    `AppDelegate.switchClaudeMode(_:forSessionId:)`, which writes the payload and records the new
-    belief. Purely a control surface — no Claude-side changes; readback is best-effort (the
+    readback, else last-sent, else agent. The `Claude: Ask/Plan/Agent Mode` palette entries route
+    through `AppDelegate.switchClaudeMode(_:forSessionId:)`, which writes the payload and records
+    the new belief (there is no per-pane title-bar control — the mode switch lives only on the
+    palette). Purely a control surface — no Claude-side changes; readback is best-effort (the
     `suit-session-state.sh` hook writes `permission_mode` when the hook JSON carries it).
   - `PlanParsing.swift` / `PlanApprovalPane.swift` — the plan-approval surface (ROADMAP Phase 26).
     `PlanParser` (pure, UI-free) scans a session's JSONL transcript for the latest `ExitPlanMode`
