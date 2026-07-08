@@ -596,6 +596,18 @@ After implementing any phase from `ROADMAP.md`, document the new feature(s) in `
 write up what shipped (user-facing behavior, shortcuts, settings) as part of the same task, so
 the README stays a current description of what the app does.
 
+**Every `/goal` implementation follows the full loop.** Whenever you take on a task via `/goal`,
+carry it end to end without being asked each time:
+
+1. Create a **new branch in its own new git worktree** (`EnterWorktree`) and implement the task
+   there — never in the main checkout, same as any other task above.
+2. When the implementation is finished, **create a PR** (`gh pr create`) targeting `main`.
+3. **Try to merge it** (`gh pr merge`), and **resolve all conflicts** that come up — pull/rebase
+   `main` in, fix the conflicts, and re-push until the PR is mergeable and merged.
+
+Only stop once the PR is merged (or you've surfaced a genuine blocker you can't resolve). This is
+the default contract for `/goal` work; you don't need to ask the user to confirm each step.
+
 ## Permissions / entitlements
 
 The bundle is ad-hoc code signed (`codesign --sign -`) in `build.sh`, which is enough for TCC
