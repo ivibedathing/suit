@@ -439,6 +439,22 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     branch pass) and routed by `AppDelegate.routeFeedback(_:)` → `SessionControl.send` (the
     resolved session, else the `withSession` picker) with palette verbs "Show Feedback Inbox" /
     "Route Feedback to Session…"; the reviewer-agent lane is `TerminalWindowController.startReviewPass(for:)`.
+  - `PRReview.swift` / `GitView+PRInbox.swift` — the GitHub PR review inbox (ROADMAP Phase 39).
+    `PRReview.swift` is the UI-free, standalone-compilable core (the Recipes / FeedbackRouting
+    pattern, Foundation-only): the `PRReviewItem` model + `PRReviewInbox.parseList` (over
+    `gh pr list --json number,title,author,headRefName,url,statusCheckRollup`) / `summarizeChecks`,
+    the `PRReviewDecision` enum (→ `--approve`/`--request-changes`/`--comment`, `requiresBody`), and
+    `PRReviewComposer` (`composeBody` folds a `[DiffReviewComment]` draft into the review body
+    grouped by file / sorted by line; `reviewArguments` builds the exact `gh pr review` argv).
+    Verified by `scripts/pr-review-test.sh`. The gh shell-outs are `GitHubCLI.reviewInbox` (two
+    `--search` passes — `involves:@me` + `review-requested:@me` — unioned) / `prDiff` / `prReview`,
+    all off-thread with the Phase 21 no-gh degradation. `GitView+PRInbox.swift` is the Git-tab
+    surface: `loadReviewInbox()` (token-guarded off-thread load), the "PR Review Inbox — N" section
+    + `GitPRInboxRowView`, and the row context menu (Review Changes / Open on GitHub). A row click
+    fires `GitView.onOpenPR` → `TerminalWindowController.openPRDiff(_:)`, which fetches `gh pr diff`
+    off-thread into the window's `DiffPaneContent` (tagged `reviewingPR`); the diff's Review menu
+    "Submit as PR Review…" → `AppDelegate.submitPRReview(from:)` pops the verdict+note dialog and
+    posts via `GitHubCLI.prReview`. Palette: "Show PR Review Inbox" / "Submit PR Review…".
   - `WorktreeTasks.swift` — worktree orchestration (ROADMAP Phase 5): `createTask` makes
     `.claude/worktrees/<slug>` on branch `task/<slug>`; `finish` merges (refusing on uncommitted
     changes) or discards, then removes worktree + branch. `removeAfterRemoteMerge` (Phase 32)
@@ -655,7 +671,7 @@ relevant Foundation-only source file(s) against a small assertion driver and run
 UI. Run them all from one entrypoint:
 
 ```
-scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes + file-edit + activity), ~seconds
+scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes + file-edit + activity + pr-review), ~seconds
 scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
 scripts/test.sh --list            # list the harnesses
 ```
@@ -666,8 +682,9 @@ The individual harnesses (each also runnable directly) are `scripts/feedback-rou
 `scripts/file-edit-test.sh` (`FileEdit.swift` — dirty transitions / external-change reconcile /
 atomic write, Phase 37), `scripts/activity-test.sh` (`Activity.swift` — feed ordering / row
 routing / repo·kind filtering / daily-digest rollup / append-only store dedup + round-trip,
-Phase 38), and `scripts/autopilot-harness.sh` (the full Autopilot pipeline, offscreen
-with everything faked).
+Phase 38), `scripts/pr-review-test.sh` (`PRReview.swift` — `gh pr list` parse / review-body
+compose / `gh pr review` argv, Phase 39), and `scripts/autopilot-harness.sh` (the full Autopilot
+pipeline, offscreen with everything faked).
 This is why testable logic is kept in Foundation-only files with no app dependencies (the
 `RoadmapParser`/`AutopilotScheduler`/`FeedbackRouting` pattern) — a harness can compile it in
 isolation. When you add such logic, add a harness for it and wire it into the `HARNESSES` list in

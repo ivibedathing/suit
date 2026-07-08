@@ -23,6 +23,8 @@ extension GitView {
                 // Conflicts need no gh, so gather feedback now; the PR pass
                 // below refreshes it once CI/review data is available.
                 self.loadFeedbackData()
+                // The PR review inbox is its own gh pass (Phase 39).
+                self.loadReviewInbox()
                 self.loadPullRequests(root: root, token: token)
             }
         }

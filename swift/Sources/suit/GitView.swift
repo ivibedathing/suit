@@ -38,6 +38,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var onRouteFeedback: ((FeedbackEvent) -> Void)?
     // Kick a dedicated review pass in the event's worktree (Phase 29, optional).
     var onStartReviewPass: ((FeedbackEvent) -> Void)?
+    // Open an inbox PR's diff for review (ROADMAP Phase 39).
+    var onOpenPR: ((PRReviewItem) -> Void)?
 
     enum Row {
         case section(String)
@@ -46,6 +48,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         case branch(GitBranchInfo)
         case commit(FileCommit)
         case feedback(FeedbackEvent)
+        case reviewPR(PRReviewItem)
     }
 
     private static let headerHeight: CGFloat = 28
@@ -87,6 +90,11 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     // token-guarded against a superseded root, same pattern as the branch load.
     var feedbackEvents: [FeedbackEvent] = []
     var feedbackToken = 0
+    // PR review inbox (ROADMAP Phase 39): open PRs that involve me (authored /
+    // assigned / review-requested), from `gh`, loaded off the main thread and
+    // token-guarded against a superseded root like the branch/feedback passes.
+    var reviewPRs: [PRReviewItem] = []
+    var reviewInboxToken = 0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -207,6 +215,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             historyGeneration += 1
             // The feedback inbox is repo-scoped too.
             feedbackEvents = []
+            // As is the PR review inbox (Phase 39).
+            reviewPRs = []
         }
         monitor?.refresh()
         reload()
@@ -250,6 +260,13 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         if !feedbackEvents.isEmpty {
             rows.append(.section("Feedback — \(feedbackEvents.count)"))
             rows += feedbackEvents.map { .feedback($0) }
+        }
+
+        // PR review inbox next (Phase 39): other people's PRs awaiting my review,
+        // the outward-facing twin of the local review workflow.
+        if !reviewPRs.isEmpty {
+            rows.append(.section("PR Review Inbox — \(reviewPRs.count)"))
+            rows += reviewPRs.map { .reviewPR($0) }
         }
 
         let staged = monitor.stagedByPath.sorted { $0.key < $1.key }
@@ -356,6 +373,9 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         case let .feedback(event):
             // Clicking a feedback row routes it to its session (Phase 29).
             onRouteFeedback?(event)
+        case let .reviewPR(pr):
+            // Clicking a PR inbox row opens its diff for review (Phase 39).
+            onOpenPR?(pr)
         default:
             break
         }
@@ -450,6 +470,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             buildBranchMenu(menu, branch: info)
         case let .feedback(event):
             buildFeedbackMenu(menu, event: event)
+        case let .reviewPR(pr):
+            buildPRInboxMenu(menu, pr: pr)
         default:
             break
         }
@@ -532,6 +554,15 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             }()
             view.configure(event: event, sessionName: sessionName(for: event))
             return view
+        case .reviewPR(let pr):
+            let identifier = NSUserInterfaceItemIdentifier("gitPRInboxRow")
+            let view = tableView.makeView(withIdentifier: identifier, owner: self) as? GitPRInboxRowView ?? {
+                let created = GitPRInboxRowView(frame: .zero)
+                created.identifier = identifier
+                return created
+            }()
+            view.configure(pr: pr)
+            return view
         }
     }
 
@@ -539,7 +570,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         switch rows[row] {
         case .section:
             return 20
-        case .commit, .feedback:
+        case .commit, .feedback, .reviewPR:
             return 34
         default:
             return 24
@@ -548,7 +579,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
 
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         switch rows[row] {
-        case .file, .branch, .commit, .feedback:
+        case .file, .branch, .commit, .feedback, .reviewPR:
             return true
         default:
             return false

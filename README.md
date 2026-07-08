@@ -196,6 +196,16 @@ working.
   when the match is ambiguous, never a guess. Right-click ▸ **Start Review Pass in Worktree**
   kicks a fresh `claude` in the worktree primed to review the branch. Palette: **Show Feedback
   Inbox**, **Route Feedback to Session…**.
+- **PR review inbox** — a **PR Review Inbox** section in the Git tab lists open PRs that involve
+  you — authored, assigned, or review-requested (via `gh`, loaded off the main thread; hidden
+  without `gh`). Each row shows the PR title, `#N` with a check-rollup glyph (✓/✕/•), author, and
+  branch. Click a row (or right-click ▸ **Review Changes**) to fetch the PR's diff (`gh pr diff`)
+  into the diff pane and review it with the same line comments as a local diff — press `c` on a
+  line, walk files with `n`/`p`. Then the Review menu's **Submit as PR Review…** (or palette
+  **Submit PR Review…**) pops one dialog to pick a verdict — **Approve** / **Request Changes** /
+  **Comment** — plus an optional overall note; your line comments fold into the review body and it
+  posts via `gh pr review`. Right-click ▸ **Open on GitHub** opens the PR page. Palette: **Show PR
+  Review Inbox**, **Submit PR Review…**.
 - **Notes** — a free-text scratch tab in the sidebar backed by `~/.suit/notes.txt`;
   right-click a terminal selection to append it as a note.
 
@@ -444,6 +454,10 @@ Review to Session…).
 The Git tab's Feedback section (CI failures / PR review comments / merge conflicts) routes each
 item to its originating Claude session — click a row or use the palette's **Show Feedback Inbox**
 and **Route Feedback to Session…**.
+
+The Git tab's PR Review Inbox lists open PRs that involve you; click one (or **Show PR Review
+Inbox**) to review its diff, then **Submit as PR Review…** posts an Approve / Request Changes /
+Comment verdict via `gh pr review`.
 
 ### Appearance
 

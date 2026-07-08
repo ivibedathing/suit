@@ -94,6 +94,40 @@ extension TerminalWindowController {
         activate(tab)
     }
 
+    // Open a PR's diff for review (ROADMAP Phase 39): `gh pr diff <n>` into the
+    // window's diff tab, tagged with the PR number so Submit Review knows where
+    // to post. gh hits the network, so fetch off the main thread and show a
+    // placeholder meanwhile; Refresh re-fetches via the stored producer.
+    func openPRDiff(_ pr: PRReviewItem) {
+        guard let root = sidebar.gitView.gitRoot else { NSSound.beep(); return }
+        let number = pr.number
+        let title = "PR #\(number)"
+        let producer = { GitHubCLI.prDiff(root: root, number: number) }
+
+        let content: DiffPaneContent
+        if let tab = store.tabs.first(where: { $0.content is DiffPaneContent }),
+           let existing = tab.content as? DiffPaneContent {
+            content = existing
+            activate(tab)
+        } else {
+            content = DiffPaneContent()
+            let tab = Tab(content: content)
+            store.insert(tab)
+            activate(tab)
+        }
+        content.reviewingPR = DiffPaneContent.ReviewingPR(number: number, root: root, title: pr.title)
+        content.loadDiffText("Loading \(title)…", title: title, root: root, reload: producer)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let diff = producer()
+            DispatchQueue.main.async {
+                // Only apply if the tab is still reviewing this PR (guards a
+                // quick second click that repointed the one diff tab).
+                guard content.reviewingPR?.number == number else { return }
+                content.loadDiffText(diff, title: title, root: root, reload: producer)
+            }
+        }
+    }
+
     // Opens (or reuses, same policy) the diff tab showing one commit's changes
     // to a single file (ROADMAP Phase 17 — from a File History row or a clicked
     // blame sha). `git show --format=` prints just the per-file diff, no commit
