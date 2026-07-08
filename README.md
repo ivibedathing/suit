@@ -71,32 +71,40 @@ working.
 
 ## Features
 
-### Tabs & panes — the browser model
+### Tabs & panes — tabs live on the pane
 
-- **Tabs first** — every terminal, file, diff and transcript is a tab in the strip below the
-  title bar: ⌘T new shell, ⌘W close, ⇧⌘T reopen, ⌘1–9 jump (⌘9 = last), ⌃Tab for a
-  most-recently-used switcher (hold ⌃ to pick, quick tap to toggle the last two). Pin tabs to
-  compact icon-only slots; drag tabs to reorder, into another window to move them, or outside
-  every window to tear off a new one.
-- **Panes are viewports** — split screen shows a second tab beside the active one (⌘D takes the
-  most recent background tab, or right-click a tab ▸ Split Screen, or drag a tab to a screen
-  edge). Unsplit with ⌥⌘W, walk splits with ⌥⌘arrows. Closing a visible tab falls back to the
-  most recent background tab; background tabs keep their processes running.
-- **Drop to replace (Chrome-parity)** — dragging a strip tab onto a viewport — anywhere,
-  the header included — *replaces* what that viewport shows (the displaced tab backgrounds,
-  its process untouched). Only a slim band along each edge (≤ 60pt) still splits the tab out
-  into a new pane, so splitting stays available but deliberate. Reordering within the strip,
-  moving a tab to another window, and tearing off a new one are unchanged.
+- **Tabs on the pane** — every terminal, file, diff and transcript is a tab that belongs to a
+  pane. When a pane holds more than one tab, an in-pane tab bar appears directly under its
+  header to switch between them; a single-tab pane shows no bar. There is no window-level tab
+  strip. ⌘T opens a fresh shell in the focused pane, ⌘W closes the active tab, ⇧⌘T reopens,
+  ⌘1–9 jump (⌘9 = last), ⌃Tab is a most-recently-used switcher (hold ⌃ to pick, quick tap to
+  toggle the last two). Opening a file, diff, or transcript adds a tab to the focused pane's
+  group.
+- **Sessions sidebar** — the sidebar's Sessions tab (the leftmost rail icon) lists every open
+  tab in the window, grouped by the pane (screen) that owns it — the cross-pane overview that
+  replaces the old strip. Click a row to bring that tab forward in its pane; its close box
+  shuts it. Session dots (busy / pulsing needs-input / done) and red failure dots show right
+  in the list.
+- **Panes are viewports** — split screen puts a tab in a new viewport beside the active one
+  (⌘D takes the most recent background tab, or right-click a tab ▸ Split Screen, or drag a tab
+  to a screen edge); the split-out tab becomes the new pane's own. Unsplit with ⌥⌘W (its tabs
+  fold back into a neighbor), walk splits with ⌥⌘arrows. Closing the active tab falls back to
+  another tab the same pane owns; background tabs keep their processes running.
+- **Drop to replace (Chrome-parity)** — dragging a tab onto another viewport — anywhere, the
+  header included — moves it into that pane and shows it (the displaced tab backgrounds, its
+  process untouched). Only a slim band along each edge (≤ 60pt) still splits the tab out into a
+  new pane, so splitting stays available but deliberate. Moving a tab to another window and
+  tearing off a new one are unchanged.
 - **Exit status** — a clean shell exit closes its tab; a failure leaves it open with a red dot
-  (hover for the signal/exit reason). Bells flash the pane, pulse a backgrounded tab's strip
-  item, and bounce the Dock icon while the app is inactive.
+  (hover for the signal/exit reason). Bells flash the pane and bounce the Dock icon while the
+  app is inactive.
 - **State restoration** — quitting snapshots every window's tab list, split tree, and viewer
   scroll positions; the next launch reopens it all, restarting terminals as fresh shells in
   their old working directories.
 
 ### Files, search & navigation
 
-- **Sidebar** (⌘B) — an icon rail with Files, Git, Bookmarks, SSH Hosts and Notes. The Files tree is
+- **Sidebar** (⌘B) — an icon rail with Sessions, Files, Git, Bookmarks, SSH Hosts and Notes. The Files tree is
   gitignore-consistent with the file index, shows sub-project badges (`go.mod`,
   `package.json`, …) and git status letters, and can be pinned to any folder; a footer shows
   the current branch and the repo's branch/worktree counts.
@@ -171,8 +179,8 @@ working.
 
 - **Session awareness** — an installer (app menu ▸ "Install Claude Code Integration…") wires
   Claude Code's statusline and hooks to `~/.suit`. Panes running Claude sessions show a state
-  dot (busy / pulsing needs-input / done) and a context-fill %, the strip shows global 5h/7d
-  usage, and the Sessions sidebar sorts sessions "needs you first".
+  dot (busy / pulsing needs-input / done) and a context-fill %, the sidebar footer shows global
+  5h/7d usage, and the Sessions sidebar tab lists every open tab with its live session dot.
 - **Attention** — a session that needs input while Suit is inactive posts a notification
   (click to jump to its pane) and badges the Dock with the needs-input count.
 - **Fleet dashboard** — "Show Fleet" (⇧⌘O, or the command palette) opens a floating,
