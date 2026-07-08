@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Stop Using IDE Terminal.</strong><br>
-  A native macOS terminal that's growing into a Claude-code-first cockpit for monorepo work.
+  A native macOS terminal that's growing into a Claude-code-first cockpit for codebase work.
 </p>
 
 <p align="center">
@@ -25,7 +25,7 @@ entries — whose windows host browser-style tabs of terminals, file viewers, di
 transcripts. Each shell runs directly over a real pty via
 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm), and everything above the terminal (tabs,
 splits, search, git, Claude session awareness, Autopilot) is native AppKit — built to make
-Claude-code-driven work on a large monorepo feel like a first-class desktop app rather than a wall
+Claude-code-driven work on any codebase feel like a first-class desktop app rather than a wall
 of terminal panes.
 
 ## Table of contents
@@ -48,7 +48,7 @@ of terminal panes.
 
 ## Why Suit
 
-Working in a big monorepo with Claude Code means juggling many terminals, files, diffs and running
+Working in a large codebase with Claude Code means juggling many terminals, files, diffs and running
 sessions at once — and a plain terminal emulator makes you track all of it in your head. Suit puts
 a native cockpit around that workflow: browser-style tabs and splits, an integrated file
 viewer / search / git sidebar, awareness of which panes have live Claude sessions (and which need

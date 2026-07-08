@@ -1,7 +1,7 @@
 # Suit Roadmap
 
 Expanding Suit from a terminal app into a **native macOS cockpit for driving Claude Code
-across a monorepo** — you navigate, review, and orchestrate; Claude writes.
+across a codebase** — you navigate, review, and orchestrate; Claude writes.
 
 ## Product thesis
 
@@ -17,7 +17,7 @@ Core decisions (settled):
   typing into the buffer: no. Light editing, if ever, is an additive later phase — not a rewrite.
 - **Native AppKit UI.** File browser, search, viewer, minimap are NSViews in the existing split
   tree / a new sidebar — not TUI panes.
-- **Claude-first means all four pillars**: session awareness, review workflow, monorepo
+- **Claude-first means all four pillars**: session awareness, review workflow, codebase
   navigation, and multi-session orchestration.
 
 ## Architecture evolution
@@ -25,7 +25,7 @@ Core decisions (settled):
 The current structure survives, but two rules change:
 
 1. **"Swift stays minimal" is revised.** Swift/AppKit becomes the product layer. Heavy non-UI
-   logic (indexing, monorepo analysis) may move to a Go sidecar later if it gets big. (The Bubble
+   logic (indexing, codebase analysis) may move to a Go sidecar later if it gets big. (The Bubble
    Tea status-footer TUI that used to live in `go/` has been removed.)
 2. **`Pane` generalizes.** Today a pane *is* a terminal. Introduce a `PaneContent` protocol so
    the existing `NSSplitView` tree, title bars, focus tracking, and drag-and-drop host any pane
@@ -75,7 +75,7 @@ next scheduling decision.
 ### Phase 1 — Navigate (file browser + fuzzy open + viewer) — ✅ shipped
 
 - **File browser sidebar**: lazy `NSOutlineView`, FSEvents-driven refresh, `.gitignore`-aware.
-  **Monorepo-aware from day one**: detect sub-project roots (`go.mod`, `package.json`,
+  **Multi-project-aware from day one**: detect sub-project roots (`go.mod`, `package.json`,
   `Package.swift`, `Cargo.toml`, `pyproject.toml`…) and render them as first-class sections with
   language badges, not just folders.
 - **Fuzzy file opener** (`⌘P`): in-memory file list from the FSEvents-watched tree; fzf-style
@@ -94,7 +94,7 @@ next scheduling decision.
   doesn't depend on the user's PATH.
 - **Search sidebar/pane** (`⌘⇧F`): live-updating grouped results, regex/case/glob toggles,
   click → viewer at match.
-- **Scope control**: whole repo / current sub-project / current pane's cwd. For monorepos this
+- **Scope control**: whole repo / current sub-project / current pane's cwd. For large repos this
   is the difference between usable and noise.
 - **Search-in-file** (`⌘F`) in viewer panes, with matches marked on the minimap (Phase 3).
 
@@ -513,7 +513,7 @@ copy-paste-retype round trip.
 ### Phase 17 — Git blame gutter + file history — ✅ shipped
 
 Understanding before steering. "Who and what last changed this line, and why" is a constant
-question when reviewing a monorepo you didn't type. Read-only, so it stays inside the
+question when reviewing a codebase you didn't type. Read-only, so it stays inside the
 viewer-first contract — no typing into the buffer, just richer context around it.
 
 - **Blame gutter**: `git blame --porcelain -- <file>` parsed into per-line
@@ -551,7 +551,7 @@ of copy-paste-retype. The steer-Claude pillar at its most direct.
 
 ### Phase 19 — Markdown & image/PDF preview tabs — ✅ shipped
 
-Viewer-first, extended past source code. The monorepo has READMEs and design PNGs too — Suit
+Viewer-first, extended past source code. The codebase has READMEs and design PNGs too — Suit
 already renders `design/*.png` in its own workflow — and reviewing them shouldn't mean a trip to
 Finder/Preview. All read-only, so no scope creep toward an editor.
 
@@ -905,7 +905,7 @@ steers only by editing ROADMAP.md.
 - **No modes, no dialogs where a pane will do**; the app never steals focus from the pane you're
   typing in — attention is *signaled* (badges, pulses), never *forced*.
 - **Performance floor**: fuzzy-open < 50ms, search-first-result < 100ms; the FSEvents-backed
-  file index makes both trivial at monorepo scale.
+  file index makes both trivial at large-repo scale.
 
 ## Risk notes
 
