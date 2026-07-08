@@ -39,6 +39,7 @@ protocol PaneHost: AnyObject {
     func paneIsFooter(_ pane: Pane) -> Bool
     func paneRequestedOpenFile(path: String, line: Int?)
     func paneRequestedOpenCommitDiff(forFile path: String, sha: String)
+    func paneRequestedOpenCommitDiff(sha: String, root: String)
     func paneRequestedShowFileHistory(forPath path: String)
     // Symbol navigation (ROADMAP Phase 33): the viewer resolved an identifier
     // under the caret/click and asks the host (which owns the symbol index and
@@ -333,6 +334,12 @@ final class Pane: NSObject {
     // the diff tab / sidebar.
     func openCommitDiff(forFile path: String, sha: String) {
         host?.paneRequestedOpenCommitDiff(forFile: path, sha: sha)
+    }
+
+    // Whole-commit diff (ROADMAP Phase 34): a clicked commit-graph node opens
+    // that commit's full changes in the window's diff tab.
+    func openCommitDiff(sha: String, root: String) {
+        host?.paneRequestedOpenCommitDiff(sha: sha, root: root)
     }
 
     func showFileHistory(forPath path: String) {

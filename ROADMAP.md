@@ -920,7 +920,7 @@ edit it.
   latter), the references list is complete and grouped by file, and a missing ctags binary
   degrades to an `rg`-word-search fallback with a header note.
 
-### Phase 34 — Commit graph pane
+### Phase 34 — Commit graph pane — ✅ shipped
 
 The Read pillar, repo-wide. Phase 17 gave per-line blame and a linear file history; this renders
 the whole commit DAG as a thing you read and click, not a `git log --graph` you squint at in a

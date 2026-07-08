@@ -124,6 +124,13 @@ working.
 - **File history** — Show File History opens the Git tab's list of commits touching the open
   file (`git log --follow`) — sha, subject, author, age; click a commit to open its per-file
   diff.
+- **Commit graph** — **Show Commit Graph** (the Git tab's graph button, or the command palette)
+  opens a read-only, clickable rendering of the whole commit DAG (`git log --all --date-order`):
+  nodes laid out in lanes with edges for merges and forks, short sha · subject · author · age
+  (tinted by age like the blame gutter), and branch / tag / HEAD badges on their tips (the current
+  branch in accent). Click a node to open that commit's diff. It refreshes on commit / branch /
+  worktree operations, and large histories cap with a **Load more** button. One graph tab per
+  window, reused like the diff and transcript tabs.
 - **Go to definition & find references** — Cmd-click an identifier in the viewer (or Go to
   Definition, ⌃⌘J) to jump to where it's defined; several definitions open a palette picker,
   each `file:line` with its kind. Find References (⌃⌘R) opens a references pane listing every

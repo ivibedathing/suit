@@ -19,7 +19,7 @@ import Cocoa
 
 struct SavedTab: Codable {
     enum Kind: String, Codable {
-        case terminal, viewer, diff, ssh, markdown, image, pdf
+        case terminal, viewer, diff, ssh, markdown, image, pdf, commitGraph
     }
 
     var kind: Kind
@@ -27,6 +27,7 @@ struct SavedTab: Codable {
     var filePath: String?        // viewer / markdown / image / PDF
     var firstVisibleLine: Int?   // viewer scroll position
     var diffRoot: String?        // diff: the project root it was showing
+    var graphRoot: String? = nil // commitGraph: the repo root it was showing (Phase 34)
     var reviewComments: [DiffReviewComment]? = nil  // diff: Phase 16 review draft
     var isPreview = false
     var isPinned: Bool? = nil

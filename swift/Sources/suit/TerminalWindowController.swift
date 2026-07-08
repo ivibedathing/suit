@@ -205,6 +205,10 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.gitView.onShowFullDiff = { [weak self] root in
             self?.openGitDiff(root: root)
         }
+        // Commit graph pane for the shown repo (ROADMAP Phase 34).
+        sidebar.gitView.onShowCommitGraph = { [weak self] root in
+            self?.openCommitGraph(root: root)
+        }
         // File History row → that commit's per-file diff (ROADMAP Phase 17).
         sidebar.gitView.onOpenCommitDiff = { [weak self] path, sha in
             self?.paneRequestedOpenCommitDiff(forFile: path, sha: sha)

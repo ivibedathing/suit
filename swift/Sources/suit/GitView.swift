@@ -20,6 +20,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var onOpenFile: ((String) -> Void)?
     // Show the whole working tree's diff for the shown repo root.
     var onShowFullDiff: ((String) -> Void)?
+    // ROADMAP Phase 34 — open the commit-graph pane for the shown repo.
+    var onShowCommitGraph: ((String) -> Void)?
     // Point the sidebar at another worktree (absolute path).
     var onSwitchWorktree: ((String) -> Void)?
     // A finished task worktree was just removed; repoint the sidebar at the
@@ -52,6 +54,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     let branchButton = NSButton(frame: .zero)
     private let markerButton = NSButton(frame: .zero)
     private let fullDiffButton = NSButton(frame: .zero)
+    private let graphButton = NSButton(frame: .zero)
     private let separator = NSBox(frame: .zero)
     private let scrollView = NSScrollView(frame: .zero)
     private let tableView = NSTableView(frame: .zero)
@@ -123,6 +126,16 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         fullDiffButton.action = #selector(showFullDiff)
         fullDiffButton.contentTintColor = Theme.textDim
         addSubview(fullDiffButton)
+
+        graphButton.image = NSImage(systemSymbolName: "point.3.filled.connected.trianglepath.dotted", accessibilityDescription: "Show Commit Graph")?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 11, weight: .medium))
+        graphButton.isBordered = false
+        graphButton.imagePosition = .imageOnly
+        graphButton.toolTip = "Show Commit Graph"
+        graphButton.target = self
+        graphButton.action = #selector(showCommitGraph)
+        graphButton.contentTintColor = Theme.textDim
+        addSubview(graphButton)
 
         separator.boxType = .separator
         addSubview(separator)
@@ -214,6 +227,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             branchButton.toolTip = nil
             fullDiffButton.isEnabled = false
             markerButton.isEnabled = false
+            graphButton.isEnabled = false
             refreshMarkerButton()
             emptyLabel.stringValue = "Not a git repository."
             emptyLabel.isHidden = false
@@ -223,6 +237,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         branchButton.isEnabled = true
         fullDiffButton.isEnabled = true
         markerButton.isEnabled = true
+        graphButton.isEnabled = true
         refreshMarkerButton()
         emptyLabel.isHidden = true
 
@@ -295,10 +310,15 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             y: headerY + (Self.headerHeight - buttonSize) / 2,
             width: buttonSize, height: buttonSize
         )
+        graphButton.frame = NSRect(
+            x: markerButton.frame.minX - 4 - buttonSize,
+            y: headerY + (Self.headerHeight - buttonSize) / 2,
+            width: buttonSize, height: buttonSize
+        )
         let branchX = branchIcon.frame.maxX + 4
         branchButton.frame = NSRect(
             x: branchX, y: headerY + (Self.headerHeight - 18) / 2,
-            width: max(0, markerButton.frame.minX - 6 - branchX), height: 18
+            width: max(0, graphButton.frame.minX - 6 - branchX), height: 18
         )
         separator.frame = NSRect(x: 0, y: headerY, width: bounds.width, height: 1)
         scrollView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: max(0, headerY - 1))
@@ -344,6 +364,11 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     @objc private func showFullDiff() {
         guard let root = gitRoot else { return }
         onShowFullDiff?(root)
+    }
+
+    @objc private func showCommitGraph() {
+        guard let root = gitRoot else { return }
+        onShowCommitGraph?(root)
     }
 
     // MARK: - Away marker (ROADMAP Phase 24)

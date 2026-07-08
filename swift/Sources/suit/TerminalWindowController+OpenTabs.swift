@@ -120,6 +120,47 @@ extension TerminalWindowController {
         activate(tab)
     }
 
+    // Whole-commit diff (ROADMAP Phase 34): from a commit-graph node click.
+    // `git show <sha>` prints the commit's header + full diff; reuses the
+    // window's diff tab like the per-file variant.
+    func openCommitDiff(root: String, sha: String) {
+        let producer = {
+            runProcess("/usr/bin/git", ["-C", root, "show", "--stat", "--patch", sha]) ?? ""
+        }
+        let title = "commit \(sha.prefix(8))"
+        let load = { (content: DiffPaneContent) in
+            content.loadDiffText(producer(), title: title, root: root, reload: producer)
+        }
+        if let tab = store.tabs.first(where: { $0.content is DiffPaneContent }) {
+            if let content = tab.content as? DiffPaneContent { load(content) }
+            activate(tab)
+            return
+        }
+        let content = DiffPaneContent()
+        let tab = Tab(content: content)
+        store.insert(tab)
+        load(content)
+        activate(tab)
+    }
+
+    // The commit-graph pane (ROADMAP Phase 34): one per window, reused like the
+    // diff/transcript tabs (scan the store for the existing one). Opened from
+    // the Git tab's button and the "Show Commit Graph" palette command.
+    func openCommitGraph(root explicitRoot: String? = nil) {
+        let root = explicitRoot ?? currentFileIndex().root
+        guard FileIndex.gitRoot(of: root) != nil else { NSSound.beep(); return }
+        if let tab = store.tabs.first(where: { $0.content is CommitGraphPaneContent }) {
+            (tab.content as? CommitGraphPaneContent)?.load(root: root)
+            activate(tab)
+            return
+        }
+        let content = CommitGraphPaneContent()
+        let tab = Tab(content: content)
+        store.insert(tab)
+        content.load(root: root)
+        activate(tab)
+    }
+
     // MARK: - "What changed while I was away" markers (ROADMAP Phase 24)
 
     // Drops a per-repo checkpoint: every worktree's HEAD sha + a timestamp,
