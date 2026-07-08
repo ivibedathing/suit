@@ -259,6 +259,36 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     `SUIT_RG_PATH` overrides for dev runs), streams the JSON-lines events off the main
     thread, and delivers `SearchMatch` batches (capped at 2 000) to the main queue. Starting a
     new search cancels the previous one.
+  - `SymbolIndexCore.swift` / `SymbolIndex.swift` — go-to-definition & find-references (ROADMAP
+    Phase 33). `SymbolIndexCore` is the UI-free, standalone-compilable core (the
+    RoadmapParser/FeedbackRouting pattern): the `SymbolDefinition` model, `parseTagLine`/
+    `parseTags` over classic `ctags --fields=+n` output, `identifier(in:atUTF16Offset:)` (the
+    word under a caret/click, ASCII-identifier scan), `definitions(named:in:)` and
+    `referenceRegex(for:)` (the `\bNAME\b` rg pattern). `SymbolIndex` is the app shell mirroring
+    `FileIndex`: `resolveCtagsExecutable()` (bundled `Contents/Resources/ctags`, `SUIT_CTAGS_PATH`
+    override, universal-ctags probed via `--version` so BSD `/usr/bin/ctags` is never used),
+    per-git-root cache, an off-main ctags pass over the root's `FileIndex.files` (fed on stdin,
+    `-L -`) rebuilt (debounced) on `FileIndex.didUpdate`, and `definitions(for:)`. `hasCtags`
+    gates the fallback: no universal-ctags → the index stays empty and callers fall back to an
+    rg word search. Verified by `scripts/symbol-index-test.sh` (pure assertions + an end-to-end
+    pass over a real Swift/Go fixture when ctags is installed).
+  - `ReferencesPane.swift` — `ReferencesPaneContent` (ROADMAP Phase 33): the find-references pane,
+    one per window reused like the diff/transcript panes. Reuses the Phase 2 search result view
+    (`SearchFileGroup`/`SearchMatchNode` + `SearchFileRowView`/`SearchMatchRowView`) in its own
+    `NSOutlineView`, fed by a `RipgrepSearcher` whole-word search of the symbol
+    (`SymbolIndexCore.referenceRegex`) — which surfaces the definition among the uses; a header
+    shows the count and, on the ctags-missing fallback path, a note. Rows click into the viewer
+    via `pane.openFileLink`.
+  - `FileViewerPane+Symbols.swift` — the viewer's symbol navigation (ROADMAP Phase 33): pulls the
+    identifier from under the caret/selection (`symbolAtCaret`) or a document offset
+    (`symbol(atCharacterOffset:)` via `lineAndColumn` + `SymbolIndexCore.identifier`) and routes
+    it through the pane (`pane.goToDefinition`/`findReferences` → the host). `ViewerTextView`'s
+    Cmd-`mouseDown` resolves the click to an offset and calls `goToDefinition(atCharacterOffset:)`
+    (falling through to selection when it's not on a symbol); its context menu and the ⌃⌘J/⌃⌘R
+    View-menu/palette entries hit `goToDefinition(_:)`/`findReferences(_:)`. The window controller
+    (`TerminalWindowController+OpenTabs`) resolves definitions: exactly one jumps via `openFile`,
+    several open `AppDelegate.showDefinitionPicker` (the Cmd-P palette in explicit-items mode),
+    none/no-ctags open the references pane with a fallback note.
   - `SearchView.swift` — the search half of the sidebar's Files tab (Cmd-Shift-F via
     `TerminalWindowController.focusProjectSearch()`): debounced live search field, regex/case
     toggles, `-g` glob filter, and a scope picker (Project / Sub-project / Pane Directory,

@@ -18,6 +18,7 @@ enum TabKind {
     case diff
     case transcript
     case plan
+    case references
     case tasks
     case commitGraph
 
@@ -32,6 +33,7 @@ enum TabKind {
         case .diff: return "plus.forwardslash.minus"
         case .transcript: return "text.bubble"
         case .plan: return "checklist"
+        case .references: return "list.bullet.indent"
         case .tasks: return "gauge.with.dots.needle.bottom.50percent"
         case .commitGraph: return "point.3.filled.connected.trianglepath.dotted"
         }
@@ -91,6 +93,7 @@ final class Tab {
         case is CommitGraphPaneContent: return .commitGraph
         case is TranscriptPaneContent: return .transcript
         case is PlanApprovalPaneContent: return .plan
+        case is ReferencesPaneContent: return .references
         case is BackgroundTaskPaneContent: return .tasks
         default: return .terminal
         }

@@ -246,6 +246,14 @@ extension AppDelegate {
 
         viewMenu.addItem(withTitle: "Show File History", action: #selector(ViewerTextView.showFileHistory(_:)), keyEquivalent: "")
 
+        // Go to definition / find references (ROADMAP Phase 33) — responder-
+        // routed to the focused viewer like blame above.
+        let goToDefinitionItem = viewMenu.addItem(withTitle: "Go to Definition", action: #selector(ViewerTextView.goToDefinition(_:)), keyEquivalent: "j")
+        goToDefinitionItem.keyEquivalentModifierMask = [.command, .control]
+
+        let findReferencesItem = viewMenu.addItem(withTitle: "Find References", action: #selector(ViewerTextView.findReferences(_:)), keyEquivalent: "r")
+        findReferencesItem.keyEquivalentModifierMask = [.command, .control]
+
         viewMenu.addItem(.separator())
 
         let increaseOpacityItem = viewMenu.addItem(withTitle: "Increase Opacity", action: #selector(increaseOpacity(_:)), keyEquivalent: "]")
