@@ -168,6 +168,14 @@ working.
   /compact / Interrupt), a floating composer with `@`-completion over repo files, a prompt
   library (`~/.suit/prompts/*.md`), or right-click ▸ "Send Selection to Claude Session" to pipe
   an error/diff/log line over with context.
+- **Slash-command menu** — "Slash Command Menu…" (⌃⌘/, or the command palette) lists a chosen
+  session's available commands — Claude's built-ins (`/context`, `/compact`, `/clear`, `/usage`,
+  …), your custom `~/.claude/commands/*.md`, and skills (each project's own `.claude/` is scanned
+  too) — and dispatches the one you pick straight into that session's pty. A session picker appears
+  first when several are live.
+- **One-tap /compact** — the pane title bar's context-% meter is a button: click it (or press
+  ⌃⌘K, "Compact Focused Session") to send `/compact` into the focused session, so acting on a
+  full context window is one tap instead of a typed command.
 - **Set as Goal** — select code or prose in a file viewer, transcript, or terminal, then
   right-click ▸ "Set as Goal" (or the palette's "Set Selection as Claude Goal") to send
   `/goal <selection>` into a chosen session — turning "this is what I want done" into a
@@ -326,6 +334,8 @@ The full list also lives in-app under **Settings (⌘,) ▸ Shortcuts**.
 | ⌃⌘C | New Claude session |
 | ⌃⌘T | New Claude task |
 | ⌃⌘F | Search transcripts |
+| ⌃⌘/ | Slash-command menu |
+| ⌃⌘K | Compact focused session (/compact) |
 
 Show File History (palette / viewer right-click) lists the open file's commits in the Git tab.
 

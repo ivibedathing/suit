@@ -528,6 +528,14 @@ Multiple agents have written overlapping changes here before when working straig
 working directory; a fresh branch + worktree per task keeps them from stepping on each other's
 edits. Exit with `keep` if the work should persist for later, `remove` once it's merged/abandoned.
 
+**Claim a phase before you start it, so concurrent sessions don't collide.** The moment you pick
+a `ROADMAP.md` phase to implement, mark it claimed by appending ` 🚧 in progress (<branch>, <date>)`
+to that phase's `### Phase N — …` heading in `ROADMAP.md` on the main checkout, and commit just
+that one-line change to main before creating the worktree. Before picking a phase, read the
+`ROADMAP.md` headings and skip any already marked `🚧` (claimed), `✅` (shipped), or `⏸` (skipped) —
+take the first phase in document order that has none of these. Replace the `🚧` marker with `✅`
+when the phase ships (or remove it if you abandon the work) so the roadmap stays truthful.
+
 After implementing any phase from `ROADMAP.md`, document the new feature(s) in `README.md` —
 write up what shipped (user-facing behavior, shortcuts, settings) as part of the same task, so
 the README stays a current description of what the app does.

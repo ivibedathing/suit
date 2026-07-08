@@ -199,6 +199,15 @@ extension AppDelegate {
         searchTranscriptsItem.keyEquivalentModifierMask = [.command, .control]
         searchTranscriptsItem.target = self
 
+        // Live slash-command menu + context-bar /compact (ROADMAP Phase 27).
+        let slashMenuItem = viewMenu.addItem(withTitle: "Slash Command Menu…", action: #selector(showSlashCommandMenu(_:)), keyEquivalent: "/")
+        slashMenuItem.keyEquivalentModifierMask = [.command, .control]
+        slashMenuItem.target = self
+
+        let compactFocusedItem = viewMenu.addItem(withTitle: "Compact Focused Session (/compact)", action: #selector(compactFocusedSession(_:)), keyEquivalent: "k")
+        compactFocusedItem.keyEquivalentModifierMask = [.command, .control]
+        compactFocusedItem.target = self
+
         viewMenu.addItem(.separator())
 
         // "=" rather than "+" so plain Cmd-= works without holding Shift; the
