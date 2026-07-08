@@ -183,6 +183,10 @@ working.
   **Stop** (close the session's tab); double-clicking a row focuses it. A **Board** toggle lays
   the same sessions out Kanban-style (Running / Needs you / Done), one card per worktree —
   click a card to jump to it. Actions are only enabled for sessions a pane still hosts.
+  A session that fans out into `isolation: worktree` **subagents** shows them nested (indented)
+  underneath it — one row per subagent worktree (name + branch), muted when it has no live
+  session of its own — discovered from the repo's worktree list and pruned automatically as
+  Claude Code removes each finished subagent's checkout.
 - **Talk-back** — send prompts into any session's pty: quick actions (Prompt… / Continue /
   /compact / Interrupt), a floating composer with `@`-completion over repo files, a prompt
   library (`~/.suit/prompts/*.md`), or right-click ▸ "Send Selection to Claude Session" to pipe
@@ -221,8 +225,12 @@ working.
   searched with ripgrep. Results are readable snippets — prompts, replies, tool calls — grouped
   by session (name · project · date), and clicking one opens that session's transcript anchored
   to the matching line.
-- **Worktree tasks** — "New Claude Task…" (⌃⌘T) creates a git worktree on a task branch and
-  opens a pane running `claude` in it; finishing the task merges or discards the worktree.
+- **Worktree tasks** — "New Claude Task…" (⌃⌘T) opens a pane running `claude` for a named task;
+  finishing the task merges or discards its worktree. The prompt carries an **Isolate in
+  worktree** switch — on (the default) spins a dedicated git worktree on a `task/…` branch, off
+  runs `claude` straight in the current checkout for cheap tasks that don't want the worktree
+  churn. The switch's default is a setting (Settings ▸ Claude ▸ "Isolate new tasks in a worktree
+  by default").
 
 ### Autopilot
 
