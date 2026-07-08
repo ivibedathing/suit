@@ -183,6 +183,12 @@ working.
   **Stop** (close the session's tab); double-clicking a row focuses it. A **Board** toggle lays
   the same sessions out Kanban-style (Running / Needs you / Done), one card per worktree —
   click a card to jump to it. Actions are only enabled for sessions a pane still hosts.
+- **Broadcast** — fan one instruction across many sessions at once (iTerm's "send to all
+  sessions"). Check rows in the fleet dashboard and hit **Broadcast Selected (N)**, or
+  **Broadcast All** for every live session — either opens the composer aimed at that set; type
+  once and Enter sends it into every target's pty as one bracketed-paste unit. "Broadcast to
+  All Sessions…" (command palette / View menu) is the keyboard path. A fan-out confirm gates
+  before it lands in two or more panes; only sessions a pane still hosts are reached.
 - **Talk-back** — send prompts into any session's pty: quick actions (Prompt… / Continue /
   /compact / Interrupt), a floating composer with `@`-completion over repo files, a prompt
   library (`~/.suit/prompts/*.md`), or right-click ▸ "Send Selection to Claude Session" to pipe

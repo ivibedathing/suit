@@ -73,6 +73,41 @@ extension AppDelegate {
         fleetDashboard.toggle(relativeTo: activeWindowController()?.window)
     }
 
+    // MARK: - Broadcast (ROADMAP Phase 35)
+
+    // The steerable targets a broadcast will reach, each paired with its
+    // terminal, in the fleet's needs-you-first order (so the composer count and
+    // the send agree). Resolution is the pure `Broadcast.targetIds`: fleet order
+    // → hosted-only → the chosen scope.
+    func broadcastTargets(scope: Broadcast.Scope) -> [(session: ClaudeSession, terminal: TerminalPaneContent)] {
+        let sessions = ClaudeSessionMonitor.shared.sessions
+        let hosted = hostedSessionIds()
+        let orderedIds = FleetModel.rows(sessions: sessions, hostedIds: hosted).map { $0.id }
+        let ids = Broadcast.targetIds(orderedSessionIds: orderedIds, hostedIds: hosted, scope: scope)
+        let byId = Dictionary(sessions.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return ids.compactMap { id in
+            guard let session = byId[id], let terminal = terminalContent(forSessionId: id) else { return nil }
+            return (session, terminal)
+        }
+    }
+
+    // Opens the composer in broadcast mode aimed at `scope`'s sessions. @-paths
+    // complete against the active window's index since the targets may span
+    // projects. Beeps when nothing steerable matches.
+    func presentBroadcast(scope: Broadcast.Scope) {
+        let targets = broadcastTargets(scope: scope)
+        guard !targets.isEmpty else { NSSound.beep(); return }
+        promptComposer.showBroadcast(
+            terminals: targets.map { $0.terminal },
+            fileIndex: activeWindowController()?.currentFileIndex(),
+            relativeTo: activeWindowController()?.window
+        )
+    }
+
+    @objc func broadcastToAllSessions(_ sender: Any?) {
+        presentBroadcast(scope: .allLive)
+    }
+
     // Opens the prompt composer aimed at `session` — @-completion works over
     // the file index of the session's cwd (so paths complete against the
     // project claude is actually in), falling back to the active window's.

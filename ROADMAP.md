@@ -941,7 +941,7 @@ shell. Read-only.
   layout and ref badges are correct, that clicking a node opens that commit's diff, and that the
   pane round-trips through state restoration.
 
-### Phase 35 — Broadcast input to multiple sessions — 🚧 in progress (worktree-phase-35-broadcast-input, 2026-07-08)
+### Phase 35 — Broadcast input to multiple sessions — ✅ shipped
 
 The Orchestrate pillar. Phase 8 pipes text into *one* session; Phase 28 lists the whole fleet.
 This fans a single instruction across many panes at once — the iTerm "send to all sessions"

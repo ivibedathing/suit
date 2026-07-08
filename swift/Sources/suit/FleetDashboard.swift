@@ -130,6 +130,9 @@ private final class FleetDotView: NSView {
 // One list row: dot, a two-line title/place block, trailing context%+cost, and
 // the four steering buttons. Reused across reloads via configure(row:).
 private final class FleetRowView: NSView {
+    // Broadcast selection checkbox (ROADMAP Phase 35): checked rows are the
+    // "Broadcast to Selected" target set; disabled on unhosted (unsteerable) rows.
+    private let checkbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let dot = FleetDotView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let placeLabel = NSTextField(labelWithString: "")
@@ -140,9 +143,14 @@ private final class FleetRowView: NSView {
     private let archiveButton = NSButton()
 
     var onAction: ((FleetAction) -> Void)?
+    var onToggleCheck: ((Bool) -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+
+        checkbox.target = self
+        checkbox.action = #selector(checkToggled)
+        addSubview(checkbox)
 
         addSubview(dot)
 
@@ -179,7 +187,10 @@ private final class FleetRowView: NSView {
         addSubview(button)
     }
 
-    func configure(row: FleetRow) {
+    func configure(row: FleetRow, checked: Bool) {
+        // Only a hosted (steerable) session can be a broadcast target.
+        checkbox.isEnabled = row.hosted
+        checkbox.state = (checked && row.hosted) ? .on : .off
         dot.color = row.state.color
         titleLabel.stringValue = row.title
         var place = row.project
@@ -206,7 +217,9 @@ private final class FleetRowView: NSView {
     override func layout() {
         super.layout()
         let h = bounds.height
-        dot.frame = NSRect(x: 14, y: (h - 12) / 2, width: 12, height: 12)
+        checkbox.sizeToFit()
+        checkbox.frame = NSRect(x: 12, y: (h - 18) / 2, width: 18, height: 18)
+        dot.frame = NSRect(x: 34, y: (h - 12) / 2, width: 12, height: 12)
 
         // Buttons pinned right, in reverse order.
         var x = bounds.width - 12
@@ -222,7 +235,7 @@ private final class FleetRowView: NSView {
         let metricsWidth: CGFloat = 130
         metricsLabel.frame = NSRect(x: buttonsLeft - metricsWidth - 12, y: (h - 15) / 2, width: metricsWidth, height: 15)
 
-        let textLeft: CGFloat = 34
+        let textLeft: CGFloat = 54
         let textRight = metricsLabel.frame.minX - 10
         let textWidth = max(40, textRight - textLeft)
         titleLabel.frame = NSRect(x: textLeft, y: h / 2 + 1, width: textWidth, height: 17)
@@ -233,6 +246,7 @@ private final class FleetRowView: NSView {
     @objc private func interruptTapped() { onAction?(.interrupt) }
     @objc private func continueTapped() { onAction?(.cont) }
     @objc private func archiveTapped() { onAction?(.archive) }
+    @objc private func checkToggled() { onToggleCheck?(checkbox.state == .on) }
 }
 
 // A Kanban card: a compact clickable tile that focuses the session on click.
@@ -313,12 +327,20 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     var onInterrupt: ((String) -> Void)?
     var onContinue: ((String) -> Void)?
     var onArchive: ((String) -> Void)?
+    // Broadcast (ROADMAP Phase 35): fan one instruction across a scope of
+    // sessions — the checked rows, or every live one.
+    var onBroadcast: ((Broadcast.Scope) -> Void)?
     // The set of session ids some pane currently hosts (steerable rows).
     var hostedIds: (() -> Set<String>)?
 
     private let panel: FleetPanel
     private let segmented = NSSegmentedControl(labels: ["List", "Board"], trackingMode: .selectOne, target: nil, action: nil)
+    private let broadcastAllButton = NSButton()
+    private let broadcastSelectedButton = NSButton()
     private let countLabel = NSTextField(labelWithString: "")
+    // Broadcast selection: the row ids checked in the List view; pruned to live
+    // rows on every reload so a finished session's check can't linger.
+    private var checkedIds: Set<String> = []
     private let emptyLabel = NSTextField(labelWithString: "No active Claude sessions.")
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
@@ -363,6 +385,13 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
         segmented.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(segmented)
 
+        // Broadcast controls (Phase 35): "All" fans to every live session, the
+        // selected button to the checked rows (its title carries the count).
+        configureBroadcastButton(broadcastAllButton, title: "Broadcast All", action: #selector(broadcastAllTapped))
+        configureBroadcastButton(broadcastSelectedButton, title: "Broadcast Selected", action: #selector(broadcastSelectedTapped))
+        content.addSubview(broadcastAllButton)
+        content.addSubview(broadcastSelectedButton)
+
         countLabel.font = Theme.usageFont
         countLabel.textColor = Theme.textDim
         countLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -406,8 +435,15 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
             segmented.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
             segmented.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
 
+            broadcastAllButton.leadingAnchor.constraint(equalTo: segmented.trailingAnchor, constant: 12),
+            broadcastAllButton.centerYAnchor.constraint(equalTo: segmented.centerYAnchor),
+
+            broadcastSelectedButton.leadingAnchor.constraint(equalTo: broadcastAllButton.trailingAnchor, constant: 6),
+            broadcastSelectedButton.centerYAnchor.constraint(equalTo: segmented.centerYAnchor),
+
             countLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -14),
             countLabel.centerYAnchor.constraint(equalTo: segmented.centerYAnchor),
+            countLabel.leadingAnchor.constraint(greaterThanOrEqualTo: broadcastSelectedButton.trailingAnchor, constant: 8),
 
             scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
@@ -474,11 +510,16 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
             self?.branch(forCwd: cwd)
         }
 
+        // Drop checks for sessions that are gone or no longer steerable.
+        let steerable = Set(rows.filter { $0.hosted }.map { $0.id })
+        checkedIds.formIntersection(steerable)
+
         let needsYou = rows.filter { $0.state == .needsInput }.count
         countLabel.stringValue = rows.isEmpty
             ? ""
             : "\(rows.count) session\(rows.count == 1 ? "" : "s")" + (needsYou > 0 ? " · \(needsYou) need you" : "")
         emptyLabel.isHidden = !rows.isEmpty
+        refreshBroadcastButtons()
 
         tableView.reloadData()
         if !boardScroll.isHidden { rebuildBoard() }
@@ -578,6 +619,38 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
         onFocus?(rows[clicked].id)
     }
 
+    // MARK: - Broadcast
+
+    private func configureBroadcastButton(_ button: NSButton, title: String, action: Selector) {
+        button.title = title
+        button.bezelStyle = .rounded
+        button.controlSize = .small
+        button.font = .systemFont(ofSize: 11)
+        button.target = self
+        button.action = action
+        button.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    // Enable "All" whenever any steerable session exists, and "Selected" only
+    // when checked rows remain after pruning; the latter's title carries the
+    // live count so the button reads "Broadcast Selected (2)".
+    private func refreshBroadcastButtons() {
+        let hostedCount = rows.filter { $0.hosted }.count
+        broadcastAllButton.isEnabled = hostedCount > 0
+        let selectedCount = checkedIds.count
+        broadcastSelectedButton.isEnabled = selectedCount > 0
+        broadcastSelectedButton.title = selectedCount > 0 ? "Broadcast Selected (\(selectedCount))" : "Broadcast Selected"
+    }
+
+    @objc private func broadcastAllTapped() {
+        onBroadcast?(.allLive)
+    }
+
+    @objc private func broadcastSelectedTapped() {
+        guard !checkedIds.isEmpty else { NSSound.beep(); return }
+        onBroadcast?(.selected(checkedIds))
+    }
+
     // MARK: - Table
 
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
@@ -590,8 +663,13 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
             return created
         }()
         let fleetRow = rows[row]
-        view.configure(row: fleetRow)
+        view.configure(row: fleetRow, checked: checkedIds.contains(fleetRow.id))
         view.onAction = { [weak self] action in self?.dispatch(action, id: fleetRow.id) }
+        view.onToggleCheck = { [weak self] checked in
+            guard let self else { return }
+            if checked { self.checkedIds.insert(fleetRow.id) } else { self.checkedIds.remove(fleetRow.id) }
+            self.refreshBroadcastButtons()
+        }
         return view
     }
 
