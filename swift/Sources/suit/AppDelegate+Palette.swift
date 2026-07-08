@@ -294,6 +294,7 @@ extension AppDelegate {
             PaletteCommand(title: "Go to Line…", shortcut: "⌘L") { NSApp.sendAction(#selector(ViewerTextView.goToLine(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Toggle Blame", shortcut: "⌃⌘B") { NSApp.sendAction(#selector(ViewerTextView.toggleBlame(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Show File History", shortcut: nil) { NSApp.sendAction(#selector(ViewerTextView.showFileHistory(_:)), to: nil, from: nil) },
+            PaletteCommand(title: "Time Travel", shortcut: "⌃⌘H") { NSApp.sendAction(#selector(ViewerTextView.toggleTimeTravel(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Go to Definition", shortcut: "⌃⌘J") { NSApp.sendAction(#selector(ViewerTextView.goToDefinition(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Find References", shortcut: "⌃⌘R") { NSApp.sendAction(#selector(ViewerTextView.findReferences(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Split Screen (new terminal)", shortcut: "⌘D") { [weak self] in self?.splitScreen(nil) },

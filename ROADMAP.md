@@ -1073,7 +1073,7 @@ core) + `GitView+PRInbox.swift` (the Git-tab section) + `GitHubCLI` verbs, verif
   verdict→flag mapping, the body composition (grouped by file, sorted by line, overall note), and
   the exact `gh pr review` argv for each verdict (bare approve omits `--body`).
 
-### Phase 40 — File time-travel scrubber
+### Phase 40 — File time-travel scrubber — ✅ shipped
 
 The Read pillar, along the time axis. Phase 17's file history is a *list*; this makes it a
 *scrubber* — drag the open file backward through its commits and watch it change, with the

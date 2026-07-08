@@ -254,6 +254,11 @@ extension AppDelegate {
 
         viewMenu.addItem(withTitle: "Show File History", action: #selector(ViewerTextView.showFileHistory(_:)), keyEquivalent: "")
 
+        // Time-travel scrubber (ROADMAP Phase 40) — responder-routed to the
+        // focused viewer; the check reflects whether it's currently scrubbing.
+        let timeTravelItem = viewMenu.addItem(withTitle: "Time Travel", action: #selector(ViewerTextView.toggleTimeTravel(_:)), keyEquivalent: "h")
+        timeTravelItem.keyEquivalentModifierMask = [.command, .control]
+
         // Go to definition / find references (ROADMAP Phase 33) — responder-
         // routed to the focused viewer like blame above.
         let goToDefinitionItem = viewMenu.addItem(withTitle: "Go to Definition", action: #selector(ViewerTextView.goToDefinition(_:)), keyEquivalent: "j")

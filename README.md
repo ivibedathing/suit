@@ -133,6 +133,15 @@ working.
 - **File history** — Show File History opens the Git tab's list of commits touching the open
   file (`git log --follow`) — sha, subject, author, age; click a commit to open its per-file
   diff.
+- **Time travel** — **Time Travel** (⌃⌘H, the palette, or the viewer's right-click menu) turns
+  that history into a scrubber: a bar across the top of the viewer with a slider over every
+  revision (oldest on the left, the working tree pinned at the far right, HEAD one step in).
+  Drag it and the read-only viewer loads each revision's content (`git show <sha>:<path>`,
+  syntax-highlighted as usual), the header showing sha · subject · age. Each position marks its
+  change versus the adjacent older revision as orange gutter bars, and **Diff** flips that
+  commit's per-file change into the diff tab. It's read-only and non-destructive — nothing is
+  ever checked out — untracked files say "no history", and **Exit** (or toggling the command
+  off) restores the working-tree view.
 - **Commit graph** — **Show Commit Graph** (the Git tab's graph button, or the command palette)
   opens a read-only, clickable rendering of the whole commit DAG (`git log --all --date-order`):
   nodes laid out in lanes with edges for merges and forks, short sha · subject · author · age
@@ -438,6 +447,7 @@ The full list also lives in-app under **Settings (⌘,) ▸ Shortcuts**.
 | --- | --- |
 | ⌃⌘D | Show git diff |
 | ⌃⌘B | Toggle blame gutter (file viewer) |
+| ⌃⌘H | Time travel through the file's history (file viewer) |
 | ⌃⌘C | New Claude session |
 | ⌃⌘T | New Claude task |
 | ⌃⌘F | Search transcripts |

@@ -226,23 +226,9 @@ enum GitChangedLines {
                 DispatchQueue.main.async { completion(IndexSet()) }
                 return
             }
-            var lines = IndexSet()
-            diff.enumerateLines { raw, _ in
-                // @@ -a,b +c,d @@ — the +c,d side is where the file's current
-                // content changed; d==0 (pure deletion) still marks line c so
-                // the removal site is findable.
-                guard raw.hasPrefix("@@") else { return }
-                let parts = raw.split(separator: " ")
-                guard parts.count >= 3, parts[2].hasPrefix("+") else { return }
-                let plus = parts[2].dropFirst().split(separator: ",")
-                guard let start = Int(plus.first ?? "") else { return }
-                let count = plus.count > 1 ? (Int(plus[1]) ?? 1) : 1
-                if count == 0 {
-                    lines.insert(max(1, start))
-                } else {
-                    lines.insert(integersIn: start..<(start + count))
-                }
-            }
+            // The @@ +c,d side is where the file's current content changed; the
+            // parse is shared with the time-travel scrubber (Phase 40).
+            let lines = TimeTravelDiff.changedNewLines(inDiff: diff)
             DispatchQueue.main.async { completion(lines) }
         }
     }
