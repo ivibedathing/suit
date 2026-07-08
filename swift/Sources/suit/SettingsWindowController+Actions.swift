@@ -119,6 +119,10 @@ extension SettingsWindowController {
         appDelegate?.goalProvenanceChanged(sender.state == .on)
     }
 
+    @objc func taskIsolateChanged(_ sender: NSButton) {
+        appDelegate?.taskIsolateByDefaultChanged(sender.state == .on)
+    }
+
     // MARK: - Autopilot actions (ROADMAP Phase 32)
 
     // Enabling runs the §2.3 enable-time checks in AppDelegate (Claude

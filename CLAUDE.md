@@ -5,11 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app growing from a terminal into a Claude-code-first cockpit for
-monorepo work (see `ROADMAP.md` for the phased plan). Today it's a native app bundle (Dock icon,
+codebase work (see `ROADMAP.md` for the phased plan). Today it's a native app bundle (Dock icon,
 own bundle identifier, own TCC permission entries) whose windows host split trees of terminal
 panes, each running an interactive shell (`/bin/zsh -l -i`) directly via SwiftTerm's pty (see
 `PaneContent.swift`). Swift/AppKit is the product/UI layer; heavy non-UI logic (indexing,
-monorepo analysis) may live in a Go sidecar if it outgrows Swift.
+codebase analysis) may live in a Go sidecar if it outgrows Swift.
 
 - `swift/Sources/suit/` — the AppKit app. This is the product layer (per `ROADMAP.md`), no
   longer a "keep it minimal" shell; UI features live here.
@@ -30,7 +30,9 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     Screen / Unsplit, ⌘D, the Screen menu's / palette's last-used-tab and
     "Split Screen with Tab…" picker entries, or drag a tab to a
     screen edge — no pane-first split commands. Single-field prompts (rename tab, new Claude
-    task) use `OverlayPrompt.swift`, the palette-style panel (Phase 15), not NSAlert. Also the cross-window
+    task) use `OverlayPrompt.swift`, the palette-style panel (Phase 15), not NSAlert — the
+    new-task prompt carries its optional "Isolate in worktree" accessory toggle (Phase 31),
+    `ask(…, toggleLabel:toggleOn:) { name, isolate in … }`. Also the cross-window
     tab plumbing: `controllerAndTab(withId:)` resolves a dragged tab across windows, and
     `tearOffTab(withId:at:)` turns a tab dragged outside every window into its own window.
     Also Autopilot's host (Phase 32): the `autopilot*` settings (enabled, project root, budget
@@ -185,11 +187,10 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     plan); `ClaudeModeControl.payload(from:to:)` is the pure `ESC[Z`×N (back-tab) string that
     cycles from a believed mode to a target; `ClaudeModeTracker.shared` remembers the last mode
     Suit sent per session, and `effectiveMode(for:)` prefers the session JSON's `permission_mode`
-    readback, else last-sent, else agent. The title bar's `ModeControlView` (in
-    `PaneTitleBarView.swift`, shown only for a live Claude tab) and the `Claude: Ask/Plan/Agent
-    Mode` palette entries both route through `paneRequestedSwitchClaudeMode` /
-    `AppDelegate.switchClaudeMode(_:forSessionId:)`, which writes the payload and records the new
-    belief. Purely a control surface — no Claude-side changes; readback is best-effort (the
+    readback, else last-sent, else agent. The `Claude: Ask/Plan/Agent Mode` palette entries route
+    through `AppDelegate.switchClaudeMode(_:forSessionId:)`, which writes the payload and records
+    the new belief (there is no per-pane title-bar control — the mode switch lives only on the
+    palette). Purely a control surface — no Claude-side changes; readback is best-effort (the
     `suit-session-state.sh` hook writes `permission_mode` when the hook JSON carries it).
   - `PlanParsing.swift` / `PlanApprovalPane.swift` — the plan-approval surface (ROADMAP Phase 26).
     `PlanParser` (pure, UI-free) scans a session's JSONL transcript for the latest `ExitPlanMode`
@@ -352,9 +353,23 @@ monorepo analysis) may live in a Go sidecar if it outgrows Swift.
     worktree removal (the build gate leaves an untracked `build/` that a plain remove refuses),
     local `branch -D`, best-effort remote branch delete — `finish` stays untouched and unused
     by Autopilot. UI: View ▸ New Claude Task… (Ctrl-Cmd-T,
-    palette) prompts for a name and opens a pane running `claude` in the new
-    worktree (title = task name); right-click ▸ Finish Claude Task… (only shown inside a task
-    worktree) offers Merge & Remove / Discard & Remove and closes the pane.
+    palette) prompts for a name plus an "Isolate in worktree" toggle (Phase 31) and opens a pane
+    running `claude` (title = task name); right-click ▸ Finish Claude Task… (only shown inside a
+    task worktree) offers Merge & Remove / Discard & Remove and closes the pane. The isolation
+    branch lives in `TerminalWindowController.startClaudeTask(named:isolate:)` — on = `createTask`
+    worktree (the original behavior), off = run in the current checkout — with the pure decision
+    (`usesWorktree` / `checkoutDirectory`) factored into `TaskLaunch.swift` for the harness, and
+    the prompt default in `AppDelegate.taskIsolateByDefault` (Settings ▸ Claude).
+  - `TaskLaunch.swift` / `SubagentTree.swift` — the Phase 31 UI-free, standalone-compilable cores
+    (the RoadmapParser / FeedbackRouting pattern). `TaskLaunch` is the per-task isolation decision.
+    `SubagentTree.build(sessions:worktrees:)` turns the flat session map + `git worktree list` into
+    a session-anchored nested forest: a worktree nests under its nearest *session* ancestor (via
+    `.claude/worktrees/` containment), so a session's `isolation: worktree` subagents render
+    indented under it while a session-less checkout that merely *contains* a session (the main
+    repo) stays transparent; pruning is implicit (a removed worktree drops out of the list).
+    `FleetDashboard`'s list weaves the tree in (`FleetModel.tree`, `FleetRow.depth/isBareWorktree`,
+    off-thread `git worktree list` cache), rendering bare subagent worktrees muted and
+    unsteerable. Verified by `scripts/isolation-harness.sh`.
   - `AutopilotEngine.swift` — Autopilot (ROADMAP Phase 32): the app works through `ROADMAP.md`
     autonomously, one run at a time. A main-queue state machine (off / idle / running / paused /
     blocked(reason) / doneAllPhases — the last auto-recovers when ROADMAP.md's mtime changes)
@@ -539,6 +554,42 @@ the Swift shell is compiled directly with `swiftc` (see `build.sh`) instead of v
 If you add a new Swift dependency, vendor its source the same way rather than reaching for SPM —
 re-check whether `swift build` works before going back to a `Package.swift`.
 
+## Testing
+
+There is no XCTest target (no SwiftPM/Xcode project — see above). Instead, the pure, UI-free
+logic that features rest on is verified by **standalone harnesses**: each compiles just the
+relevant Foundation-only source file(s) against a small assertion driver and runs it — no app, no
+UI. Run them all from one entrypoint:
+
+```
+scripts/test.sh                   # fast suite (feedback-routing + mode-plan), ~seconds
+scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
+scripts/test.sh --list            # list the harnesses
+```
+
+The individual harnesses (each also runnable directly) are `scripts/feedback-routing-test.sh`
+(`FeedbackRouting.swift`), `scripts/mode-plan-harness.sh` (`ClaudeMode.swift` + `PlanParsing.swift`),
+and `scripts/autopilot-harness.sh` (the full Autopilot pipeline, offscreen with everything faked).
+This is why testable logic is kept in Foundation-only files with no app dependencies (the
+`RoadmapParser`/`AutopilotScheduler`/`FeedbackRouting` pattern) — a harness can compile it in
+isolation. When you add such logic, add a harness for it and wire it into the `HARNESSES` list in
+`scripts/test.sh`. UI/chrome changes are instead guarded by the committed reference render — see
+`design/render-reference.sh` (ROADMAP Phase 15).
+
+## Agent tooling
+
+This repo is set up for coding agents (Claude Code and others):
+
+- `AGENTS.md` — the concise front-door / 60-second orientation (this `CLAUDE.md` remains the
+  source of truth for the full file map and rationale). Keep the two in sync when the build/test
+  commands or the load-bearing rules change.
+- `.claude/commands/` — repo slash commands: `/build`, `/test`, `/claim-phase`,
+  `/render-reference`, `/orient`, `/find-file` (quick file search by name).
+- `.claude/settings.json` — if present, the shared permission allowlist for the safe, repeated
+  commands (build, `swiftc`, `scripts/test.sh`, read-only `git`/`gh`, search) so agents aren't
+  prompted mid-loop. It intentionally does **not** auto-allow `git push` (asks) or force-push
+  (denied). `.claude/worktrees/` stays git-ignored.
+
 ## Workflow
 
 Always start a new feature/task on its own new branch in its own git worktree (`EnterWorktree`) —
@@ -560,6 +611,18 @@ when the phase ships (or remove it if you abandon the work) so the roadmap stays
 After implementing any phase from `ROADMAP.md`, document the new feature(s) in `README.md` —
 write up what shipped (user-facing behavior, shortcuts, settings) as part of the same task, so
 the README stays a current description of what the app does.
+
+**Every `/goal` implementation follows the full loop.** Whenever you take on a task via `/goal`,
+carry it end to end without being asked each time:
+
+1. Create a **new branch in its own new git worktree** (`EnterWorktree`) and implement the task
+   there — never in the main checkout, same as any other task above.
+2. When the implementation is finished, **create a PR** (`gh pr create`) targeting `main`.
+3. **Try to merge it** (`gh pr merge`), and **resolve all conflicts** that come up — pull/rebase
+   `main` in, fix the conflicts, and re-push until the PR is mergeable and merged.
+
+Only stop once the PR is merged (or you've surfaced a genuine blocker you can't resolve). This is
+the default contract for `/goal` work; you don't need to ask the user to confirm each step.
 
 ## Permissions / entitlements
 

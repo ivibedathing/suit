@@ -122,24 +122,15 @@ extension TerminalWindowController {
         sidebar.gitView.showFileHistory(absolutePath: (path as NSString).standardizingPath)
     }
 
-    // Ask · Plan · Agent control (ROADMAP Phase 26): drive the Claude session in
-    // `pane`'s tab to the requested mode by writing the right number of Shift+Tab
-    // presses into its pty, then remember the new belief so the control reflects
-    // it and the next switch cycles correctly.
-    func paneRequestedSwitchClaudeMode(_ pane: Pane, to target: ClaudeMode) {
-        guard let session = pane.tab.claudeSession,
-              let terminal = pane.terminalContent else {
-            NSSound.beep()
-            return
+    // Background-task monitor for a pane's shell (ROADMAP Phase 30): a terminal
+    // pane scopes to its own shell's job subtree; any other pane kind opens the
+    // window-wide monitor (shellPid 0).
+    func paneRequestedShowBackgroundTasks(_ pane: Pane) {
+        if let shellPid = pane.terminalContent?.shellPid, shellPid > 0 {
+            openBackgroundTasks(forShellPid: shellPid, title: "Background Tasks")
+        } else {
+            openBackgroundTasks(forShellPid: 0, title: "Background Tasks")
         }
-        let current = ClaudeModeTracker.shared.effectiveMode(for: session)
-        let payload = ClaudeModeControl.payload(from: current, to: target)
-        if !payload.isEmpty {
-            terminal.terminalView.send(txt: payload)
-        }
-        ClaudeModeTracker.shared.record(target, forSessionId: session.id)
-        pane.refreshChrome()
-        reloadStrip()
     }
 
     // A path relative to a git root, for the file-scoped git commands.

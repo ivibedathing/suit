@@ -55,20 +55,24 @@ extension AppDelegate {
         }
     }
 
-    // "New task" (ROADMAP Phase 5): prompt for a name, then worktree + claude
-    // pane via the window controller.
+    // "New task" (ROADMAP Phase 5): prompt for a name, then claude pane via the
+    // window controller. Phase 31 — the prompt carries an "Isolate in worktree"
+    // switch (seeded from the settings default) so isolation is a per-task
+    // choice: on spins a worktree, off runs claude in the current checkout.
     @objc func newClaudeTask(_ sender: Any?) {
         guard let controller = activeWindowController() else {
             NSSound.beep()
             return
         }
         OverlayPromptController.shared.ask(
-            caption: "New Claude Task — worktree + claude session",
+            caption: "New Claude Task — claude session",
             placeholder: "task name",
+            toggleLabel: "Isolate in worktree",
+            toggleOn: taskIsolateByDefault,
             over: controller.window
-        ) { [weak controller] name in
+        ) { [weak controller] name, isolate in
             guard !name.isEmpty else { return }
-            controller?.startClaudeTask(named: name)
+            controller?.startClaudeTask(named: name, isolate: isolate)
         }
     }
 
@@ -234,6 +238,7 @@ extension AppDelegate {
             PaletteCommand(title: "Review Changes (n/p walk files, o opens, c comments)", shortcut: nil) { [weak self] in self?.showGitDiff(nil) },
             PaletteCommand(title: "Send Review to Session…", shortcut: nil) { [weak self] in self?.sendReviewToSession(nil) },
             PaletteCommand(title: "Show Fleet (all sessions)", shortcut: "⇧⌘O") { [weak self] in self?.showFleet(nil) },
+            PaletteCommand(title: "Show Background Tasks", shortcut: nil) { [weak self] in self?.showBackgroundTasks(nil) },
             PaletteCommand(title: "Show Feedback Inbox", shortcut: nil) { [weak self] in self?.showFeedbackInbox(nil) },
             PaletteCommand(title: "Route Feedback to Session…", shortcut: nil) { [weak self] in self?.routeFeedbackFromPalette(nil) },
             PaletteCommand(title: "New Claude Session", shortcut: "⌃⌘C") { [weak self] in self?.newClaudeSession(nil) },

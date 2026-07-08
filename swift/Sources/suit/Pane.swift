@@ -40,7 +40,7 @@ protocol PaneHost: AnyObject {
     func paneRequestedOpenFile(path: String, line: Int?)
     func paneRequestedOpenCommitDiff(forFile path: String, sha: String)
     func paneRequestedShowFileHistory(forPath path: String)
-    func paneRequestedSwitchClaudeMode(_ pane: Pane, to mode: ClaudeMode)
+    func paneRequestedShowBackgroundTasks(_ pane: Pane)
     func paneFinishedTask(_ pane: Pane)
     // Tab-grain drag & drop (browser-tab model): a strip-dragged tab dropped
     // on this pane — shown in its viewport, or split out onto an edge. The
@@ -217,13 +217,6 @@ final class Pane: NSObject {
         container.titleBar.exitStatus = tab.exitStatus
         container.titleBar.sessionState = tab.liveSessionState
         container.titleBar.contextPct = tab.exitStatus == nil ? tab.claudeSession?.contextPct : nil
-        // The Ask · Plan · Agent control shows only while a live Claude session
-        // runs in this tab (ROADMAP Phase 26); its reading is best-effort.
-        if tab.exitStatus == nil, let session = tab.claudeSession {
-            container.titleBar.claudeMode = ClaudeModeTracker.shared.effectiveMode(for: session)
-        } else {
-            container.titleBar.claudeMode = nil
-        }
         refreshTabBar()
     }
 
@@ -291,6 +284,11 @@ final class Pane: NSObject {
         host?.paneRequestedFooter(self)
     }
 
+    // Open the background-task monitor for this pane's shell (ROADMAP Phase 30).
+    @objc func showBackgroundTasks(_ sender: Any?) {
+        host?.paneRequestedShowBackgroundTasks(self)
+    }
+
     // Finish this pane's task worktree (ROADMAP Phase 5): merge or discard the
     // branch, remove the worktree, and close the pane.
     @objc func finishClaudeTask(_ sender: Any?) {
@@ -334,12 +332,6 @@ final class Pane: NSObject {
 
     func showFileHistory(forPath path: String) {
         host?.paneRequestedShowFileHistory(forPath: path)
-    }
-
-    // Ask · Plan · Agent control (ROADMAP Phase 26): the title bar asks to switch
-    // the Claude session in this pane to a mode; the host owns the pty write.
-    func switchClaudeMode(to mode: ClaudeMode) {
-        host?.paneRequestedSwitchClaudeMode(self, to: mode)
     }
 
     // The pane is going away for good (its tab closed with it). Contents are
