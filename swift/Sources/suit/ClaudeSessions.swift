@@ -51,6 +51,10 @@ struct ClaudeSession {
     let sessionName: String?
     let contextPct: Double?
     let costUSD: Double?
+    // Best-effort mode readback (ROADMAP Phase 26): the permission mode from the
+    // session JSON when Claude Code exposes it, mapped onto Ask/Plan/Agent. nil
+    // when absent — the mode control then reflects the last mode Suit sent.
+    let permissionMode: ClaudeMode?
 
     var displayName: String {
         if let sessionName, !sessionName.isEmpty {
@@ -185,7 +189,8 @@ final class ClaudeSessionMonitor {
                 transcriptPath: object["transcript_path"] as? String,
                 sessionName: object["session_name"] as? String,
                 contextPct: (object["context_pct"] as? NSNumber)?.doubleValue,
-                costUSD: (object["cost_usd"] as? NSNumber)?.doubleValue
+                costUSD: (object["cost_usd"] as? NSNumber)?.doubleValue,
+                permissionMode: ClaudeMode.fromRawMode(object["permission_mode"] as? String)
             ))
         }
 

@@ -34,6 +34,10 @@ sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
 cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
 summary=$(printf '%s' "$input" | jq -r '.prompt // .message // empty' | head -c 120 | tr '\n' ' ')
 transcript=$(printf '%s' "$input" | jq -r '.transcript_path // empty')
+# Permission mode (ROADMAP Phase 26): hook JSON carries it — default,
+# acceptEdits, plan, bypassPermissions — so Suit's Ask · Plan · Agent control
+# can read the mode back rather than only reflecting what it last sent. Optional.
+mode=$(printf '%s' "$input" | jq -r '.permission_mode // empty')
 
 # The claude process is an ancestor of this hook; walk up a few levels.
 pid=$$
@@ -58,11 +62,12 @@ tmp=$(mktemp "$dir/.session.XXXXXX")
 printf '%s' "$existing" | jq \
   --arg sid "$sid" --arg state "$state" --arg cwd "$cwd" \
   --arg summary "$summary" --arg pid "$claude_pid" \
-  --arg transcript "$transcript" \
+  --arg transcript "$transcript" --arg mode "$mode" \
   --argjson now "$(date +%s)" \
   '. + {session_id: $sid, state: $state, updated_at: $now}
    + (if $cwd != "" then {cwd: $cwd} else {} end)
    + (if $summary != "" then {summary: $summary} else {} end)
    + (if $pid != "" then {pid: ($pid | tonumber)} else {} end)
-   + (if $transcript != "" then {transcript_path: $transcript} else {} end)' > "$tmp"
+   + (if $transcript != "" then {transcript_path: $transcript} else {} end)
+   + (if $mode != "" then {permission_mode: $mode} else {} end)' > "$tmp"
 mv "$tmp" "$file"

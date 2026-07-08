@@ -198,6 +198,21 @@ extension TerminalWindowController {
         activate(tab)
     }
 
+    // Opens (or reuses) the window's plan-approval tab showing a Claude
+    // session's proposed plan (ROADMAP Phase 26), reused like the transcript.
+    func openPlanApproval(for session: ClaudeSession) {
+        if let tab = store.tabs.first(where: { $0.content is PlanApprovalPaneContent }) {
+            (tab.content as? PlanApprovalPaneContent)?.load(session: session)
+            activate(tab)
+            return
+        }
+        let content = PlanApprovalPaneContent()
+        let tab = Tab(content: content)
+        store.insert(tab)
+        content.load(session: session)
+        activate(tab)
+    }
+
     // Opens (or reuses) the window's checkpoint-timeline tab showing a Claude
     // session's change history (ROADMAP Phase 25), reused like the transcript.
     func openCheckpointTimeline(for session: ClaudeSession) {

@@ -709,7 +709,7 @@ back fast.
   pty-driven app at all (files / hook events) or is interactive-terminal-only — spike this before
   committing to the timeline; if unreadable, the phase narrows to a `/rewind` launcher.
 
-### Phase 26 — Plan / Agent / Ask mode toggle + plan-approval pane
+### Phase 26 — Plan / Agent / Ask mode toggle + plan-approval pane — ✅ shipped
 
 Claude Code's Plan Mode is a read-only phase that maps the codebase and proposes a structured
 plan before touching a file; today it hides behind Shift+Tab cycling. Surfacing the mode as a
