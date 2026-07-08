@@ -37,8 +37,15 @@ extension TerminalWindowController {
     // "Close Other Tabs" iterating while a clean exit auto-closed one of
     // them mid-loop) and must not re-close — the count==1 branch would take
     // the whole window with it.
+    // An editable viewer autosaves on a 1 s debounce; flush any edit still in
+    // that window before the tab (and its timer) go away (Phase 37).
+    func flushDirtyViewer(_ tab: Tab) {
+        (tab.content as? FileViewerPaneContent)?.flushIfDirty()
+    }
+
     func forceCloseTab(_ tab: Tab, alreadyTerminated: Bool = false) {
         guard store.tab(withId: tab.id) != nil else { return }
+        flushDirtyViewer(tab)
         if store.tabs.count == 1 {
             teardownAndClose(alreadyTerminated: alreadyTerminated)
             return
@@ -69,6 +76,9 @@ extension TerminalWindowController {
     }
 
     func teardownAndClose(alreadyTerminated: Bool = false) {
+        for tab in store.tabs {
+            flushDirtyViewer(tab)
+        }
         if !alreadyTerminated {
             for tab in store.tabs {
                 tab.content.teardown()

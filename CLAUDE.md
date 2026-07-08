@@ -316,10 +316,10 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     --exclude-standard` (so .gitignore semantics are exact; non-git roots fall back to a capped
     FileManager walk), kept fresh by FSEvents with .git-internal events filtered out, sub-project
     roots detected by marker files (`go.mod`, `package.json`, …) for the sidebar's badges.
-  - `FileViewerPane.swift` — `FileViewerPaneContent`, the read-only viewer pane (ROADMAP Phase 1):
+  - `FileViewerPane.swift` — `FileViewerPaneContent`, the viewer pane (ROADMAP Phase 1):
     `NSTextView` + line-number ruler, Cmd-L go-to-line (Cmd-G being Find Next by macOS convention),
-    jump-to-line with a fading highlight, selection/copy/find but no editing. Shares the terminal
-    appearance settings. Phase 3 additions: syntax colors from `SyntaxHighlighter` (async for big
+    jump-to-line with a fading highlight, selection/copy/find. Editable since Phase 37 (see
+    `FileViewerPane+Editing.swift`). Shares the terminal appearance settings. Phase 3 additions: syntax colors from `SyntaxHighlighter` (async for big
     files, re-applied after text-color changes) and a `MinimapView` strip on the right.
     `TerminalWindowController.openFile(atPath:line:)` re-selects the tab when the file is
     already open, otherwise opens the file in a first-class tab of its own (Phase 14 — files
@@ -330,6 +330,20 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     and a clicked sha routes through `Pane.openCommitDiff` → `paneRequestedOpenCommitDiff` to that
     commit's diff. Show File History (`ViewerTextView.showFileHistory` → `paneRequestedShowFileHistory`)
     reveals the Git tab's history section for the open file.
+  - `FileEdit.swift` / `FileViewerPane+Editing.swift` — editable file viewer (ROADMAP Phase 37).
+    `FileEdit.swift` is the UI-free, standalone-compilable core (the `RoadmapParser`/`Recipes`
+    pattern, Foundation-only): `FileEditState` (dirty tracking — `edited(to:)` flips on first
+    divergence / clears on revert/save/load) + `resolveExternalChange(diskText:bufferText:)` →
+    `.ignore`/`.reload`/`.warn`, and `FileEditWriter.write` (the `.atomic` UTF-8 write). Verified
+    by `scripts/file-edit-test.sh`. `FileViewerPane+Editing.swift` is the Cocoa half: the
+    `NSTextViewDelegate.textDidChange` that re-runs `recomputeLineStarts`/ruler synchronously,
+    bumps `loadGeneration` and debounces `rehighlight()` (~0.25 s); `save()` / a 1 s-debounced
+    autosave / `flushIfDirty()` (called on tab close + `applicationWillTerminate`); and
+    `reconcileExternalChange()` (checked on `NSApplication.didBecomeActiveNotification` via mtime).
+    Editing is gated to real, in-bounds text — binary/too-large/unreadable stay read-only. The
+    dirty flag surfaces via `Tab.isDirty`/`contentDirtyDidChange` (strip close-slot dot in
+    `TabItemView`, `PaneTitleBarView.isDirty` header dot); `⌘S` is File ▸ Save / palette "Save
+    File" (`ViewerTextView.saveFile`, auto-disabled via `validateUserInterfaceItem` when clean).
   - `SyntaxHighlighter.swift` — regex-free single-pass scanner producing `SyntaxSpan`s (comments,
     strings, keywords, numbers, types, attributes, keys) for Swift/Go/JS-TS/Python/shell/JSON/
     YAML/Markdown/C-family (`CodeLanguage.detect` by extension/filename). The roadmap's sanctioned
@@ -620,7 +634,7 @@ relevant Foundation-only source file(s) against a small assertion driver and run
 UI. Run them all from one entrypoint:
 
 ```
-scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes), ~seconds
+scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes + file-edit), ~seconds
 scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
 scripts/test.sh --list            # list the harnesses
 ```
@@ -628,7 +642,9 @@ scripts/test.sh --list            # list the harnesses
 The individual harnesses (each also runnable directly) are `scripts/feedback-routing-test.sh`
 (`FeedbackRouting.swift`), `scripts/mode-plan-harness.sh` (`ClaudeMode.swift` + `PlanParsing.swift`),
 `scripts/recipes-test.sh` (`Recipes.swift` — recipe parse / substitution / seed / load),
-and `scripts/autopilot-harness.sh` (the full Autopilot pipeline, offscreen with everything faked).
+`scripts/file-edit-test.sh` (`FileEdit.swift` — dirty transitions / external-change reconcile /
+atomic write, Phase 37), and `scripts/autopilot-harness.sh` (the full Autopilot pipeline, offscreen
+with everything faked).
 This is why testable logic is kept in Foundation-only files with no app dependencies (the
 `RoadmapParser`/`AutopilotScheduler`/`FeedbackRouting` pattern) — a harness can compile it in
 isolation. When you add such logic, add a harness for it and wire it into the `HARNESSES` list in

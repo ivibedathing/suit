@@ -24,6 +24,7 @@ HARNESSES=(
   "mode-plan|scripts/mode-plan-harness.sh|fast"
   "broadcast|scripts/broadcast-test.sh|fast"
   "recipes|scripts/recipes-test.sh|fast"
+  "file-edit|scripts/file-edit-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 
