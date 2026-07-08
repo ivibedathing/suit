@@ -1024,7 +1024,7 @@ on top. Landed as `FileEdit.swift` (the Foundation-only save/dirty/reconcile cor
   revert/save/load, the reconcile decision returns ignore/reload/warn for each disk-vs-buffer case,
   and the atomic write round-trips exact bytes (including a shorter overwrite leaving no residue).
 
-### Phase 38 — Fleet activity feed / daily digest
+### Phase 38 — Fleet activity feed / daily digest — ✅ shipped
 
 The Orchestrate pillar, over time. Phase 28 is a live snapshot of who's busy; this is the
 chronological record of what *moved* across the fleet — sessions finishing, PRs merging, CI

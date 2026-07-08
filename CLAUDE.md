@@ -246,7 +246,28 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     one would fight it: `postAutopilotEvent(title:body:identifier:)` posts merged/blocked/idle
     events under stable `autopilot-*` identifiers (a newer same-kind event replaces the last;
     `autopilot-blocked` presents even while the app is active — always news), and clicks route
-    by identifier prefix to `onAutopilotEvent` (run tab when open, else the log).
+    by identifier prefix to `onAutopilotEvent` (run tab when open, else the log). Phase 38 adds
+    the `activity-` prefix → `onActivityEvent` (the once-daily digest notification opens the
+    Activity panel).
+  - `Activity.swift` — the fleet activity feed / daily digest core (ROADMAP Phase 38), the
+    UI-free, standalone-compilable pattern (RoadmapParser / FeedbackRouting / Recipes / FileEdit,
+    Foundation-only): the `ActivityEvent` model (snake_case Codable, stable `id` the store dedups
+    on) with per-kind glyph/tone/label (`ActivityKind`) and a computed `route` (session > PR >
+    autopilot log > none); `ActivityFeed` (newest-first `ordered`, `filter` by repo/session/kind,
+    the distinct `repos`/`kinds` menu lists); `DailyDigest.rollup(events:day:calendar:)` (one
+    calendar day's counts + newest-first highlights + one-line `summary`); and `ActivityStore`
+    (append-only `~/.suit/activity.jsonl`, `$HOME`-resolved, id-deduped record + amortized
+    compaction, `didUpdate`). Verified by `scripts/activity-test.sh`.
+  - `ActivityRecorder.swift` / `ActivityFeedController.swift` — the Phase 38 AppKit halves.
+    `ActivityRecorder` is the producer: it observes `ClaudeSessionMonitor.didUpdate` and records
+    session done/needs-input *transitions* (edge-triggered, first pass seeds the baseline without
+    recording), exposes `record(_:)` for the direct producers (Autopilot merged/blocked via
+    `AppDelegate.recordAutopilot*`, CI failures via `GitView.recordCIFailures`), and drives the
+    once-daily digest (`maybePostDailyDigest`, a UserDefaults day-key gate off the 3 s heartbeat).
+    `ActivityFeedController` is the reader: a floating `Activity` panel (the FleetDashboard shape)
+    listing rows newest-first with a repo/kind filter and a "today" digest header, a row click
+    routing via `ActivityEvent.route` to the session pane / PR on GitHub / Autopilot log. Both
+    wired from `AppDelegate` (`showActivityFeed`, palette + View menu).
   - `scripts/claude/` (repo root) — the producer side: `suit-statusline.sh` (Claude Code
     statusLine command: prints model + 5h/weekly %, mirrors usage to claude-status.json, enriches
     the session file with model/cwd plus transcript_path, session_name, context_pct and cost_usd
@@ -650,7 +671,7 @@ relevant Foundation-only source file(s) against a small assertion driver and run
 UI. Run them all from one entrypoint:
 
 ```
-scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes + file-edit + pr-review), ~seconds
+scripts/test.sh                   # fast suite (feedback-routing + mode-plan + broadcast + recipes + file-edit + activity + pr-review), ~seconds
 scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
 scripts/test.sh --list            # list the harnesses
 ```
@@ -659,9 +680,11 @@ The individual harnesses (each also runnable directly) are `scripts/feedback-rou
 (`FeedbackRouting.swift`), `scripts/mode-plan-harness.sh` (`ClaudeMode.swift` + `PlanParsing.swift`),
 `scripts/recipes-test.sh` (`Recipes.swift` — recipe parse / substitution / seed / load),
 `scripts/file-edit-test.sh` (`FileEdit.swift` — dirty transitions / external-change reconcile /
-atomic write, Phase 37), `scripts/pr-review-test.sh` (`PRReview.swift` — `gh pr list` parse /
-review-body compose / `gh pr review` argv, Phase 39), and `scripts/autopilot-harness.sh` (the full
-Autopilot pipeline, offscreen with everything faked).
+atomic write, Phase 37), `scripts/activity-test.sh` (`Activity.swift` — feed ordering / row
+routing / repo·kind filtering / daily-digest rollup / append-only store dedup + round-trip,
+Phase 38), `scripts/pr-review-test.sh` (`PRReview.swift` — `gh pr list` parse / review-body
+compose / `gh pr review` argv, Phase 39), and `scripts/autopilot-harness.sh` (the full Autopilot
+pipeline, offscreen with everything faked).
 This is why testable logic is kept in Foundation-only files with no app dependencies (the
 `RoadmapParser`/`AutopilotScheduler`/`FeedbackRouting` pattern) — a harness can compile it in
 isolation. When you add such logic, add a harness for it and wire it into the `HARNESSES` list in
