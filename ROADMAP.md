@@ -894,6 +894,32 @@ steers only by editing ROADMAP.md.
   removal, the history row, and `⏸` honored on the next pass; plus full `./build.sh` and a
   manual smoke of the footer row, run tab, and notification click-throughs.
 
+### Phase 33 — Go-to-definition & find-references
+
+The Navigate pillar goes semantic. Phases 1–2 gave fuzzy-open and text search; this adds
+symbol-aware jumps — Cmd-click an identifier to reach its definition, and open a references list
+for every use. Read-only, so it stays inside the viewer-first contract: navigate the code, don't
+edit it.
+
+- **Symbol index**: bundle a `universal-ctags` binary into `Contents/Resources` (`build.sh`, the
+  way `rg`/`gh` are bundled; `SUIT_CTAGS_PATH` overrides for dev runs) and run it over the
+  `FileIndex` file list per git root, cached per root and refreshed on `FileIndex.didUpdate`
+  (FSEvents), off the main thread. A light LSP client is the sanctioned swap-in later (same
+  definition/reference output), exactly as `SyntaxHighlighter` leaves room for tree-sitter.
+- **Go to definition**: extend the viewer's existing implicit-link Cmd-click interception
+  (`ViewerTextView` / `PaneTerminalView`, today resolving path-shaped tokens) to resolve the
+  identifier under the caret to its definition(s) via the symbol index and jump with
+  `openFile(atPath:line:)`; a right-click "Go to Definition" + palette entry + keystroke too.
+  Several definitions → the references pane / a palette picker.
+- **Find references**: a references pane reusing the `RipgrepSearch` grouped-by-file
+  `NSOutlineView` result view — every use of the symbol (ctags definitions + an `rg` word search
+  of the identifier), each row click → viewer at that line. "Find References" right-click +
+  palette, one references pane per window reused like the diff/transcript panes.
+- **Verification.** Harness over a fixture repo with known Swift/Go symbols asserts go-to-def
+  lands on the right `file:line` for both single- and multi-definition symbols (picker for the
+  latter), the references list is complete and grouped by file, and a missing ctags binary
+  degrades to an `rg`-word-search fallback with a header note.
+
 ### Phase 34 — Commit graph pane — ✅ shipped
 
 The Read pillar, repo-wide. Phase 17 gave per-line blame and a linear file history; this renders
@@ -914,6 +940,165 @@ shell. Read-only.
 - **Verification.** Harness against a fixture repo with a merge and a fork asserts node/edge/lane
   layout and ref badges are correct, that clicking a node opens that commit's diff, and that the
   pane round-trips through state restoration.
+
+### Phase 35 — Broadcast input to multiple sessions — ✅ shipped
+
+The Orchestrate pillar. Phase 8 pipes text into *one* session; Phase 28 lists the whole fleet.
+This fans a single instruction across many panes at once — the iTerm "send to all sessions"
+gesture, made deliberate rather than silent.
+
+- **Selection**: the fleet dashboard (Phase 28) rows gain multi-select (⌘-click / checkboxes) with
+  "Broadcast to Selected" and "Broadcast to All Live"; the `PromptComposerController` grows a
+  broadcast mode targeting a session *set* instead of a single session.
+- **Send**: composes the text once and loops `SessionControl.send` over each target pty
+  (bracketed-paste-wrapped, per-session `submitDelay`) so a multi-line instruction stays one input
+  unit in every session; each delivery reflects in that session's dot. Large sets and
+  shell-command-shaped text trip the existing paste-safety confirm before anything is sent.
+- **Discoverability**: a palette "Broadcast to All Sessions…" opens the composer prefilled;
+  broadcast is always opt-in and explicit — never a background fan-out.
+- **Verification.** Harness seeds several live sessions, asserts a broadcast reaches every selected
+  pty (and only those) as one bracketed-paste unit, and that the large-set confirm gates before
+  sending.
+
+### Phase 36 — Session task templates / recipes
+
+The Steer pillar. Phase 5 productized worktree tasks; Phase 8 added a prompt library. This fuses
+them: one command spins a worktree + `claude` + a parameterized prompt, so a bugfix / feature /
+refactor / review each launch in a single keystroke instead of a manual setup ritual.
+
+- **Recipes as files**: `~/.suit/recipes/*.md` (the `~/.suit/prompts` pattern) — a first-line/
+  front-matter name plus a body prompt with `<NAME>`/`<SELECTION>`/`<FILE>` placeholders; a few
+  built-ins (bugfix, feature, refactor, review) seeded on first run when the dir is empty.
+- **Launcher**: each recipe surfaces as a "Recipe: <name>" palette entry (+ a New-task / Git-tab
+  menu). Picking one prompts for its parameters (`OverlayPrompt`), runs `WorktreeTasks.createTask`
+  for a slug from the name (or the current checkout, honoring Phase 31's isolation choice), opens
+  the `claude` task tab (the `startClaudeTask` recipe), and — once the session file appears — sends
+  the placeholder-substituted prompt via `SessionControl.send`.
+- **Review recipe**: the built-in "review" recipe reuses the Phase 29 reviewer-agent lane prompt.
+  Recipes echo Autopilot's worker-template shape but stay a manual, interactive launcher — no
+  gating, no auto-merge.
+- **Verification.** Harness seeds a recipe with placeholders, asserts picking it creates the right
+  worktree/branch, opens a `claude` tab there, and sends the fully-substituted prompt into that
+  pty as one unit; a missing recipes dir seeds the built-ins.
+
+### Phase 37 — Fleet activity feed / daily digest
+
+The Orchestrate pillar, over time. Phase 28 is a live snapshot of who's busy; this is the
+chronological record of what *moved* across the fleet — sessions finishing, PRs merging, CI
+failing, Autopilot running — plus a "what happened today" recap.
+
+- **Event log**: an append-only `~/.suit/activity.jsonl` (the `usage-history.jsonl` /
+  `history.jsonl` pattern) written on notable transitions — a session going working→done/
+  needs-input (`ClaudeSessionMonitor`), a PR opened/merged (`GitHubCLI` polls), CI pass/fail (the
+  Phase 29 `FeedbackInbox`), an Autopilot run merged/blocked (`AutopilotStore` history) — each row
+  timestamped and session/worktree/PR-tagged, so history survives session-file pruning.
+- **Feed panel**: a window-spanning "Activity" panel + palette "Show Activity Feed" rendering the
+  timeline newest-first (`Theme` rows, per-kind glyph + relative age), filterable by repo / session
+  / kind; a row click routes to the thing — the session pane via `focusSession`, the PR via Open on
+  GitHub, the Autopilot log.
+- **Daily digest**: a "What happened today" recap (counts + highlights: sessions finished, PRs
+  merged, CI failures, spend) composed from the day's rows, optionally delivered as a once-daily
+  notification via `ClaudeAttentionCenter`.
+- **Verification.** Harness seeds activity rows across kinds and days, asserts the feed lists them
+  newest-first with correct routing targets, and that the daily digest rolls up the right day's
+  counts.
+
+### Phase 38 — GitHub PR review inbox
+
+The Verify pillar, outward. Phase 21 ships *your* branches; Phase 16 comments on *local* diffs.
+This reviews other people's PRs end-to-end without leaving Suit — pull them, read the diff with
+line comments, submit the review.
+
+- **Inbox**: a Git-tab section + palette "Show PR Review Inbox" listing open PRs via `gh`
+  (`gh pr list --search` for authored / assigned / review-requested), each row title + author +
+  branch + a check-rollup glyph (`GitHubCLI`, with the Phase 21 no-gh degradation), loaded off the
+  main thread in a second pass so the list never waits on the network.
+- **Review in the diff pane**: opening a PR fetches its diff (`gh pr diff`) into a
+  `DiffPaneContent` and enables Phase 16 line comments (`DiffReview`) against it, walkable with
+  `n`/`p`.
+- **Submit**: "Submit Review" composes the `DiffReviewDraft` into `gh pr review
+  --approve|--request-changes|--comment --body …` (per-line comments folded into the body where
+  the CLI can't post them inline), confirmed before send; the row state refreshes afterward.
+- **Verification.** Harness against a fixture PR (fake `gh` via `SUIT_GH_PATH`) asserts the inbox
+  lists the right PRs, the diff loads with comments anchored to the right lines, and Submit builds
+  the exact `gh pr review` argv/body from the draft.
+
+### Phase 39 — File time-travel scrubber
+
+The Read pillar, along the time axis. Phase 17's file history is a *list*; this makes it a
+*scrubber* — drag the open file backward through its commits and watch it change, with the
+diff to the neighbouring revision shown. Read-only and non-destructive (no checkout).
+
+- **Scrubber**: the file viewer gains a "Time Travel" mode (toolbar / keystroke / palette) with a
+  slider over the open file's `GitFileHistory` commits (Phase 17, `git log --follow`); dragging a
+  position loads that revision's content via `git show <sha>:<path>` into the read-only viewer
+  (syntax-highlighted as usual), the header showing sha + subject + age.
+- **Diff-to-neighbour**: each position marks its change vs the adjacent older revision — changed-
+  line gutter bars reusing `GitChangedLines`, with a "show diff" flip into a `DiffPane` on that
+  commit's per-file change (`openCommitDiff`, Phase 17).
+- **Bounds**: the far-right position is the working tree, HEAD one step in; scrubbing never
+  mutates the checkout; degrades to "no history" for untracked files, and leaving the mode
+  restores the working-tree view.
+- **Verification.** Harness opens a file with known history, asserts each slider position renders
+  that revision's exact content and the correct diff-to-neighbour, and that leaving time-travel
+  restores the working-tree view with no residue.
+
+### Phase 40 — Saved layouts / named workspaces
+
+A Foundation piece. State restoration already reopens the *last* layout automatically; this makes
+layouts nameable and switchable — a "review" layout, a "debug" layout — on top of the same
+capture/replay machinery.
+
+- **Save**: "Save Layout As…" (palette + Screen menu) snapshots the current window's tab list +
+  split tree (reusing `StateRestoration`'s `SavedWindow`/`SavedNode` capture) under a name into
+  `~/.suit/layouts.json` (`$HOME`-first, `didUpdate`, the Favorites/Bookmarks store pattern).
+- **Restore**: "Open Layout…" lists the saved layouts (palette picker + a rail/menu surface);
+  picking one rebuilds the tab list + split tree in the current or a new window via the
+  `SavedWindow` replay path — terminals restart as fresh shells in their old cwd, missing files/
+  roots collapse their panes out.
+- **Manage**: rename / delete / overwrite a layout; layouts are per-machine and shared across
+  windows. Distinct from quit-time restoration, which stays automatic and unnamed.
+- **Verification.** Harness builds a known tab/split layout, saves it, mutates the window, restores
+  it, and asserts the tab list + split tree + visible tabs match; a layout referencing a deleted
+  file restores with that pane collapsed out.
+
+### Phase 41 — Cost budget guardrails + auto-pause
+
+The Orchestrate pillar. Phase 23 makes spend legible; this acts on it — per-session and per-task
+spend caps that warn, or (opt-in) interrupt, when a run blows past its budget.
+
+- **Caps**: per-session and per-task (worktree) spend ceilings in Settings, plus a quick "Set
+  Budget…" on a fleet row, persisted like the other defaults; spend read from the session files'
+  `cost_usd` (Phases 7/23) and the `usage-history` rollups.
+- **Trip actions**: crossing a cap posts a notification via `ClaudeAttentionCenter` (a distinct
+  `budget-*` identifier, click → the pane) and, when auto-interrupt is enabled, sends Esc over the
+  pty (`SessionControl` interrupt) to halt the run — never silently; every trip is logged to the
+  activity feed (Phase 37).
+- **Autopilot interlock**: the Autopilot budget modes (`AutopilotScheduler`) gate run *starts*;
+  this is the per-run kill-switch — an in-flight run that blows a task cap trips here,
+  complementing the global 5h/weekly ceilings.
+- **Verification.** Harness feeds session cost samples crossing a cap, asserts the notify fires
+  once at the threshold and (in auto-interrupt mode) an Esc reaches the right pty, and that a
+  session staying under its cap never trips.
+
+### Phase 42 — Command history search (native ⌃R)
+
+The Navigate pillar, for the shell. The terminal's reverse-i-search, made native and cross-pane:
+search past commands from any pane, pick one, and re-run it in a pane of your choice.
+
+- **Source**: read shell history (`$HISTFILE` / `~/.zsh_history`, deduped, most-recent-first) plus
+  commands seen in each pane's own scrollback where available, parsed off the main thread and
+  refreshed lazily; each entry keeps its source pane/cwd.
+- **Overlay**: a ⌃R native fuzzy overlay (the `CommandPalette` machinery with an explicit item
+  list, like ⌘P) over the history — type-to-filter (`fuzzyScore`), arrows/Enter/Esc; rows show the
+  command + its source pane/cwd.
+- **Run**: picking a command types it into a chosen terminal pane via `terminalView.send` (the
+  focused pane by default); ⇧Enter edits-before-run without submitting (the SSH-restore
+  pre-type path), and a destructive-looking command trips the paste-safety confirm before
+  submitting.
+- **Verification.** Harness seeds a history file, asserts the overlay filters to the right entries
+  and that picking one sends the exact command into the target pty (edit-before-run leaves it
+  unsubmitted); a missing `$HISTFILE` degrades to per-pane scrollback only.
 
 ## Cross-cutting principles ("works for the user")
 

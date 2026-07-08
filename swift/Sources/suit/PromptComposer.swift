@@ -78,6 +78,10 @@ final class PromptComposerController: NSObject, NSWindowDelegate, NSTextViewDele
     private let suggestionScroll = NSScrollView(frame: .zero)
 
     private var terminal: TerminalPaneContent?
+    // Broadcast mode (ROADMAP Phase 35): non-empty means send to every terminal
+    // here instead of the single `terminal`, with a fan-out confirm. Cleared by
+    // the single-target `show`.
+    private var broadcastTerminals: [TerminalPaneContent] = []
     private var fileIndex: FileIndex?
     private var suggestions: [String] = []
     // The "@token" character range the accepted suggestion replaces.
@@ -166,6 +170,7 @@ final class PromptComposerController: NSObject, NSWindowDelegate, NSTextViewDele
         prefill: String = ""
     ) {
         self.terminal = terminal
+        self.broadcastTerminals = []
         self.fileIndex = fileIndex
         let project = (session.cwd as NSString?)?.lastPathComponent ?? ""
         targetLabel.stringValue = "To: \(session.displayName)\(project.isEmpty ? "" : " · \(project)") — \(session.state.label)"
@@ -173,7 +178,36 @@ final class PromptComposerController: NSObject, NSWindowDelegate, NSTextViewDele
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         hideSuggestions()
 
+        position(relativeTo: window)
+        panel.makeKeyAndOrderFront(nil)
+        panel.makeFirstResponder(textView)
+    }
+
+    // Broadcast mode (ROADMAP Phase 35): the same composer aimed at a set of
+    // terminals. Type once, Enter fans it out to every one (with a fan-out
+    // confirm). @-completion runs over `fileIndex` — the active window's, since
+    // the targets may live in different projects.
+    func showBroadcast(
+        terminals: [TerminalPaneContent],
+        fileIndex: FileIndex?,
+        relativeTo window: NSWindow?,
+        prefill: String = ""
+    ) {
+        self.terminal = terminals.first
+        self.broadcastTerminals = terminals
+        self.fileIndex = fileIndex
+        targetLabel.stringValue = "Broadcast to \(Broadcast.sessionCountLabel(terminals.count))"
+        textView.string = prefill
+        textView.setSelectedRange(NSRange(location: 0, length: 0))
+        hideSuggestions()
+
         layoutPanel()
+        position(relativeTo: window)
+        panel.makeKeyAndOrderFront(nil)
+        panel.makeFirstResponder(textView)
+    }
+
+    private func position(relativeTo window: NSWindow?) {
         if let window {
             let frame = window.frame
             panel.setFrameOrigin(NSPoint(
@@ -183,8 +217,6 @@ final class PromptComposerController: NSObject, NSWindowDelegate, NSTextViewDele
         } else {
             panel.center()
         }
-        panel.makeKeyAndOrderFront(nil)
-        panel.makeFirstResponder(textView)
     }
 
     func windowDidResignKey(_ notification: Notification) {
@@ -213,12 +245,41 @@ final class PromptComposerController: NSObject, NSWindowDelegate, NSTextViewDele
 
     private func sendAndClose() {
         let text = textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let terminal, !text.isEmpty else {
+        guard !text.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        if !broadcastTerminals.isEmpty {
+            let count = broadcastTerminals.count
+            if Broadcast.needsConfirmation(targetCount: count), !confirmBroadcast(count: count, text: text) {
+                return
+            }
+            for terminal in broadcastTerminals {
+                SessionControl.send(text: text, to: terminal, submit: true)
+            }
+            panel.orderOut(nil)
+            return
+        }
+        guard let terminal else {
             NSSound.beep()
             return
         }
         SessionControl.send(text: text, to: terminal, submit: true)
         panel.orderOut(nil)
+    }
+
+    // Fan-out confirm before a broadcast lands in several panes at once. The
+    // panel hides on deactivate while the alert is up, but `text`/targets are
+    // already captured, so a Send returns to deliver.
+    private func confirmBroadcast(count: Int, text: String) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Broadcast to \(Broadcast.sessionCountLabel(count))?"
+        let preview = text.count > 280 ? String(text.prefix(280)) + "…" : text
+        alert.informativeText = Broadcast.confirmMessage(targetCount: count) + "\n\n" + preview
+        alert.addButton(withTitle: "Broadcast")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     // MARK: - @-completion over FileIndex

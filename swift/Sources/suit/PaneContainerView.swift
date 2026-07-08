@@ -8,6 +8,9 @@ final class PaneContainerView: NSView {
     static let titleBarHeight = Theme.Metrics.paneHeaderHeight
 
     let titleBar = PaneTitleBarView(frame: .zero)
+    // The in-pane tab bar, below the header; visible only with 2+ owned tabs.
+    let tabBar = PaneTabBarView(frame: .zero)
+    private var tabBarVisible = false
     weak var pane: Pane?
     private var content: NSView
     private let flashOverlay = NSView(frame: .zero)
@@ -19,6 +22,8 @@ final class PaneContainerView: NSView {
         super.init(frame: .zero)
         addSubview(content)
         addSubview(titleBar)
+        tabBar.isHidden = true
+        addSubview(tabBar)
 
         flashOverlay.wantsLayer = true
         flashOverlay.layer?.backgroundColor = NSColor.white.cgColor
@@ -45,12 +50,30 @@ final class PaneContainerView: NSView {
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
-        let insetRect = NSRect(origin: .zero, size: newSize).insetBy(dx: Self.inset, dy: Self.inset)
+        layoutInterior()
+    }
+
+    private func layoutInterior() {
+        let insetRect = bounds.insetBy(dx: Self.inset, dy: Self.inset)
         titleBar.frame = NSRect(x: insetRect.minX, y: insetRect.maxY - Self.titleBarHeight, width: insetRect.width, height: Self.titleBarHeight)
-        let contentFrame = NSRect(x: insetRect.minX, y: insetRect.minY, width: insetRect.width, height: insetRect.height - Self.titleBarHeight)
+        let barHeight = tabBarVisible ? PaneTabBarView.height : 0
+        tabBar.frame = NSRect(x: insetRect.minX, y: insetRect.maxY - Self.titleBarHeight - barHeight, width: insetRect.width, height: barHeight)
+        let contentFrame = NSRect(x: insetRect.minX, y: insetRect.minY, width: insetRect.width, height: insetRect.height - Self.titleBarHeight - barHeight)
         content.frame = contentFrame
         screensaver?.frame = contentFrame
         flashOverlay.frame = bounds
+    }
+
+    // Feeds the in-pane tab bar. Toggling its visibility re-lays the content out
+    // (the bar steals PaneTabBarView.height when it appears).
+    func setTabBar(tabs: [Tab], active: Tab) {
+        let shouldShow = tabBar.wantsDisplay(for: tabs)
+        tabBar.configure(tabs: tabs, activeId: active.id)
+        if shouldShow != tabBarVisible {
+            tabBarVisible = shouldShow
+            tabBar.isHidden = !shouldShow
+            layoutInterior()
+        }
     }
 
     // Swaps which tab's view fills the container (below the title bar,
