@@ -27,10 +27,40 @@ final class ViewerTextView: NSTextView {
         viewerContent?.toggleBookmarkAtCurrentLine()
     }
 
+    // Symbol navigation (ROADMAP Phase 33): the identifier under the caret /
+    // selection resolves to its definition or a references list.
+    @objc func goToDefinition(_ sender: Any?) {
+        viewerContent?.goToDefinitionAtCaret()
+    }
+
+    @objc func findReferences(_ sender: Any?) {
+        viewerContent?.findReferencesAtCaret()
+    }
+
+    // Cmd-click resolves the identifier under the pointer to its definition,
+    // the semantic counterpart of the terminal's Cmd-click on a path link. Only
+    // swallow the click when it actually landed on a symbol; otherwise fall
+    // through to normal text selection.
+    override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.command), let content = viewerContent,
+           let layoutManager, let textContainer {
+            var point = convert(event.locationInWindow, from: nil)
+            point.x -= textContainerInset.width
+            point.y -= textContainerInset.height
+            let glyph = layoutManager.glyphIndex(for: point, in: textContainer)
+            let charIndex = layoutManager.characterIndexForGlyph(at: glyph)
+            if content.goToDefinition(atCharacterOffset: charIndex) { return }
+        }
+        super.mouseDown(with: event)
+    }
+
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
         let copyItem = menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "")
         copyItem.isEnabled = selectedRange().length > 0
+        menu.addItem(withTitle: "Go to Definition", action: #selector(goToDefinition(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Find References", action: #selector(findReferences(_:)), keyEquivalent: "")
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Go to Line…", action: #selector(goToLine(_:)), keyEquivalent: "")
         let goalItem = menu.addItem(withTitle: "Set as Goal", action: #selector(setAsGoal(_:)), keyEquivalent: "")
         goalItem.isEnabled = selectedRange().length > 0

@@ -124,6 +124,14 @@ working.
 - **File history** — Show File History opens the Git tab's list of commits touching the open
   file (`git log --follow`) — sha, subject, author, age; click a commit to open its per-file
   diff.
+- **Go to definition & find references** — Cmd-click an identifier in the viewer (or Go to
+  Definition, ⌃⌘J) to jump to where it's defined; several definitions open a palette picker,
+  each `file:line` with its kind. Find References (⌃⌘R) opens a references pane listing every
+  use of the symbol, grouped by file, each row a click into the viewer at that line. Both are on
+  the viewer's right-click menu too. A bundled `universal-ctags` builds the symbol index per git
+  root (refreshed as files change); when it isn't installed, navigation degrades to a
+  whole-word ripgrep search with a note in the header — set `SUIT_CTAGS_PATH` or rebuild with
+  universal-ctags on PATH to enable the index.
 - **Preview tabs** — the viewer routes by extension, so previewing a README or a design asset
   never means a trip to Finder. Markdown (`.md`/`.markdown`) renders formatted — headings,
   lists, blockquotes, fenced code (syntax-colored), and clickable links — with a Rendered ↔ Raw
@@ -375,6 +383,8 @@ The full list also lives in-app under **Settings (⌘,) ▸ Shortcuts**.
 | ⌘E | Use selection for find |
 | ⌘L | Go to line (file viewer) |
 | ⇧⌘L | Toggle bookmark on the current line (file viewer) |
+| ⌃⌘J | Go to definition (file viewer; also Cmd-click) |
+| ⌃⌘R | Find references (file viewer) |
 
 ### Git & Claude
 

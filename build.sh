@@ -45,6 +45,24 @@ else
   echo "warning: rg not found — search will rely on a runtime fallback" >&2
 fi
 
+# Bundle universal-ctags (go-to-definition / find-references symbol index,
+# ROADMAP Phase 33) the same way as rg. Only a *universal* ctags is bundled —
+# macOS-stock /usr/bin/ctags is BSD ctags, which rejects our flags — so probe
+# --version for "Universal Ctags". When absent the app degrades to an rg word
+# search (see SymbolIndex.swift), so a missing binary is a warning, not a fail.
+CTAGS_BIN=""
+for candidate in "$(command -v ctags || true)" /opt/homebrew/bin/ctags /usr/local/bin/ctags; do
+  if [ -n "$candidate" ] && [ -x "$candidate" ] && "$candidate" --version 2>/dev/null | grep -q "Universal Ctags"; then
+    CTAGS_BIN="$candidate"
+    break
+  fi
+done
+if [ -n "$CTAGS_BIN" ]; then
+  cp "$CTAGS_BIN" "$CONTENTS/Resources/ctags"
+else
+  echo "warning: universal-ctags not found — go-to-definition will rely on the rg word-search fallback" >&2
+fi
+
 # Bundle the Claude Code integration scripts (statusline + session-state
 # hooks) so the app can install them from the UI without a checkout of this
 # repo (see ClaudeIntegration.swift).

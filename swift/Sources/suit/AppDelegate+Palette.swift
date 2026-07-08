@@ -191,6 +191,24 @@ extension AppDelegate {
         }
     }
 
+    // Multi-definition picker (ROADMAP Phase 33): several definitions of one
+    // symbol reuse the palette in explicit-items mode (the Cmd-P trick), each
+    // row `file:line` with the ctags kind, jumping straight to the chosen one.
+    func showDefinitionPicker(symbol: String, definitions: [SymbolDefinition], root: String, controller: TerminalWindowController) {
+        paletteFileIndex = nil
+        commandPalette.show(
+            relativeTo: controller.window,
+            commands: definitions.map { definition in
+                let kind = definition.kind.map { " · \($0)" } ?? ""
+                let title = "\(definition.relativePath):\(definition.lineNumber)\(kind)"
+                return PaletteCommand(title: title, shortcut: nil) { [weak controller] in
+                    controller?.openDefinition(definition, root: root)
+                }
+            },
+            placeholder: "Go to definition of \(symbol)…"
+        )
+    }
+
     // MARK: - Fuzzy file opener (Cmd-P)
 
     @objc func openQuickly(_ sender: Any?) {
@@ -261,6 +279,8 @@ extension AppDelegate {
             PaletteCommand(title: "Go to Line…", shortcut: "⌘L") { NSApp.sendAction(#selector(ViewerTextView.goToLine(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Toggle Blame", shortcut: "⌃⌘B") { NSApp.sendAction(#selector(ViewerTextView.toggleBlame(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Show File History", shortcut: nil) { NSApp.sendAction(#selector(ViewerTextView.showFileHistory(_:)), to: nil, from: nil) },
+            PaletteCommand(title: "Go to Definition", shortcut: "⌃⌘J") { NSApp.sendAction(#selector(ViewerTextView.goToDefinition(_:)), to: nil, from: nil) },
+            PaletteCommand(title: "Find References", shortcut: "⌃⌘R") { NSApp.sendAction(#selector(ViewerTextView.findReferences(_:)), to: nil, from: nil) },
             PaletteCommand(title: "Split Screen (new terminal)", shortcut: "⌘D") { [weak self] in self?.splitScreen(nil) },
             PaletteCommand(title: "Split Screen Horizontally (new terminal)", shortcut: "⇧⌘D") { [weak self] in self?.splitScreenHorizontally(nil) },
             PaletteCommand(title: "Split Screen (last used tab)", shortcut: "") { [weak self] in self?.splitScreenWithLastUsedTab(nil) },

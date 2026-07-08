@@ -62,6 +62,8 @@ enum KeyboardShortcuts {
             Entry("⇧⌘G", "Find previous"),
             Entry("⌘E", "Use selection for find"),
             Entry("⌘L", "Go to line (file viewer)"),
+            Entry("⌃⌘J", "Go to definition (file viewer; also Cmd-click)"),
+            Entry("⌃⌘R", "Find references (file viewer)"),
         ]),
         Group("Git & Claude", [
             Entry("⌃⌘D", "Show git diff"),
