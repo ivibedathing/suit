@@ -295,6 +295,20 @@ working.
 - **One-tap /compact** — the pane title bar's context-% meter is a button: click it (or press
   ⌃⌘K, "Compact Focused Session") to send `/compact` into the focused session, so acting on a
   full context window is one tap instead of a typed command.
+- **rtk tool-output compression** — a **Settings ▸ Claude** toggle ("Compress tool output with
+  rtk"), **off by default**, that installs a Claude Code `PreToolUse` hook running every Bash
+  command through [rtk](https://github.com/gglucass/rtk) so its output is filtered down to the
+  salient part (test failures only, build errors only, trimmed git/ls/grep) before it reaches
+  the context window — cutting the tokens each session burns. Enabling merges the hook into
+  `~/.claude/settings.json` (a one-time backup is written first, other hooks preserved) and, if
+  the app bundled rtk, installs it alongside the hook; disabling strips just Suit's hook and
+  leaves everything else intact. The hook **fails open** — if rtk (or `jq`) is missing or the
+  command already runs through rtk, the command runs unchanged — so compression can never break
+  a command. Enabling the toggle when rtk can't be found (bundled, installed, or on `PATH`)
+  warns you plainly that commands run unchanged until you install it. **Per-command bypass:**
+  when you need full, unfiltered output for one command, opt it out without flipping the toggle
+  — prefix it with `NO_RTK=1` or add a `# nortk` marker and it runs unchanged. rtk ships in the
+  bundle when present at build time, otherwise the hook falls back to `rtk` on your `PATH`.
 - **Set as Goal** — select code or prose in a file viewer, transcript, or terminal, then
   right-click ▸ "Set as Goal" (or the palette's "Set Selection as Claude Goal") to send
   `/goal <selection>` into a chosen session — turning "this is what I want done" into a
@@ -402,8 +416,8 @@ working.
 - **Settings** (⌘,) — a sectioned defaults form: font and default size, text color, default
   pane background, opacity (⌘] / ⌘[) and blur (⇧⌘B); the shell new tabs run, cursor shape and
   blinking, bell responses (pane flash, Dock bounce); word wrap for file viewers; Claude
-  session arguments and whether "Set as Goal" prepends the source location. Everything
-  persists across launches.
+  session arguments, whether "Set as Goal" prepends the source location, and the rtk
+  tool-output compression toggle (see below). Everything persists across launches.
 - **Per-pane looks** — right-click a pane for background presets or a custom color, per-pane
   font size (⌘= / ⌘-), and a decorative ASCII screensaver overlay (waves/stars) with its own
   colors and speed. Terminals ground a step darker than the chrome: "Midnight" (#0E1013) is the

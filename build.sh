@@ -63,9 +63,29 @@ else
   echo "warning: universal-ctags not found — go-to-definition will rely on the rg word-search fallback" >&2
 fi
 
+# Bundle rtk (output-compression wrapper for the "Compress tool output with rtk"
+# toggle, see RtkHook.swift) the same way as rg/ctags. Optional: when absent the
+# installed PreToolUse hook falls back to `rtk` on the user's PATH, and passes
+# commands through untouched if that is missing too — so a missing binary is a
+# warning, not a failure.
+RTK_BIN="$(command -v rtk || true)"
+if [ -z "$RTK_BIN" ]; then
+  for candidate in /opt/homebrew/bin/rtk /usr/local/bin/rtk; do
+    if [ -x "$candidate" ]; then
+      RTK_BIN="$candidate"
+      break
+    fi
+  done
+fi
+if [ -n "$RTK_BIN" ]; then
+  cp "$RTK_BIN" "$CONTENTS/Resources/rtk"
+else
+  echo "warning: rtk not found — the rtk compression hook will rely on a PATH lookup at runtime" >&2
+fi
+
 # Bundle the Claude Code integration scripts (statusline + session-state
-# hooks) so the app can install them from the UI without a checkout of this
-# repo (see ClaudeIntegration.swift).
+# hooks, plus the rtk rewrite hook) so the app can install them from the UI
+# without a checkout of this repo (see ClaudeIntegration.swift / RtkHook.swift).
 mkdir -p "$CONTENTS/Resources/claude"
 cp "$ROOT"/scripts/claude/*.sh "$CONTENTS/Resources/claude/"
 chmod +x "$CONTENTS/Resources/claude/"*.sh

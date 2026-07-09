@@ -33,6 +33,7 @@ HARNESSES=(
   "file-time-travel|scripts/file-time-travel-test.sh|fast"
   "budget|scripts/budget-test.sh|fast"
   "command-history|scripts/command-history-test.sh|fast"
+  "rtk|scripts/rtk-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 

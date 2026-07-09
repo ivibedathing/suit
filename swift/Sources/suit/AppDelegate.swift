@@ -48,6 +48,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // the goal carries where the selection came from. Off by default — the
     // selection alone is usually the directive.
     var goalPrependProvenanceEnabled = false
+    // rtk output compression: when on, Suit installs a Claude Code PreToolUse
+    // hook that runs Bash commands through rtk so their output is compressed
+    // before it reaches the context window. Off by default — the hook rewrites
+    // the commands Claude runs, so it's opt-in (RtkHook / rtkCompressionChanged).
+    var rtkCompressionEnabled = false
     // Autopilot (ROADMAP Phase 32) — the §2.9 config table. The engine reads
     // these live through its weak appDelegate reference; the Settings window's
     // Autopilot section writes them through autopilotXChanged(...).
