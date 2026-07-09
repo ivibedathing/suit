@@ -11,7 +11,7 @@ extension GitView {
         let menu = NSMenu()
 
         menu.addItem(Self.headerItem("Worktrees"))
-        for worktree in Self.listWorktrees(root: root) {
+        for worktree in WorktreeSwitcher.worktrees(root: root) {
             let name = (worktree.path as NSString).lastPathComponent
             let item = menu.addItem(
                 withTitle: "\(name) — \(worktree.branch ?? "detached")",
@@ -27,7 +27,7 @@ extension GitView {
         menu.addItem(.separator())
         menu.addItem(Self.headerItem("Branches"))
         let current = monitor?.currentBranch
-        for branch in Self.listBranches(root: root) {
+        for branch in WorktreeSwitcher.branches(root: root) {
             let item = menu.addItem(withTitle: branch, action: #selector(checkoutBranchItem(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = branch
@@ -124,29 +124,5 @@ extension GitView {
         if let mainRoot {
             onTaskFinished?(mainRoot)
         }
-    }
-
-    // `git worktree list --porcelain`: blocks of "worktree <path>" followed by
-    // "branch refs/heads/<name>" or "detached".
-    private static func listWorktrees(root: String) -> [(path: String, branch: String?)] {
-        guard let output = runProcess("/usr/bin/git", ["-C", root, "worktree", "list", "--porcelain"]) else {
-            return []
-        }
-        var result: [(path: String, branch: String?)] = []
-        for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
-            if line.hasPrefix("worktree ") {
-                result.append((path: String(line.dropFirst("worktree ".count)), branch: nil))
-            } else if line.hasPrefix("branch refs/heads/"), !result.isEmpty {
-                result[result.count - 1].branch = String(line.dropFirst("branch refs/heads/".count))
-            }
-        }
-        return result
-    }
-
-    private static func listBranches(root: String) -> [String] {
-        guard let output = runProcess("/usr/bin/git", ["-C", root, "for-each-ref", "--format=%(refname:short)", "refs/heads"]) else {
-            return []
-        }
-        return output.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
     }
 }

@@ -196,6 +196,15 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.fileBrowser.onUnpin = { [weak self] in
             self?.unpinSidebarFolder()
         }
+        // Files-tab footer branch switcher (moved off the removed Git tab):
+        // pick a worktree to repoint the sidebar there, or a branch to check
+        // out in the shown repo.
+        sidebar.fileBrowser.onSwitchWorktree = { [weak self] path in
+            self?.pinSidebar(toDirectory: path)
+        }
+        sidebar.fileBrowser.onCheckoutBranch = { [weak self] root, branch in
+            self?.checkoutBranch(root: root, branch: branch)
+        }
         sidebar.gitView.onOpenDiff = { [weak self] root, path in
             self?.openGitDiff(root: root, file: path)
         }

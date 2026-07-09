@@ -24,7 +24,12 @@ final class SidebarView: NSView {
 
         // The rail's left-to-right icon order, independent of rawValue.
         // Sessions leads: it's the replacement for the removed top tab strip.
-        static let railOrder: [Tab] = [.sessions, .files, .git, .bookmarks, .ssh, .notes]
+        // Git is intentionally absent — its changes/worktrees no longer get a
+        // dedicated rail tab; the branch/worktree switcher lives on the Files
+        // footer, and the diff / file-history / feedback / PR-inbox surfaces
+        // are reached on demand through the palette (which still shows the
+        // GitView via showGit()).
+        static let railOrder: [Tab] = [.sessions, .files, .bookmarks, .ssh, .notes]
 
         // Tooltip / accessibility label; the rail shows only the icon.
         var label: String {
@@ -83,10 +88,12 @@ final class SidebarView: NSView {
             railIcons.append(icon)
             addSubview(icon)
         }
-        // A stale persisted value (e.g. from a build with more tabs) falls
-        // back to Files instead of selecting out of range.
+        // A stale persisted value (e.g. from a build with more tabs, or the
+        // now-railless Git tab) falls back to Files rather than landing on a
+        // tab with no icon in the rail to switch back from.
         let saved = UserDefaults.standard.integer(forKey: "sidebarTab")
-        selectedTab = Tab(rawValue: saved) ?? .files
+        let restored = Tab(rawValue: saved) ?? .files
+        selectedTab = Tab.railOrder.contains(restored) ? restored : .files
 
         // The browser lives inside the search view, which shows it while the
         // search pattern is empty and swaps in results while searching.
