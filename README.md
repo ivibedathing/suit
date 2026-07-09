@@ -571,5 +571,5 @@ This is a personal project, but the workflow is documented if you want to hack o
 
 ## License
 
-No license has been chosen yet — Suit is a personal project, so all rights are reserved by default
-until a license is added. Please open an issue before reusing the code.
+Suit is released under the [MIT License](LICENSE) — © 2026 ivibedathing. You're free to use, copy,
+modify, and distribute it, provided the copyright notice and permission notice are kept.
