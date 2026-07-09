@@ -268,6 +268,7 @@ extension AppDelegate {
             PaletteCommand(title: "Send Review to Session…", shortcut: nil) { [weak self] in self?.sendReviewToSession(nil) },
             PaletteCommand(title: "Show Fleet (all sessions)", shortcut: "⇧⌘O") { [weak self] in self?.showFleet(nil) },
             PaletteCommand(title: "Show Activity Feed", shortcut: nil) { [weak self] in self?.showActivityFeed(nil) },
+            PaletteCommand(title: "Search Command History…", shortcut: "⌃R") { [weak self] in self?.showCommandHistory(nil) },
             PaletteCommand(title: "Broadcast to All Sessions…", shortcut: nil) { [weak self] in self?.broadcastToAllSessions(nil) },
             PaletteCommand(title: "Show Background Tasks", shortcut: nil) { [weak self] in self?.showBackgroundTasks(nil) },
             PaletteCommand(title: "Show Feedback Inbox", shortcut: nil) { [weak self] in self?.showFeedbackInbox(nil) },

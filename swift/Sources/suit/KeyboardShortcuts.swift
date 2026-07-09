@@ -55,6 +55,7 @@ enum KeyboardShortcuts {
         Group("Files, search & navigation", [
             Entry("⌘P", "Open quickly (fuzzy file finder)"),
             Entry("⌘K", "Command palette"),
+            Entry("⌃R", "Search command history (Enter runs · ⇧Enter edits first)"),
             Entry("⌘B", "Toggle sidebar"),
             Entry("⇧⌘F", "Search in project"),
             Entry("⌘F", "Find in pane"),

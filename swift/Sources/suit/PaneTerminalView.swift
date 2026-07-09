@@ -32,7 +32,44 @@ final class PaneTerminalView: LocalProcessTerminalView {
             userReturnHook = nil
             hook?()
         }
+        recordTypedInput(data)
         super.send(source: source, data: data)
+    }
+
+    // Per-pane command recorder (ROADMAP Phase 43): reconstruct the line the
+    // user is typing from the bytes headed to the pty, and on Return hand a
+    // clean single-line command to CommandHistoryStore so ⌃R can find commands
+    // run in this pane — including before they reach $HISTFILE, and when there
+    // is no history file at all. Best-effort: anything with an escape sequence
+    // (arrow-key line editing, a bracketed paste, history recall) marks the line
+    // dirty so only plainly-typed commands are recorded.
+    private var typedLine: [UInt8] = []
+    private var typedLineDirty = false
+
+    private func recordTypedInput(_ data: ArraySlice<UInt8>) {
+        for byte in data {
+            switch byte {
+            case 0x0D, 0x0A:   // Return — commit the line
+                commitTypedLine()
+            case 0x7F, 0x08:   // Backspace / Delete
+                if !typedLine.isEmpty { typedLine.removeLast() } else { typedLineDirty = true }
+            case 0x03, 0x15, 0x0C:   // Ctrl-C / Ctrl-U / Ctrl-L — abandon the line
+                typedLine.removeAll(); typedLineDirty = false
+            case 0x09, 0x1B:   // Tab completion / any escape sequence — not plain typing
+                typedLineDirty = true
+            case 0x00..<0x20:  // other control bytes — treat as non-plain input
+                typedLineDirty = true
+            default:
+                typedLine.append(byte)
+            }
+        }
+    }
+
+    private func commitTypedLine() {
+        defer { typedLine.removeAll(); typedLineDirty = false }
+        guard !typedLineDirty, !typedLine.isEmpty else { return }
+        let command = String(decoding: typedLine, as: UTF8.self)
+        CommandHistoryStore.shared.recordPaneCommand(command, cwd: pane?.workingDirectory)
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {

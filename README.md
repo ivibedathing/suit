@@ -119,6 +119,14 @@ working.
   Project / Sub-project / Pane Directory scopes; results stream in grouped by file.
 - **Open quickly** (⌘P) — fuzzy-find any file in the project index; ⌘K opens the command
   palette over every app command plus your prompt library.
+- **Command history search** (⌃R) — the shell's reverse-i-search, made native and cross-pane. A
+  fuzzy overlay (the same machinery as ⌘P) over your shell history (`$HISTFILE` / `~/.zsh_history`,
+  deduped, most-recent-first) merged with the commands you've run in each pane this session (each
+  row shows its source — `history` or the pane's folder). Type to filter, then **Enter** re-runs
+  the picked command in the focused terminal pane, or **⇧Enter** types it in without submitting so
+  you can edit it first. A destructive-looking command (curl/wget piped into a shell, `rm -rf`)
+  trips the same confirm a risky paste does before it runs. With no history file, it falls back to
+  the per-pane commands alone.
 - **File viewer** — files open as tabs (deduped by path) with syntax highlighting, a
   minimap, line numbers, go-to-line (⌘L), and orange marks on lines changed since HEAD.
   Cmd-click a path in any terminal (with optional `:line`) to jump straight to it. Files are
@@ -439,6 +447,7 @@ or the command palette (which also offers **Rename Layout…** and **Delete Layo
 | --- | --- |
 | ⌘P | Open quickly (fuzzy file finder) |
 | ⌘K | Command palette |
+| ⌃R | Search command history (Enter runs · ⇧Enter edits first) |
 | ⌘B | Toggle sidebar |
 | ⇧⌘F | Search in project |
 | ⌘F | Find in pane |

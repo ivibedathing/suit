@@ -211,6 +211,14 @@ extension AppDelegate {
         let activityItem = viewMenu.addItem(withTitle: "Show Activity Feed", action: #selector(showActivityFeed(_:)), keyEquivalent: "")
         activityItem.target = self
 
+        // Command history search (ROADMAP Phase 43): ⌃R, the shell's reverse-i-
+        // search made native and cross-pane. A menu key equivalent, so it's
+        // caught app-wide (in place of the terminal's own ⌃R) whenever a pane
+        // has focus.
+        let commandHistoryItem = viewMenu.addItem(withTitle: "Search Command History…", action: #selector(showCommandHistory(_:)), keyEquivalent: "r")
+        commandHistoryItem.keyEquivalentModifierMask = [.control]
+        commandHistoryItem.target = self
+
         // Broadcast one instruction across every live session (ROADMAP Phase 35).
         let broadcastItem = viewMenu.addItem(withTitle: "Broadcast to All Sessions…", action: #selector(broadcastToAllSessions(_:)), keyEquivalent: "")
         broadcastItem.target = self
