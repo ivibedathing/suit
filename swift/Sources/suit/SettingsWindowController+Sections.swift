@@ -118,6 +118,20 @@ extension SettingsWindowController {
         goalProvenanceCheckbox.action = #selector(goalProvenanceChanged)
         let goalProvenanceRow = row(label: "Goals:", controls: [goalProvenanceCheckbox])
 
+        // rtk output compression: install/remove the PreToolUse hook that runs
+        // Bash commands through rtk to shrink their output before it hits the
+        // context window. Off by default (see RtkHook / rtkCompressionChanged).
+        rtkCompressionCheckbox.target = self
+        rtkCompressionCheckbox.action = #selector(rtkCompressionChanged)
+        let rtkCompressionRow = row(label: "Tokens:", controls: [rtkCompressionCheckbox])
+        let rtkHint = NSTextField(labelWithString: "Filters shell-command output through rtk to cut context tokens. Requires rtk on your PATH; commands run unchanged when it's missing.")
+        rtkHint.font = .systemFont(ofSize: 10)
+        rtkHint.textColor = Theme.textDim
+        rtkHint.lineBreakMode = .byWordWrapping
+        rtkHint.maximumNumberOfLines = 0
+        rtkHint.preferredMaxLayoutWidth = 300
+        let rtkHintRow = row(label: "", controls: [rtkHint])
+
         // Autopilot (ROADMAP Phase 32, §2.9).
         autopilotEnabledCheckbox.target = self
         autopilotEnabledCheckbox.action = #selector(autopilotEnabledToggled)
@@ -215,6 +229,7 @@ extension SettingsWindowController {
             wordWrapRow,
             sectionHeader("Claude"),
             claudeArgsRow, claudeHintRow, taskIsolateRow, goalProvenanceRow,
+            rtkCompressionRow, rtkHintRow,
             sectionHeader("Autopilot"),
             autopilotEnabledRow, autopilotProjectRow, autopilotModeRow, autopilotNightRow,
             autopilotFiveHourRow, autopilotWeeklyRow, autopilotHardStopRow, autopilotPaceRow,
@@ -235,7 +250,8 @@ extension SettingsWindowController {
         stack.setCustomSpacing(22, after: blurRow)
         stack.setCustomSpacing(22, after: bellBounceRow)
         stack.setCustomSpacing(22, after: wordWrapRow)
-        stack.setCustomSpacing(22, after: goalProvenanceRow)
+        stack.setCustomSpacing(4, after: rtkCompressionRow)
+        stack.setCustomSpacing(22, after: rtkHintRow)
         stack.setCustomSpacing(22, after: autopilotKeepAwakeRow)
         stack.translatesAutoresizingMaskIntoConstraints = false
 

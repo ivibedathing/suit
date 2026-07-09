@@ -191,6 +191,29 @@ extension AppDelegate {
         saveSettings()
     }
 
+    // Toggle rtk output compression: persist the preference, then install or
+    // remove the PreToolUse hook in ~/.claude/settings.json. Best-effort — the
+    // preference sticks even if the settings write fails (e.g. the bundled
+    // rewrite script isn't found on a dev run); the failure is logged, not fatal.
+    func rtkCompressionChanged(_ enabled: Bool) {
+        rtkCompressionEnabled = enabled
+        saveSettings()
+        do {
+            _ = try RtkHook.setEnabled(enabled)
+        } catch {
+            NSLog("Suit: rtk compression \(enabled ? "install" : "removal") failed: \(error.localizedDescription)")
+        }
+        // The hook fails open, so a missing rtk isn't fatal — but say so plainly
+        // rather than letting the toggle look active while nothing compresses.
+        if enabled, !RtkHook.rtkAvailable() {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "rtk isn’t installed"
+            alert.informativeText = "The hook is installed, but rtk isn’t on your PATH, so commands run unchanged (no compression) until it is. Install rtk (e.g. cargo install rtk, or place it on your PATH) — Suit picks it up automatically, and bundles it when it’s present at build time."
+            alert.runModal()
+        }
+    }
+
     // MARK: - Settings persistence
 
     func loadSettings() {
@@ -238,6 +261,9 @@ extension AppDelegate {
         }
         if defaults.object(forKey: "goalPrependProvenanceEnabled") != nil {
             goalPrependProvenanceEnabled = defaults.bool(forKey: "goalPrependProvenanceEnabled")
+        }
+        if defaults.object(forKey: "rtkCompressionEnabled") != nil {
+            rtkCompressionEnabled = defaults.bool(forKey: "rtkCompressionEnabled")
         }
         if let args = defaults.string(forKey: "claudeSessionArgs") {
             claudeSessionArgs = args
@@ -321,6 +347,7 @@ extension AppDelegate {
         defaults.set(bellFlashEnabled, forKey: "bellFlashEnabled")
         defaults.set(bellDockBounceEnabled, forKey: "bellDockBounceEnabled")
         defaults.set(goalPrependProvenanceEnabled, forKey: "goalPrependProvenanceEnabled")
+        defaults.set(rtkCompressionEnabled, forKey: "rtkCompressionEnabled")
         defaults.set(claudeSessionArgs, forKey: "claudeSessionArgs")
         defaults.set(taskIsolateByDefault, forKey: "taskIsolateByDefault")
         defaults.set(autopilotEnabled, forKey: "autopilotEnabled")

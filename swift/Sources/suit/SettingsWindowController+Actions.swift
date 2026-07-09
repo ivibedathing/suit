@@ -137,6 +137,10 @@ extension SettingsWindowController {
         appDelegate?.taskIsolateByDefaultChanged(sender.state == .on)
     }
 
+    @objc func rtkCompressionChanged(_ sender: NSButton) {
+        appDelegate?.rtkCompressionChanged(sender.state == .on)
+    }
+
     // MARK: - Autopilot actions (ROADMAP Phase 32)
 
     // Enabling runs the §2.3 enable-time checks in AppDelegate (Claude

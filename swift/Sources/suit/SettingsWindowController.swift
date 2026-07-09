@@ -42,6 +42,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
     let claudeArgsField = NSTextField(string: "")
     let taskIsolateCheckbox = NSButton(checkboxWithTitle: "Isolate new tasks in a worktree by default", target: nil, action: nil)
     let goalProvenanceCheckbox = NSButton(checkboxWithTitle: "Prepend source location to goals (From file:lines:)", target: nil, action: nil)
+    let rtkCompressionCheckbox = NSButton(checkboxWithTitle: "Compress tool output with rtk", target: nil, action: nil)
 
     // Autopilot (ROADMAP Phase 32, §2.9): every control writes through
     // appDelegate.autopilotXChanged(...) and is re-read in show().
@@ -104,6 +105,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
             claudeArgsField.stringValue = appDelegate.claudeSessionArgs
             taskIsolateCheckbox.state = appDelegate.taskIsolateByDefault ? .on : .off
             goalProvenanceCheckbox.state = appDelegate.goalPrependProvenanceEnabled ? .on : .off
+            rtkCompressionCheckbox.state = appDelegate.rtkCompressionEnabled ? .on : .off
             autopilotEnabledCheckbox.state = appDelegate.autopilotEnabled ? .on : .off
             autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot
             if let index = AutopilotBudgetMode.allCases.firstIndex(of: appDelegate.autopilotMode) {
