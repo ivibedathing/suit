@@ -8,32 +8,24 @@ struct PaletteCommand {
     // Display-only shortcut hint, e.g. "⌘D"; the palette doesn't dispatch keys.
     let shortcut: String?
     let action: () -> Void
+    // ⇧Enter alternate (ROADMAP Phase 43: the ⌃R history overlay's edit-before-run).
+    // nil — the common case — means ⇧Enter behaves exactly like Enter.
+    let altAction: (() -> Void)?
+
+    // altAction precedes action so the trailing-closure call sites
+    // (`PaletteCommand(title:shortcut:) { … }`) still bind their closure to
+    // `action` and leave altAction at its default.
+    init(title: String, shortcut: String?, altAction: (() -> Void)? = nil, action: @escaping () -> Void) {
+        self.title = title
+        self.shortcut = shortcut
+        self.altAction = altAction
+        self.action = action
+    }
 }
 
-// Case-insensitive subsequence match. Consecutive matches and word-start
-// matches score higher, so "spv" prefers "Split Vertically" over incidental
-// letter scatter. Word starts include path/identifier separators so the same
-// scorer works for file paths ("pane" hits Pane.swift's basename hard).
-// Returns nil when the query isn't a subsequence at all; an empty query
-// matches everything equally.
-func fuzzyScore(query: String, candidate: String) -> Int? {
-    if query.isEmpty { return 0 }
-    let q = Array(query.lowercased())
-    let c = Array(candidate.lowercased())
-    var score = 0
-    var qi = 0
-    var lastMatch = -2
-    for (i, ch) in c.enumerated() {
-        guard qi < q.count else { break }
-        guard ch == q[qi] else { continue }
-        score += 1
-        if i == lastMatch + 1 { score += 2 }
-        if i == 0 || " /_-.".contains(c[i - 1]) { score += 3 }
-        lastMatch = i
-        qi += 1
-    }
-    return qi == q.count ? score : nil
-}
+// The fuzzy matcher (`fuzzyScore`) lives in FuzzyMatch.swift now — a
+// Foundation-only file so the ⌃R command-history harness can rank against the
+// same scorer this palette uses.
 
 // A borderless panel refuses key status unless told otherwise, and the palette's
 // search field needs it.
@@ -251,7 +243,16 @@ final class CommandPaletteController: NSObject, NSWindowDelegate, NSTextFieldDel
             moveSelection(by: -1)
             return true
         case #selector(NSResponder.insertNewline(_:)):
-            runSelected()
+            // ⇧Enter takes the alternate (edit-before-run) when the selected
+            // command has one; plain Enter runs. Some field editors route
+            // Shift-Return to insertLineBreak/insertNewlineIgnoringFieldEditor
+            // instead — those cases below force the alternate.
+            let shift = NSApp.currentEvent?.modifierFlags.contains(.shift) ?? false
+            runSelected(useAlt: shift)
+            return true
+        case #selector(NSResponder.insertLineBreak(_:)),
+             #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
+            runSelected(useAlt: true)
             return true
         case #selector(NSResponder.cancelOperation(_:)):
             close()
@@ -269,7 +270,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate, NSTextFieldDel
         tableView.scrollRowToVisible(next)
     }
 
-    private func runSelected() {
+    private func runSelected(useAlt: Bool = false) {
         let row = tableView.selectedRow
         guard filtered.indices.contains(row) else { return }
         let command = filtered[row]
@@ -278,7 +279,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate, NSTextFieldDel
         // user's window first — actions that walk the responder chain (Go to
         // Line) or ask "which window is active" need that settled.
         DispatchQueue.main.async {
-            command.action()
+            if useAlt, let alt = command.altAction {
+                alt()
+            } else {
+                command.action()
+            }
         }
     }
 

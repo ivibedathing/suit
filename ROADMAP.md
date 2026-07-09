@@ -1131,7 +1131,7 @@ spend caps that warn, or (opt-in) interrupt, when a run blows past its budget.
   once at the threshold and (in auto-interrupt mode) an Esc reaches the right pty, and that a
   session staying under its cap never trips.
 
-### Phase 43 — Command history search (native ⌃R)
+### Phase 43 — Command history search (native ⌃R) — ✅ shipped
 
 The Navigate pillar, for the shell. The terminal's reverse-i-search, made native and cross-pane:
 search past commands from any pane, pick one, and re-run it in a pane of your choice.
