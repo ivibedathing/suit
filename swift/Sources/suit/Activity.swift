@@ -29,6 +29,9 @@ enum ActivityKind: String, Codable, CaseIterable {
     case ciFail = "ci_fail"
     case autopilotMerged = "autopilot_merged"
     case autopilotBlocked = "autopilot_blocked"
+    // Cost budget guardrails (ROADMAP Phase 42): a session/task crossed its
+    // configured spend cap (warned, or auto-interrupted).
+    case budgetTripped = "budget_tripped"
 
     // Human label for the filter menu and row subtitles.
     var label: String {
@@ -41,6 +44,7 @@ enum ActivityKind: String, Codable, CaseIterable {
         case .ciFail: return "CI failed"
         case .autopilotMerged: return "Autopilot merged"
         case .autopilotBlocked: return "Autopilot blocked"
+        case .budgetTripped: return "Budget tripped"
         }
     }
 
@@ -56,6 +60,7 @@ enum ActivityKind: String, Codable, CaseIterable {
         case .ciFail: return "xmark.octagon.fill"
         case .autopilotMerged: return "sparkles"
         case .autopilotBlocked: return "hand.raised.fill"
+        case .budgetTripped: return "dollarsign.circle.fill"
         }
     }
 
@@ -67,7 +72,7 @@ enum ActivityKind: String, Codable, CaseIterable {
         switch self {
         case .sessionDone, .prMerged, .ciPass, .autopilotMerged: return .positive
         case .ciFail, .autopilotBlocked: return .negative
-        case .sessionNeedsInput: return .attention
+        case .sessionNeedsInput, .budgetTripped: return .attention
         case .prOpened: return .neutral
         }
     }

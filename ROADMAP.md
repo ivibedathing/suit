@@ -1112,7 +1112,7 @@ capture/replay machinery.
   it, and asserts the tab list + split tree + visible tabs match; a layout referencing a deleted
   file restores with that pane collapsed out.
 
-### Phase 42 — Cost budget guardrails + auto-pause
+### Phase 42 — Cost budget guardrails + auto-pause — ✅ shipped
 
 The Orchestrate pillar. Phase 23 makes spend legible; this acts on it — per-session and per-task
 spend caps that warn, or (opt-in) interrupt, when a run blows past its budget.

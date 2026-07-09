@@ -287,6 +287,17 @@ extension AppDelegate {
         if defaults.object(forKey: "autopilotPreventSleep") != nil {
             autopilotPreventSleep = defaults.bool(forKey: "autopilotPreventSleep")
         }
+        // Cost budget guardrails (ROADMAP Phase 42).
+        if defaults.object(forKey: "budgetSessionCap") != nil {
+            budgetSessionCap = defaults.double(forKey: "budgetSessionCap")
+        }
+        if defaults.object(forKey: "budgetTaskCap") != nil {
+            budgetTaskCap = defaults.double(forKey: "budgetTaskCap")
+        }
+        budgetAutoInterrupt = defaults.bool(forKey: "budgetAutoInterrupt")
+        if let raw = defaults.dictionary(forKey: "budgetPerSession") {
+            budgetPerSession = raw.compactMapValues { ($0 as? NSNumber)?.doubleValue }
+        }
     }
 
     func saveSettings() {
@@ -326,6 +337,10 @@ extension AppDelegate {
         defaults.set(autopilotExtraArgs, forKey: "autopilotExtraArgs")
         defaults.set(autopilotReviewModel, forKey: "autopilotReviewModel")
         defaults.set(autopilotPreventSleep, forKey: "autopilotPreventSleep")
+        defaults.set(budgetSessionCap, forKey: "budgetSessionCap")
+        defaults.set(budgetTaskCap, forKey: "budgetTaskCap")
+        defaults.set(budgetAutoInterrupt, forKey: "budgetAutoInterrupt")
+        defaults.set(budgetPerSession, forKey: "budgetPerSession")
     }
 }
 

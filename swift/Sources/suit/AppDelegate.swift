@@ -65,6 +65,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     var autopilotExtraArgs = ""               // appended to the worker's claude
     var autopilotReviewModel = ""             // review gate --model; empty = default
     var autopilotPreventSleep = true          // hold .idleSystemSleepDisabled across runs
+    // Cost budget guardrails (ROADMAP Phase 42): per-session / per-task spend
+    // ceilings in dollars (0 = no ceiling), whether crossing one auto-interrupts
+    // the run (Esc over the pty) or only warns, and the per-session "Set Budget…"
+    // overrides keyed by session id. The guard reads these live each heartbeat.
+    var budgetSessionCap = 0.0                // $, default per-session ceiling
+    var budgetTaskCap = 0.0                   // $, default per-task (worktree) ceiling
+    var budgetAutoInterrupt = false           // trip → Esc (else warn only)
+    var budgetPerSession: [String: Double] = [:]  // session-id → override $
+    // The heartbeat-driven monitor; created lazily so its closures capture self.
+    lazy var budgetGuard: BudgetGuard = BudgetGuard(
+        caps: { [weak self] in self?.budgetCaps() ?? BudgetCaps() },
+        autoInterrupt: { [weak self] in self?.budgetAutoInterrupt ?? false },
+        onTrip: { [weak self] trip in self?.handleBudgetTrip(trip) }
+    )
     lazy var settingsWindowController = SettingsWindowController(appDelegate: self)
     lazy var commandPalette = CommandPaletteController { [weak self] in
         self?.paletteCommands() ?? []
@@ -81,6 +95,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         controller.onContinue = { [weak self] id in self?.performQuickAction(.continueSession, onSessionId: id) }
         controller.onArchive = { [weak self] id in self?.archiveSession(withId: id) }
         controller.onBroadcast = { [weak self] scope in self?.presentBroadcast(scope: scope) }
+        controller.onSetBudget = { [weak self] id in self?.setBudget(forSessionId: id) }
         return controller
     }()
     // Fleet activity feed / daily digest (ROADMAP Phase 38): a floating
@@ -196,6 +211,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             // Fleet activity feed (ROADMAP Phase 38): deliver yesterday's digest
             // once per calendar day, on the first heartbeat past local midnight.
             self.activityRecorder.maybePostDailyDigest()
+            // Cost budget guardrails (ROADMAP Phase 42): check each live
+            // session's cost against its cap and trip (warn / interrupt) once
+            // on a crossing.
+            self.budgetGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
         }
         attentionCenter = ClaudeAttentionCenter { [weak self] sessionId in
             self?.focusSession(withId: sessionId)
@@ -218,6 +237,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // Activity digest click-through (ROADMAP Phase 38): open the feed.
         attentionCenter?.onActivityEvent = { [weak self] in
             self?.activityFeed.show(relativeTo: self?.activeWindowController()?.window)
+        }
+        // Budget-trip click-through (ROADMAP Phase 42): focus the pane whose run
+        // blew its cap.
+        attentionCenter?.onBudgetEvent = { [weak self] sessionId in
+            self?.focusSession(withId: sessionId)
         }
 
         // Autopilot (ROADMAP Phase 32): the engine hangs off the same 3 s

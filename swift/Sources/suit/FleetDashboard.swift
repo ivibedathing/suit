@@ -208,6 +208,11 @@ private final class FleetRowView: NSView {
 
     var onAction: ((FleetAction) -> Void)?
     var onToggleCheck: ((Bool) -> Void)?
+    // Cost budget guardrails (ROADMAP Phase 42): right-click ▸ Set Budget… on a
+    // steerable row. `rowId` is the session id the override keys on.
+    var onSetBudget: ((String) -> Void)?
+    private var rowId: String?
+    private var isBareRow = false
 
     // Subagent-tree indent (ROADMAP Phase 31): 0 = a top-level session, 1+ a
     // nested subagent; bare worktrees hide their (unsteerable) buttons.
@@ -260,6 +265,8 @@ private final class FleetRowView: NSView {
     func configure(row: FleetRow, checked: Bool) {
         depth = row.depth
         isBareWorktree = row.isBareWorktree
+        rowId = row.id
+        isBareRow = row.isBareWorktree
         // Only a hosted (steerable) session can be a broadcast target; a bare
         // subagent worktree has no session to steer.
         checkbox.isEnabled = row.hosted && !isBareWorktree
@@ -326,6 +333,21 @@ private final class FleetRowView: NSView {
     @objc private func continueTapped() { onAction?(.cont) }
     @objc private func archiveTapped() { onAction?(.archive) }
     @objc private func checkToggled() { onToggleCheck?(checkbox.state == .on) }
+
+    // Right-click ▸ Set Budget… (ROADMAP Phase 42). A bare subagent worktree has
+    // no session to budget, so it gets no menu.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        guard !isBareRow, rowId != nil else { return nil }
+        let menu = NSMenu()
+        let item = NSMenuItem(title: "Set Budget…", action: #selector(setBudgetTapped), keyEquivalent: "")
+        item.target = self
+        menu.addItem(item)
+        return menu
+    }
+
+    @objc private func setBudgetTapped() {
+        if let rowId { onSetBudget?(rowId) }
+    }
 }
 
 // A Kanban card: a compact clickable tile that focuses the session on click.
@@ -409,6 +431,9 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     // Broadcast (ROADMAP Phase 35): fan one instruction across a scope of
     // sessions — the checked rows, or every live one.
     var onBroadcast: ((Broadcast.Scope) -> Void)?
+    // Cost budget guardrails (ROADMAP Phase 42): "Set Budget…" on a row — a
+    // per-session dollar override.
+    var onSetBudget: ((String) -> Void)?
     // The set of session ids some pane currently hosts (steerable rows).
     var hostedIds: (() -> Set<String>)?
 
@@ -834,6 +859,7 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
         let fleetRow = rows[row]
         view.configure(row: fleetRow, checked: checkedIds.contains(fleetRow.id))
         view.onAction = { [weak self] action in self?.dispatch(action, id: fleetRow.id) }
+        view.onSetBudget = { [weak self] id in self?.onSetBudget?(id) }
         view.onToggleCheck = { [weak self] checked in
             guard let self else { return }
             if checked { self.checkedIds.insert(fleetRow.id) } else { self.checkedIds.remove(fleetRow.id) }
