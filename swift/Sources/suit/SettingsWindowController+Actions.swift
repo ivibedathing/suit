@@ -88,6 +88,20 @@ extension SettingsWindowController {
             autopilotReviewModelField.stringValue = appDelegate.autopilotReviewModel
             return
         }
+        // Budget caps (ROADMAP Phase 42): a dollar amount, or blank/0 for off.
+        // A non-numeric entry beeps and snaps back.
+        if (notification.object as? NSTextField) === budgetSessionCapField {
+            appDelegate.budgetSessionCap = Self.parseDollarCap(budgetSessionCapField.stringValue, current: appDelegate.budgetSessionCap)
+            appDelegate.saveSettings()
+            budgetSessionCapField.stringValue = SettingsWindowController.dollarString(appDelegate.budgetSessionCap)
+            return
+        }
+        if (notification.object as? NSTextField) === budgetTaskCapField {
+            appDelegate.budgetTaskCap = Self.parseDollarCap(budgetTaskCapField.stringValue, current: appDelegate.budgetTaskCap)
+            appDelegate.saveSettings()
+            budgetTaskCapField.stringValue = SettingsWindowController.dollarString(appDelegate.budgetTaskCap)
+            return
+        }
         guard (notification.object as? NSTextField) === shellField else { return }
         let entered = shellField.stringValue.trimmingCharacters(in: .whitespaces)
         if !entered.isEmpty, entered != appDelegate.shellPath, !appDelegate.shellPathChanged(entered) {
@@ -209,5 +223,24 @@ extension SettingsWindowController {
 
     @objc func autopilotKeepAwakeChanged(_ sender: NSButton) {
         appDelegate?.autopilotPreventSleepChanged(sender.state == .on)
+    }
+
+    @objc func budgetAutoInterruptChanged(_ sender: NSButton) {
+        guard let appDelegate else { return }
+        appDelegate.budgetAutoInterrupt = sender.state == .on
+        appDelegate.saveSettings()
+    }
+
+    // Parses a dollar-cap field: blank → 0 (off); a valid non-negative number
+    // (a leading "$" tolerated) → that amount; anything else → the current
+    // value unchanged with a beep, so a typo doesn't wipe a cap.
+    static func parseDollarCap(_ text: String, current: Double) -> Double {
+        let trimmed = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "$", with: "")
+        if trimmed.isEmpty { return 0 }
+        guard let value = Double(trimmed), value >= 0 else {
+            NSSound.beep()
+            return current
+        }
+        return value
     }
 }

@@ -179,6 +179,33 @@ extension SettingsWindowController {
         autopilotKeepAwakeCheckbox.action = #selector(autopilotKeepAwakeChanged)
         let autopilotKeepAwakeRow = row(label: "", controls: [autopilotKeepAwakeCheckbox])
 
+        // Cost budget guardrails (ROADMAP Phase 42): per-session / per-task
+        // dollar ceilings + the auto-interrupt toggle.
+        for field in [budgetSessionCapField, budgetTaskCapField] {
+            field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            field.placeholderString = "off"
+            field.delegate = self
+            field.alignment = .right
+            field.translatesAutoresizingMaskIntoConstraints = false
+            field.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        }
+        let budgetSessionDollar = NSTextField(labelWithString: "$")
+        budgetSessionDollar.textColor = Theme.textDim
+        let budgetTaskDollar = NSTextField(labelWithString: "$")
+        budgetTaskDollar.textColor = Theme.textDim
+        let budgetSessionCapRow = row(label: "Session Cap:", controls: [budgetSessionDollar, budgetSessionCapField])
+        let budgetTaskCapRow = row(label: "Task Cap:", controls: [budgetTaskDollar, budgetTaskCapField])
+        budgetAutoInterruptCheckbox.target = self
+        budgetAutoInterruptCheckbox.action = #selector(budgetAutoInterruptChanged)
+        let budgetAutoInterruptRow = row(label: "On Trip:", controls: [budgetAutoInterruptCheckbox])
+        let budgetHint = NSTextField(labelWithString: "Warns when a session or task’s spend crosses its cap; interrupts too when checked. Set a per-session override with Set Budget… on a fleet row.")
+        budgetHint.font = .systemFont(ofSize: 10)
+        budgetHint.textColor = Theme.textDim
+        budgetHint.lineBreakMode = .byWordWrapping
+        budgetHint.translatesAutoresizingMaskIntoConstraints = false
+        budgetHint.preferredMaxLayoutWidth = 340
+        let budgetHintRow = row(label: "", controls: [budgetHint])
+
         let stack = NSStackView(views: [
             sectionHeader("Appearance"),
             fontRow, fontSizeRow, textColorRow, backgroundRow, opacityRow, blurRow,
@@ -194,6 +221,8 @@ extension SettingsWindowController {
             autopilotAttemptsRow, autopilotStallRow,
             autopilotArgsRow, autopilotArgsHintRow,
             autopilotReviewModelRow, autopilotKeepAwakeRow,
+            sectionHeader("Budget"),
+            budgetSessionCapRow, budgetTaskCapRow, budgetAutoInterruptRow, budgetHintRow,
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -207,6 +236,7 @@ extension SettingsWindowController {
         stack.setCustomSpacing(22, after: bellBounceRow)
         stack.setCustomSpacing(22, after: wordWrapRow)
         stack.setCustomSpacing(22, after: goalProvenanceRow)
+        stack.setCustomSpacing(22, after: autopilotKeepAwakeRow)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         // The Autopilot section pushed the form past the window height, so the

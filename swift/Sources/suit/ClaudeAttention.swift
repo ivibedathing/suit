@@ -27,6 +27,11 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
     // Activity panel. Same plumbing rationale as onAutopilotEvent.
     var onActivityEvent: (() -> Void)?
 
+    // Cost budget guardrails (ROADMAP Phase 42): a budget trip notification
+    // ("budget-" prefixed identifier) routes here with the session id carried in
+    // the notification's userInfo — AppDelegate focuses that pane.
+    var onBudgetEvent: ((String) -> Void)?
+
     init(onFocusSession: @escaping (String) -> Void) {
         self.onFocusSession = onFocusSession
         super.init()
@@ -110,6 +115,25 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
     }
 
+    // Budget-trip notifications (ROADMAP Phase 42): a per-trip identifier (so a
+    // distinct crossing is its own banner, not a replacement) with the session
+    // id in userInfo for click-through routing to the pane. Presents even while
+    // the app is active — a cap trip is always news, never silent.
+    func postBudgetEvent(title: String, body: String, identifier: String, sessionId: String) {
+        guard notificationsAvailable else { return }
+        let center = UNUserNotificationCenter.current()
+        if !authorizationRequested {
+            authorizationRequested = true
+            center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = ["sessionId": sessionId]
+        center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+    }
+
     // MARK: - UNUserNotificationCenterDelegate
 
     func userNotificationCenter(
@@ -124,6 +148,9 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
                 self?.onAutopilotEvent?(identifier)
             } else if identifier.hasPrefix("activity-") {
                 self?.onActivityEvent?()
+            } else if identifier.hasPrefix("budget-") {
+                let sessionId = response.notification.request.content.userInfo["sessionId"] as? String
+                if let sessionId { self?.onBudgetEvent?(sessionId) }
             } else {
                 self?.onFocusSession(identifier)
             }
@@ -139,7 +166,8 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        if notification.request.identifier == "autopilot-blocked" {
+        if notification.request.identifier == "autopilot-blocked"
+            || notification.request.identifier.hasPrefix("budget-") {
             completionHandler([.banner, .sound])
         } else {
             completionHandler([])

@@ -270,6 +270,7 @@ extension AppDelegate {
             PaletteCommand(title: "Show Activity Feed", shortcut: nil) { [weak self] in self?.showActivityFeed(nil) },
             PaletteCommand(title: "Search Command History…", shortcut: "⌃R") { [weak self] in self?.showCommandHistory(nil) },
             PaletteCommand(title: "Broadcast to All Sessions…", shortcut: nil) { [weak self] in self?.broadcastToAllSessions(nil) },
+            PaletteCommand(title: "Set Session Budget…", shortcut: nil) { [weak self] in self?.setSessionBudgetFromPalette(nil) },
             PaletteCommand(title: "Show Background Tasks", shortcut: nil) { [weak self] in self?.showBackgroundTasks(nil) },
             PaletteCommand(title: "Show Feedback Inbox", shortcut: nil) { [weak self] in self?.showFeedbackInbox(nil) },
             PaletteCommand(title: "Route Feedback to Session…", shortcut: nil) { [weak self] in self?.routeFeedbackFromPalette(nil) },

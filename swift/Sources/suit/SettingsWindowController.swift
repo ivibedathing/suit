@@ -60,6 +60,13 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
     let autopilotReviewModelField = NSTextField(string: "")
     let autopilotKeepAwakeCheckbox = NSButton(checkboxWithTitle: "Keep the Mac awake during runs", target: nil, action: nil)
 
+    // Cost budget guardrails (ROADMAP Phase 42): per-session / per-task dollar
+    // ceilings (blank / 0 = no cap) and the opt-in auto-interrupt. The fields
+    // commit on Enter/focus-loss through controlTextDidEndEditing.
+    let budgetSessionCapField = NSTextField(string: "")
+    let budgetTaskCapField = NSTextField(string: "")
+    let budgetAutoInterruptCheckbox = NSButton(checkboxWithTitle: "Interrupt the run (Esc) when a cap is crossed", target: nil, action: nil)
+
     convenience init(appDelegate: AppDelegate) {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 560),
@@ -113,10 +120,18 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
             autopilotExtraArgsField.stringValue = appDelegate.autopilotExtraArgs
             autopilotReviewModelField.stringValue = appDelegate.autopilotReviewModel
             autopilotKeepAwakeCheckbox.state = appDelegate.autopilotPreventSleep ? .on : .off
+            budgetSessionCapField.stringValue = Self.dollarString(appDelegate.budgetSessionCap)
+            budgetTaskCapField.stringValue = Self.dollarString(appDelegate.budgetTaskCap)
+            budgetAutoInterruptCheckbox.state = appDelegate.budgetAutoInterrupt ? .on : .off
             updateAutopilotNightEnabled()
         }
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // A dollar cap for a text field: blank when off (≤ 0), else "%.2f".
+    static func dollarString(_ value: Double) -> String {
+        value > 0 ? String(format: "%.2f", value) : ""
     }
 
     func updateFontLabel(_ font: NSFont) {

@@ -269,6 +269,15 @@ working.
   outlives session-file pruning). A header shows a **"what happened today"** recap — sessions
   finished · PRs merged · autopilot merges · CI failures — and once per day Suit delivers the
   previous day's digest as a notification (click it to open the feed).
+- **Cost budget guardrails** — per-session and per-task (worktree) spend ceilings that watch each
+  run's `cost_usd`. Set the defaults in Settings (⌘, ▸ Budget) as dollar caps (blank = off), or
+  give one session its own ceiling with **Set Budget…** (right-click a fleet-dashboard row, or the
+  "Set Session Budget…" palette command). When a session — or the summed spend of all sessions in
+  a worktree — crosses its cap, Suit posts a notification (click it to focus the pane) and logs the
+  trip to the activity feed; it never fires more than once per crossing. Tick **"Interrupt the run
+  (Esc) when a cap is crossed"** to also send Esc into the offending pty and halt it — never
+  silently. This is the per-run kill-switch that complements Autopilot's global 5h/weekly start
+  gates: an in-flight run that blows a task cap trips here.
 - **Talk-back** — send prompts into any session's pty: quick actions (Prompt… / Continue /
   /compact / Interrupt), a floating composer with `@`-completion over repo files, a prompt
   library (`~/.suit/prompts/*.md`), or right-click ▸ "Send Selection to Claude Session" to pipe
