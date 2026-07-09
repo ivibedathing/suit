@@ -371,6 +371,15 @@ extension AppDelegate {
     // Runs `body` on the one session, or shows a session-picker palette when
     // several are live. Only sessions whose pty is actually hosted by some
     // pane are offered — the others can't be written to.
+    // Cost budget guardrails (ROADMAP Phase 42): the palette route to the
+    // per-session "Set Budget…" override (the fleet row's context menu is the
+    // other). Picks a hosted session, then hands off to the OverlayPrompt.
+    @objc func setSessionBudgetFromPalette(_ sender: Any?) {
+        withSession(placeholder: "Set budget for session…") { [weak self] session in
+            self?.setBudget(forSessionId: session.id)
+        }
+    }
+
     private func withSession(placeholder: String, _ body: @escaping (ClaudeSession) -> Void) {
         let sessions = ClaudeSessionMonitor.shared.sessions.filter { terminalContent(forSessionId: $0.id) != nil }
         switch sessions.count {

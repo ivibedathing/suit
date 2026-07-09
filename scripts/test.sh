@@ -11,7 +11,7 @@
 # Usage:
 #   scripts/test.sh           # fast suite (feedback-routing, mode-plan, broadcast,
 #                             #  recipes, file-edit, activity, pr-review, layouts,
-#                             #  file-time-travel), ~seconds
+#                             #  file-time-travel, budget), ~seconds
 #   scripts/test.sh --all     # also runs the autopilot pipeline harness (~4 min)
 #   scripts/test.sh --list    # list the harnesses and exit
 #   scripts/test.sh -h        # this help
@@ -31,6 +31,7 @@ HARNESSES=(
   "pr-review|scripts/pr-review-test.sh|fast"
   "layouts|scripts/layouts-test.sh|fast"
   "file-time-travel|scripts/file-time-travel-test.sh|fast"
+  "budget|scripts/budget-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 
