@@ -192,7 +192,11 @@ working.
   The header's **Review (N)** button lists them (edit / delete / open file), and **Send Review
   to Session…** (also in the palette) pipes the whole batch into a chosen Claude session as one
   structured prompt, then clears the draft. Comments persist across restarts with the diff tab.
-- **Git tab** — the sidebar's Git rail shows staged / changed files (click to open the scoped
+- **Branch / worktree switcher** — the Files tab's footer shows the checked-out branch with a
+  branch/worktree count; click the branch name to drop a switcher menu of the repo's **worktrees**
+  (pick one to repoint the whole sidebar there) and **local branches** (pick one to check it out).
+- **Git surface** — the git review surface no longer has its own sidebar rail tab; reach it with
+  **Show Git** in the command palette. It shows staged / changed files (click to open the scoped
   diff) and, below them, a **Branches** list: every local branch with its ahead/behind vs
   upstream (green ↑ / amber ↓), a worktree glyph, and a dirty dot; the current branch is
   highlighted. Click a branch to check it out (or switch the sidebar to its worktree).

@@ -168,6 +168,16 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         get { rootHeader.onUnpin }
         set { rootHeader.onUnpin = newValue }
     }
+    // Footer branch switcher (moved here from the removed Git tab): repoint the
+    // sidebar at another worktree, or check out a local branch.
+    var onSwitchWorktree: ((String) -> Void)? {
+        get { gitFooter.onSwitchWorktree }
+        set { gitFooter.onSwitchWorktree = newValue }
+    }
+    var onCheckoutBranch: ((_ root: String, _ branch: String) -> Void)? {
+        get { gitFooter.onCheckoutBranch }
+        set { gitFooter.onCheckoutBranch = newValue }
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -293,6 +303,7 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         if let gitMonitor {
             gitFooter.isHidden = false
             gitFooter.update(
+                root: gitMonitor.root,
                 branch: gitMonitor.currentBranch,
                 branches: gitMonitor.branchCount,
                 worktrees: gitMonitor.worktreeCount

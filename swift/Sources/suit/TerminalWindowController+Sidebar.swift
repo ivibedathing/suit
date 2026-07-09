@@ -144,6 +144,29 @@ extension TerminalWindowController {
         sidebar.recentFolders.currentRoot = path
     }
 
+    // Check out a local branch in the shown repo, from the Files-tab footer's
+    // worktree/branch switcher. Off-thread git; failures alerted; the status
+    // monitor refresh repaints the footer and file badges.
+    func checkoutBranch(root: String, branch: String) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = WorktreeTasks.runGit(root, ["checkout", branch])
+            DispatchQueue.main.async {
+                if case .failure(let error) = result {
+                    let alert = NSAlert()
+                    alert.alertStyle = .warning
+                    alert.messageText = "Checkout Failed"
+                    alert.informativeText = error.message
+                    if let window = self?.window {
+                        alert.beginSheetModal(for: window)
+                    } else {
+                        alert.runModal()
+                    }
+                }
+                GitStatusMonitor.shared(forRoot: root).refresh()
+            }
+        }
+    }
+
     func unpinSidebarFolder() {
         pinnedSidebarRoot = nil
         UserDefaults.standard.removeObject(forKey: "sidebarPinnedRoot")

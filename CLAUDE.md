@@ -103,16 +103,21 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     (`start()` execs `/bin/zsh -l -i`). New pane kinds (file viewer, diff, search results — see
     `ROADMAP.md`) are added by implementing `PaneContent`; the split tree, title bars, focus and
     drag-rearrangement all work unchanged.
-  - `SidebarView.swift` — the per-window left rail (Cmd-B): Files / Git / SSH Hosts / Notes,
+  - `SidebarView.swift` — the per-window left rail (Cmd-B): Sessions / Files / Bookmarks /
+    SSH Hosts / Notes,
     picked via an icon rail of flat hover-square SF Symbol buttons with tooltips (`RailIconView` —
     amber-tinted selection with accent icon, hover fill; Phase 9, restyled from
     NSSegmentedControl to the mockup's rail in the Phase 15 fidelity work). The Files tab
     is the `SearchView` with its search input on top and the `FileBrowserView` (handed in as the
-    search view's `idleView`) below; Git hosts `GitView`; SSH Hosts hosts `SSHHostsView`;
-    Notes hosts `NotesView` (selecting it puts the caret in the text).
+    search view's `idleView`) below; SSH Hosts hosts `SSHHostsView`;
+    Notes hosts `NotesView` (selecting it puts the caret in the text). There is no longer a Git
+    rail tab — `GitView` stays instantiated but off the rail (`Tab.git` is kept as an enum case
+    but removed from `railOrder`); it's shown on demand via `showGit()` (the palette's "Show Git",
+    "Show File History", "Show Feedback Inbox", "Show PR Review Inbox"), and the worktree/branch
+    switcher moved to the Files tab's `GitFooterView`. A restored `sidebarTab` outside `railOrder`
+    falls back to Files so a railless tab is never the resting selection.
     Width, visibility and selected tab persist via `UserDefaults` (`Tab.git`/`Tab.ssh` are
-    appended after the older cases so persisted rawValues stay stable; `Tab.railOrder` places
-    them next to Files). A
+    appended after the older cases so persisted rawValues stay stable). A
     `RecentFoldersView` strip sits below the tab content on every tab — the project switcher:
     the last few project roots the sidebar showed (`FavoritesStore.recentFolders`, fed by
     pinned folders and followed pane projects, current root accent-tinted); clicking a row
@@ -126,8 +131,9 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     state dot + the engine's composed status ("Autopilot · next run ~03:40",
     "⚙ Phase 23 · gate: build", …), full reason as tooltip; clicking focuses the run tab
     while a run is active, opens the log otherwise.
-  - `GitView.swift` — the sidebar's Git tab: the review-workflow surface merged with worktree
-    orchestration. Lists the shown project's working-tree state from `GitStatusMonitor`, split
+  - `GitView.swift` — the git review surface (no longer a sidebar rail tab; reached via the
+    palette's `showGit()` — see `SidebarView.swift`): the review-workflow surface merged with
+    worktree orchestration. Lists the shown project's working-tree state from `GitStatusMonitor`, split
     Staged / Changes (letter-badged rows; click opens the diff tab scoped to that file via
     `TerminalWindowController.openGitDiff(root:file:)`, untracked files open in the viewer;
     right-click offers both). The header names the current branch + worktree and drops a
@@ -611,6 +617,13 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     still-existing dirs on rebuild and reset when the browsed root changes. A
     `GitFooterView` strip at the bottom (hidden outside git repos) shows the checked-out branch
     ("detached HEAD" when none) and the repo's branch/worktree counts from `GitStatusMonitor`.
+    The branch name is the sidebar's worktree/branch switcher (moved here from the removed Git
+    rail tab): clicking it drops a menu of the repo's worktrees (→ `onSwitchWorktree` =
+    `pinSidebar(toDirectory:)`, repointing the whole sidebar) and local branches (→
+    `onCheckoutBranch` = `TerminalWindowController.checkoutBranch(root:branch:)`, off-thread
+    `git checkout`, failures alerted). The worktree/branch enumeration is shared with `GitView`'s
+    header dropdown via `WorktreeSwitcher` (`WorktreeSwitcher.swift` — pure git reads on top of
+    `WorktreeTasks.runGit`).
   - `SettingsWindowController.swift` — the Cmd-, settings window, a sectioned defaults form:
     Appearance (font + default size, text color, default pane background with Reset, opacity,
     blur), Terminal (shell path — validated executable, new tabs only; cursor shape + blinking;
