@@ -134,7 +134,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate, NSTextFieldDel
         // Grow the single column to fill the table's width — without this it keeps
         // the tiny default width, collapsing each row's title label to zero width
         // (max(0, columnWidth - shortcut - padding)) so command/shortcut text never
-        // shows. Every other themed table here sets the same mask.
+        // shows. The .autoresizingMask keeps it filling on resize, but this panel is
+        // a fixed size and never resizes, so the autoresize never fires — set an
+        // explicit starting width too, or the column stays at its tiny default.
+        column.width = Self.panelSize.width
+        column.minWidth = 200
         column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
         tableView.headerView = nil
