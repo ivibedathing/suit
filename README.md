@@ -90,10 +90,11 @@ working.
   to a screen edge); the split-out tab becomes the new pane's own. Unsplit with ⌥⌘W (its tabs
   fold back into a neighbor), walk splits with ⌥⌘arrows. Closing the active tab falls back to
   another tab the same pane owns; background tabs keep their processes running.
-- **Drop to replace (Chrome-parity)** — dragging a tab onto another viewport — anywhere, the
-  header included — moves it into that pane and shows it (the displaced tab backgrounds, its
-  process untouched). Only a slim band along each edge (≤ 60pt) still splits the tab out into a
-  new pane, so splitting stays available but deliberate. Moving a tab to another window and
+- **Drag a tab into its own pane** — dragging a tab onto a viewport shows the same split-zone
+  preview a pane drag does: drop on an outer half (left / right / top / bottom) to split it out
+  into its own new pane on that edge, or drop on the center or the header to just show it in that
+  pane (the displaced tab backgrounds, its process untouched). The tab even previews as a pane
+  header while you drag, so it's clear it can become a pane. Moving a tab to another window and
   tearing off a new one are unchanged.
 - **Exit status** — a clean shell exit closes its tab; a failure leaves it open with a red dot
   (hover for the signal/exit reason). Bells flash the pane and bounce the Dock icon while the

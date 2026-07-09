@@ -225,6 +225,28 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         return image
     }
 
+    // A pane-header-style drag preview for a tab being dragged out of the strip,
+    // so tearing a tab into its own pane shows the same chrome a pane drag does
+    // (a title-bar slice labeled with the tab). Configured from the tab, laid
+    // out off-screen, and rasterized — mirrors `refreshChrome`.
+    static func dragPreviewImage(for tab: Tab, width: CGFloat = 220) -> NSImage {
+        let height = Theme.Metrics.paneHeaderHeight
+        let bar = PaneTitleBarView(frame: NSRect(x: 0, y: 0, width: width, height: height))
+        bar.title = tab.title
+        bar.icon = NSImage(systemSymbolName: tab.kind.symbolName, accessibilityDescription: nil)
+        bar.exitStatus = tab.exitStatus
+        bar.sessionState = tab.liveSessionState
+        bar.contextPct = tab.exitStatus == nil ? tab.claudeSession?.contextPct : nil
+        bar.isDirty = tab.isDirty
+        bar.setFrameSize(bar.frame.size)   // re-run the custom layout after config
+        let image = NSImage(size: bar.bounds.size)
+        if let rep = bar.bitmapImageRepForCachingDisplay(in: bar.bounds) {
+            bar.cacheDisplay(in: bar.bounds, to: rep)
+            image.addRepresentation(rep)
+        }
+        return image
+    }
+
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
         context == .withinApplication ? .generic : []
     }
