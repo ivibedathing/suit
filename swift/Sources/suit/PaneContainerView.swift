@@ -131,27 +131,17 @@ final class PaneContainerView: NSView {
         return id
     }
 
-    // A tab dropped on the screen replaces what it shows (Chrome/VS Code
-    // rule) — .show is the dominant target everywhere, including the header.
-    // Only a slim band along each edge still splits the tab out, so splitting
-    // stays available but deliberate.
+    // A dragged tab lands the same way a dragged pane does: the four outer
+    // halves split it into its own pane on that edge, and the central region
+    // (the pane-drag "swap" zone) shows it here — the tab analogue of a swap.
+    // Reusing `dropZone(at:)` gives a tab drag the identical split-zone preview
+    // a pane drag shows. The header always shows-in-place.
     private func tabDropTarget(at point: NSPoint) -> TabDropTarget {
         if titleBar.frame.contains(point) {
             return .show
         }
-        guard bounds.width > 0, bounds.height > 0 else { return .show }
-        let band = min(60, min(bounds.width, bounds.height) * 0.2)
-        let xDist = min(point.x, bounds.width - point.x)
-        let yDist = min(point.y, bounds.height - point.y)
-        if xDist > band && yDist > band {
-            return .show
-        }
-        // Inside a band: whichever edge is actually nearest (not flipped, so
-        // y grows upward — .top is the maxY side).
-        if xDist <= yDist {
-            return .edge(point.x < bounds.width / 2 ? .left : .right)
-        }
-        return .edge(point.y < bounds.height / 2 ? .bottom : .top)
+        let zone = dropZone(at: point)
+        return zone == .swap ? .show : .edge(zone)
     }
 
     private func indicatorFrame(forTabTarget target: TabDropTarget) -> NSRect {

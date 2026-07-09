@@ -10,22 +10,24 @@ extension TabStripView {
 
         let startPoint = convert(start, from: nil)
         // Background drags are inert: the title bar above owns window moves.
-        guard let id = tabId(at: startPoint), let item = itemViews[id] else { return }
+        guard let id = tabId(at: startPoint),
+              let tab = tabsProvider().first(where: { $0.id == id }) else { return }
         draggedTabId = id
         let pasteboardItem = NSPasteboardItem()
         pasteboardItem.setString(id, forType: .suitTab)
         let draggingItem = NSDraggingItem(pasteboardWriter: pasteboardItem)
-        draggingItem.setDraggingFrame(item.frame, contents: snapshotImage(of: item))
+        // Preview as a pane header, matching a pane drag — the drag makes clear
+        // the tab can become its own pane. Centered under the cursor, and small
+        // enough (just the header) not to hide the drop indicator beneath it.
+        let preview = PaneTitleBarView.dragPreviewImage(for: tab)
+        let frame = NSRect(
+            x: startPoint.x - preview.size.width / 2,
+            y: startPoint.y - preview.size.height / 2,
+            width: preview.size.width,
+            height: preview.size.height
+        )
+        draggingItem.setDraggingFrame(frame, contents: preview)
         beginDraggingSession(with: [draggingItem], event: event, source: self)
-    }
-
-    private func snapshotImage(of view: NSView) -> NSImage {
-        let image = NSImage(size: view.bounds.size)
-        if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
-            view.cacheDisplay(in: view.bounds, to: rep)
-            image.addRepresentation(rep)
-        }
-        return image
     }
 
     // MARK: - Drag source

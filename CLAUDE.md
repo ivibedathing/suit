@@ -83,10 +83,13 @@ codebase analysis) may live in a Go sidecar if it outgrows Swift.
     openFile (sidebar click, ⌘P, search, Cmd-click link) opens or re-activates the file's own
     tab, deduped by path — files never replace one another (the preview machinery survives
     only for tabs restored from old saved state).
-    Drops on a pane (`TabDropTarget`): anywhere on the screen (header included) *replaces*
-    what the viewport shows — the Chrome rule — with only a slim edge band (≤ 60pt) still
-    splitting the tab out; the pane header still drags whole panes
-    (`.suitPane`), and strip drops reorder (insertion caret) / adopt tabs across windows.
+    Drops on a pane (`TabDropTarget`): a dragged tab lands the same way a dragged pane does —
+    the four outer halves split it out into its own pane on that edge, the central region
+    (the pane-drag "swap" zone) and the header *show* it in place, reusing `dropZone(at:)` so
+    the split-zone preview is identical to a pane drag. The tab drag also previews as a pane
+    header (`PaneTitleBarView.dragPreviewImage(for:)`), matching a pane drag. The pane header
+    still drags whole panes (`.suitPane`), and strip drops reorder (insertion caret) / adopt
+    tabs across windows.
     Also defines `PaneTerminalView` (a
     `LocalProcessTerminalView` subclass that tracks its owning `Pane` and `Tab` so the window
     controller can map `window.firstResponder` back to a `Pane` and bells in backgrounded tabs
