@@ -112,12 +112,17 @@ working.
 
 ### Files, search & navigation
 
-- **Sidebar** (⌘B) — an icon rail with Sessions, Files, Git, Bookmarks, SSH Hosts and Notes. The Files tree is
-  gitignore-consistent with the file index, shows sub-project badges (`go.mod`,
-  `package.json`, …) and git status letters, and can be pinned to any folder; a footer shows
-  the current branch and the repo's branch/worktree counts.
-- **Project search** (⇧⌘F) — live ripgrep search with regex/case toggles, a glob filter, and
-  Project / Sub-project / Pane Directory scopes; results stream in grouped by file.
+- **Sidebar** (⌘B) — an icon rail with Sessions, Files, Bookmarks, SSH Hosts and Notes. The
+  Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
+  search / choose-folder / unpin actions, and, inside a repo, a branch-switcher row with the
+  repo's branch/worktree counts — and gives the rest of the tab to the tree. The tree is
+  gitignore-consistent with the file index, shows sub-project badges (`go.mod`, `package.json`,
+  …) and git status letters, and can be pinned to any folder.
+- **Project search** (⇧⌘F, or the header's magnifier) — search isn't a permanent field: it
+  drops a compact search bar over the tree only when you invoke it, and **Esc** (or the ✕)
+  returns you to the file tree. Live ripgrep with regex/case toggles, a glob filter, and
+  Project / Sub-project / Pane Directory scopes tucked behind the options button; results
+  stream in grouped by file.
 - **Open quickly** (⌘P) — fuzzy-find any file in the project index; ⌘K opens the command
   palette over every app command plus your prompt library.
 - **Command history search** (⌃R) — the shell's reverse-i-search, made native and cross-pane. A
@@ -192,9 +197,10 @@ working.
   The header's **Review (N)** button lists them (edit / delete / open file), and **Send Review
   to Session…** (also in the palette) pipes the whole batch into a chosen Claude session as one
   structured prompt, then clears the draft. Comments persist across restarts with the diff tab.
-- **Branch / worktree switcher** — the Files tab's footer shows the checked-out branch with a
-  branch/worktree count; click the branch name to drop a switcher menu of the repo's **worktrees**
-  (pick one to repoint the whole sidebar there) and **local branches** (pick one to check it out).
+- **Branch / worktree switcher** — the Files tab header's branch row shows the checked-out branch
+  with a branch/worktree count; click the branch name to drop a switcher menu of the repo's
+  **worktrees** (pick one to repoint the whole sidebar there) and **local branches** (pick one to
+  check it out).
 - **Git surface** — the git review surface no longer has its own sidebar rail tab; reach it with
   **Show Git** in the command palette. It shows staged / changed files (click to open the scoped
   diff) and, below them, a **Branches** list: every local branch with its ahead/behind vs
