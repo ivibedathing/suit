@@ -1,42 +1,186 @@
 import Cocoa
 
-// The settings window's view construction: the two-tab NSTabView, the
-// app-wide defaults form (Appearance / Terminal / File Viewer / Claude /
-// Autopilot sections), and the read-only Shortcuts reference. Split out of
-// SettingsWindowController.swift; the stored controls it wires up live there.
+// The settings window's view construction: a category sidebar (left) driving a
+// detail scroll (right) that shows one category's form at a time — Appearance /
+// Terminal / File Viewer / Claude / Autopilot / Budget panes plus the read-only
+// Shortcuts reference. Split out of SettingsWindowController.swift; the stored
+// controls these builders wire up (and the `categories` list / `panels` cache)
+// live there.
 extension SettingsWindowController {
     func buildUI() {
         guard let contentView = window?.contentView else { return }
 
-        let tabView = NSTabView()
-        tabView.translatesAutoresizingMaskIntoConstraints = false
+        // Build each category pane once, index-aligned with Self.categories.
+        panels = [
+            wrap(appearancePane()),
+            wrap(terminalPane()),
+            wrap(viewerPane()),
+            wrap(claudePane()),
+            wrap(autopilotPane()),
+            wrap(budgetPane()),
+            buildDocsView(),
+        ]
 
-        let settingsItem = NSTabViewItem(identifier: "settings")
-        settingsItem.label = "Settings"
-        settingsItem.view = buildSettingsForm()
-        tabView.addTabViewItem(settingsItem)
+        let sidebar = buildSidebar()
 
-        let docsItem = NSTabViewItem(identifier: "docs")
-        docsItem.label = "Shortcuts"
-        docsItem.view = buildDocsView()
-        tabView.addTabViewItem(docsItem)
+        let divider = NSBox()
+        divider.boxType = .custom
+        divider.borderWidth = 0
+        divider.fillColor = Theme.hairline
+        divider.translatesAutoresizingMaskIntoConstraints = false
 
-        contentView.addSubview(tabView)
+        detailScroll.hasVerticalScroller = true
+        detailScroll.drawsBackground = false
+        detailScroll.translatesAutoresizingMaskIntoConstraints = false
+        detailScroll.automaticallyAdjustsContentInsets = false
+        detailScroll.contentInsets = NSEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
+
+        contentView.addSubview(sidebar)
+        contentView.addSubview(divider)
+        contentView.addSubview(detailScroll)
         NSLayoutConstraint.activate([
-            tabView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
-            tabView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            tabView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
-            tabView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
+            sidebar.topAnchor.constraint(equalTo: contentView.topAnchor),
+            sidebar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            sidebar.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            sidebar.widthAnchor.constraint(equalToConstant: 184),
+
+            divider.leadingAnchor.constraint(equalTo: sidebar.trailingAnchor),
+            divider.topAnchor.constraint(equalTo: contentView.topAnchor),
+            divider.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            divider.widthAnchor.constraint(equalToConstant: 1),
+
+            detailScroll.leadingAnchor.constraint(equalTo: divider.trailingAnchor),
+            detailScroll.topAnchor.constraint(equalTo: contentView.topAnchor),
+            detailScroll.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            detailScroll.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
         ])
+
+        // Open on the first category.
+        sidebarTable.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+        showPanel(0)
     }
 
-    private func buildSettingsForm() -> NSView {
+    // The category list: an icon + label per row, source-list styling, amber
+    // selection (ThemedTableRowView, matching the app's sidebar rail lists).
+    private func buildSidebar() -> NSView {
+        sidebarTable.headerView = nil
+        sidebarTable.backgroundColor = Theme.barChrome
+        sidebarTable.rowHeight = 30
+        sidebarTable.intercellSpacing = NSSize(width: 0, height: 2)
+        sidebarTable.selectionHighlightStyle = .regular
+        sidebarTable.style = .sourceList
+        sidebarTable.dataSource = self
+        sidebarTable.delegate = self
+        sidebarTable.focusRingType = .none
+
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("category"))
+        column.resizingMask = .autoresizingMask
+        sidebarTable.addTableColumn(column)
+
+        let scroll = NSScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = true
+        scroll.backgroundColor = Theme.barChrome
+        scroll.documentView = sidebarTable
+        scroll.automaticallyAdjustsContentInsets = false
+        scroll.contentInsets = NSEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)
+        return scroll
+    }
+
+    // Swap the detail scroll to the selected category's pane, re-pinning its
+    // width to the clip view so only vertical scrolling happens.
+    func showPanel(_ index: Int) {
+        guard panels.indices.contains(index) else { return }
+        let panel = panels[index]
+        detailWidthConstraint?.isActive = false
+        detailScroll.documentView = panel
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        let width = panel.widthAnchor.constraint(equalTo: detailScroll.contentView.widthAnchor)
+        width.isActive = true
+        detailWidthConstraint = width
+        detailScroll.documentView?.scroll(NSPoint(x: 0, y: 0))
+    }
+
+    // MARK: - NSTableView data source / delegate (sidebar)
+
+    func numberOfRows(in tableView: NSTableView) -> Int { Self.categories.count }
+
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        ThemedTableRowView()
+    }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let (title, symbol) = Self.categories[row]
+        let id = NSUserInterfaceItemIdentifier("categoryCell")
+        let cell = (tableView.makeView(withIdentifier: id, owner: self) as? NSTableCellView) ?? {
+            let c = NSTableCellView()
+            c.identifier = id
+
+            let icon = NSImageView()
+            icon.translatesAutoresizingMaskIntoConstraints = false
+            icon.imageScaling = .scaleProportionallyDown
+            icon.contentTintColor = Theme.textDim
+            c.imageView = icon
+
+            let label = NSTextField(labelWithString: "")
+            label.font = .systemFont(ofSize: 13)
+            label.textColor = Theme.textPrimary
+            label.translatesAutoresizingMaskIntoConstraints = false
+            c.textField = label
+
+            c.addSubview(icon)
+            c.addSubview(label)
+            NSLayoutConstraint.activate([
+                icon.leadingAnchor.constraint(equalTo: c.leadingAnchor, constant: 14),
+                icon.centerYAnchor.constraint(equalTo: c.centerYAnchor),
+                icon.widthAnchor.constraint(equalToConstant: 17),
+                icon.heightAnchor.constraint(equalToConstant: 17),
+                label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 9),
+                label.trailingAnchor.constraint(lessThanOrEqualTo: c.trailingAnchor, constant: -8),
+                label.centerYAnchor.constraint(equalTo: c.centerYAnchor),
+            ])
+            return c
+        }()
+        cell.textField?.stringValue = title
+        cell.imageView?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+        return cell
+    }
+
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        let row = sidebarTable.selectedRow
+        if row >= 0 { showPanel(row) }
+    }
+
+    // MARK: - Category panes
+
+    // Wrap a form stack in a flipped document view with a consistent inset, so
+    // every pane lays out top-down inside the shared detail scroll.
+    private func wrap(_ stack: NSStackView) -> NSView {
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let document = FlippedView()
+        document.translatesAutoresizingMaskIntoConstraints = false
+        document.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: document.topAnchor, constant: 22),
+            stack.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 28),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: document.trailingAnchor, constant: -28),
+            stack.bottomAnchor.constraint(equalTo: document.bottomAnchor, constant: -24),
+        ])
+        return document
+    }
+
+    // Appearance: font, size, colors, opacity, blur.
+    private func appearancePane() -> NSStackView {
         for value in [fontLabel, fontSizeLabel] {
             value.font = .systemFont(ofSize: 12)
             value.textColor = Theme.textPrimary
         }
 
-        // Appearance
         let chooseFontButton = NSButton(title: "Choose…", target: self, action: #selector(chooseFont))
         let fontRow = row(label: "Font:", controls: [fontLabel, chooseFontButton])
 
@@ -66,7 +210,14 @@ extension SettingsWindowController {
         blurCheckbox.action = #selector(blurChanged)
         let blurRow = row(label: "", controls: [blurCheckbox])
 
-        // Terminal
+        return NSStackView(views: [
+            paneTitle("Appearance"),
+            fontRow, fontSizeRow, textColorRow, backgroundRow, opacityRow, blurRow,
+        ])
+    }
+
+    // Terminal: shell, cursor, bell responses.
+    private func terminalPane() -> NSStackView {
         shellField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         shellField.placeholderString = "/bin/zsh"
         shellField.delegate = self
@@ -74,6 +225,7 @@ extension SettingsWindowController {
         shellField.widthAnchor.constraint(equalToConstant: 220).isActive = true
         let shellRow = row(label: "Shell:", controls: [shellField])
 
+        cursorShapePopup.removeAllItems()
         cursorShapePopup.addItems(withTitles: ["Block", "Underline", "Bar"])
         cursorShapePopup.target = self
         cursorShapePopup.action = #selector(cursorStyleChanged)
@@ -88,51 +240,68 @@ extension SettingsWindowController {
         let bellFlashRow = row(label: "Bell:", controls: [bellFlashCheckbox])
         let bellBounceRow = row(label: "", controls: [bellBounceCheckbox])
 
-        // Viewer
+        let stack = NSStackView(views: [
+            paneTitle("Terminal"),
+            shellRow, cursorRow, bellFlashRow, bellBounceRow,
+        ])
+        stack.setCustomSpacing(4, after: bellFlashRow)
+        return stack
+    }
+
+    // File Viewer: word wrap.
+    private func viewerPane() -> NSStackView {
         wordWrapCheckbox.target = self
         wordWrapCheckbox.action = #selector(wordWrapChanged)
         let wordWrapRow = row(label: "", controls: [wordWrapCheckbox])
 
-        // Claude: arguments the quick-access launchers (strip ✦, ⌃⌘C,
-        // palette) append to `claude`.
+        return NSStackView(views: [
+            paneTitle("File Viewer"),
+            wordWrapRow,
+        ])
+    }
+
+    // Claude: launcher arguments + task / goal / token toggles.
+    private func claudePane() -> NSStackView {
+        // Arguments the quick-access launchers (strip ✦, ⌃⌘C, palette) append.
         claudeArgsField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         claudeArgsField.placeholderString = "e.g. --continue or --model opus"
         claudeArgsField.delegate = self
         claudeArgsField.translatesAutoresizingMaskIntoConstraints = false
         claudeArgsField.widthAnchor.constraint(equalToConstant: 220).isActive = true
         let claudeArgsRow = row(label: "Arguments:", controls: [claudeArgsField])
-        let claudeArgsHint = NSTextField(labelWithString: "Appended to “claude” when starting a session from the ✦ button.")
-        claudeArgsHint.font = .systemFont(ofSize: 10)
-        claudeArgsHint.textColor = Theme.textDim
-        let claudeHintRow = row(label: "", controls: [claudeArgsHint])
+        let claudeHintRow = hintRow("Appended to “claude” when starting a session from the ✦ button.")
 
-        // New-task isolation default (ROADMAP Phase 31): whether the "New
-        // Claude Task" prompt's "Isolate in worktree" switch starts on.
+        // New-task isolation default (ROADMAP Phase 31).
         taskIsolateCheckbox.target = self
         taskIsolateCheckbox.action = #selector(taskIsolateChanged)
         let taskIsolateRow = row(label: "New task:", controls: [taskIsolateCheckbox])
 
-        // Set as Goal (ROADMAP Phase 18): whether "Set as Goal" from a viewer
-        // selection carries a `From <file>:<lines>:` line into the goal.
+        // Set as Goal provenance (ROADMAP Phase 18).
         goalProvenanceCheckbox.target = self
         goalProvenanceCheckbox.action = #selector(goalProvenanceChanged)
         let goalProvenanceRow = row(label: "Goals:", controls: [goalProvenanceCheckbox])
 
-        // rtk output compression: install/remove the PreToolUse hook that runs
-        // Bash commands through rtk to shrink their output before it hits the
-        // context window. Off by default (see RtkHook / rtkCompressionChanged).
+        // rtk output compression: install/remove the PreToolUse hook.
         rtkCompressionCheckbox.target = self
         rtkCompressionCheckbox.action = #selector(rtkCompressionChanged)
         let rtkCompressionRow = row(label: "Tokens:", controls: [rtkCompressionCheckbox])
-        let rtkHint = NSTextField(labelWithString: "Filters shell-command output through rtk to cut context tokens. Requires rtk on your PATH; commands run unchanged when it's missing.")
-        rtkHint.font = .systemFont(ofSize: 10)
-        rtkHint.textColor = Theme.textDim
-        rtkHint.lineBreakMode = .byWordWrapping
-        rtkHint.maximumNumberOfLines = 0
-        rtkHint.preferredMaxLayoutWidth = 300
-        let rtkHintRow = row(label: "", controls: [rtkHint])
+        let rtkHintRow = hintRow(
+            "Filters shell-command output through rtk to cut context tokens. Requires rtk on your PATH; commands run unchanged when it's missing.",
+            width: 340
+        )
 
-        // Autopilot (ROADMAP Phase 32, §2.9).
+        let stack = NSStackView(views: [
+            paneTitle("Claude"),
+            claudeArgsRow, claudeHintRow, taskIsolateRow, goalProvenanceRow,
+            rtkCompressionRow, rtkHintRow,
+        ])
+        stack.setCustomSpacing(4, after: claudeArgsRow)
+        stack.setCustomSpacing(4, after: rtkCompressionRow)
+        return stack
+    }
+
+    // Autopilot (ROADMAP Phase 32, §2.9): ROADMAP autonomy + budget pacing.
+    private func autopilotPane() -> NSStackView {
         autopilotEnabledCheckbox.target = self
         autopilotEnabledCheckbox.action = #selector(autopilotEnabledToggled)
         let autopilotEnabledRow = row(label: "", controls: [autopilotEnabledCheckbox])
@@ -145,6 +314,7 @@ extension SettingsWindowController {
         let autopilotChooseButton = NSButton(title: "Choose…", target: self, action: #selector(autopilotChooseProject))
         let autopilotProjectRow = row(label: "Project:", controls: [autopilotProjectField, autopilotChooseButton])
 
+        autopilotModePopup.removeAllItems()
         autopilotModePopup.addItems(withTitles: AutopilotBudgetMode.allCases.map(\.displayName))
         autopilotModePopup.target = self
         autopilotModePopup.action = #selector(autopilotModePicked)
@@ -177,10 +347,7 @@ extension SettingsWindowController {
         autopilotExtraArgsField.translatesAutoresizingMaskIntoConstraints = false
         autopilotExtraArgsField.widthAnchor.constraint(equalToConstant: 220).isActive = true
         let autopilotArgsRow = row(label: "Arguments:", controls: [autopilotExtraArgsField])
-        let autopilotArgsHint = NSTextField(labelWithString: "Appended to claude for Autopilot runs (--dangerously-skip-permissions is always set)")
-        autopilotArgsHint.font = .systemFont(ofSize: 10)
-        autopilotArgsHint.textColor = Theme.textDim
-        let autopilotArgsHintRow = row(label: "", controls: [autopilotArgsHint])
+        let autopilotArgsHintRow = hintRow("Appended to claude for Autopilot runs (--dangerously-skip-permissions is always set)")
 
         autopilotReviewModelField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         autopilotReviewModelField.placeholderString = "empty = default model"
@@ -193,8 +360,20 @@ extension SettingsWindowController {
         autopilotKeepAwakeCheckbox.action = #selector(autopilotKeepAwakeChanged)
         let autopilotKeepAwakeRow = row(label: "", controls: [autopilotKeepAwakeCheckbox])
 
-        // Cost budget guardrails (ROADMAP Phase 42): per-session / per-task
-        // dollar ceilings + the auto-interrupt toggle.
+        let stack = NSStackView(views: [
+            paneTitle("Autopilot"),
+            autopilotEnabledRow, autopilotProjectRow, autopilotModeRow, autopilotNightRow,
+            autopilotFiveHourRow, autopilotWeeklyRow, autopilotHardStopRow, autopilotPaceRow,
+            autopilotAttemptsRow, autopilotStallRow,
+            autopilotArgsRow, autopilotArgsHintRow,
+            autopilotReviewModelRow, autopilotKeepAwakeRow,
+        ])
+        stack.setCustomSpacing(4, after: autopilotArgsRow)
+        return stack
+    }
+
+    // Budget (ROADMAP Phase 42): per-session / per-task dollar caps + interrupt.
+    private func budgetPane() -> NSStackView {
         for field in [budgetSessionCapField, budgetTaskCapField] {
             field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
             field.placeholderString = "off"
@@ -212,69 +391,15 @@ extension SettingsWindowController {
         budgetAutoInterruptCheckbox.target = self
         budgetAutoInterruptCheckbox.action = #selector(budgetAutoInterruptChanged)
         let budgetAutoInterruptRow = row(label: "On Trip:", controls: [budgetAutoInterruptCheckbox])
-        let budgetHint = NSTextField(labelWithString: "Warns when a session or task’s spend crosses its cap; interrupts too when checked. Set a per-session override with Set Budget… on a fleet row.")
-        budgetHint.font = .systemFont(ofSize: 10)
-        budgetHint.textColor = Theme.textDim
-        budgetHint.lineBreakMode = .byWordWrapping
-        budgetHint.translatesAutoresizingMaskIntoConstraints = false
-        budgetHint.preferredMaxLayoutWidth = 340
-        let budgetHintRow = row(label: "", controls: [budgetHint])
+        let budgetHintRow = hintRow(
+            "Warns when a session or task’s spend crosses its cap; interrupts too when checked. Set a per-session override with Set Budget… on a fleet row.",
+            width: 340
+        )
 
-        let stack = NSStackView(views: [
-            sectionHeader("Appearance"),
-            fontRow, fontSizeRow, textColorRow, backgroundRow, opacityRow, blurRow,
-            sectionHeader("Terminal"),
-            shellRow, cursorRow, bellFlashRow, bellBounceRow,
-            sectionHeader("File Viewer"),
-            wordWrapRow,
-            sectionHeader("Claude"),
-            claudeArgsRow, claudeHintRow, taskIsolateRow, goalProvenanceRow,
-            rtkCompressionRow, rtkHintRow,
-            sectionHeader("Autopilot"),
-            autopilotEnabledRow, autopilotProjectRow, autopilotModeRow, autopilotNightRow,
-            autopilotFiveHourRow, autopilotWeeklyRow, autopilotHardStopRow, autopilotPaceRow,
-            autopilotAttemptsRow, autopilotStallRow,
-            autopilotArgsRow, autopilotArgsHintRow,
-            autopilotReviewModelRow, autopilotKeepAwakeRow,
-            sectionHeader("Budget"),
+        return NSStackView(views: [
+            paneTitle("Budget"),
             budgetSessionCapRow, budgetTaskCapRow, budgetAutoInterruptRow, budgetHintRow,
         ])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 12
-        // The bell rows read as one setting; keep them tight. Sections get
-        // extra air before their headers.
-        stack.setCustomSpacing(4, after: bellFlashRow)
-        stack.setCustomSpacing(4, after: claudeArgsRow)
-        stack.setCustomSpacing(4, after: autopilotArgsRow)
-        stack.setCustomSpacing(22, after: blurRow)
-        stack.setCustomSpacing(22, after: bellBounceRow)
-        stack.setCustomSpacing(22, after: wordWrapRow)
-        stack.setCustomSpacing(4, after: rtkCompressionRow)
-        stack.setCustomSpacing(22, after: rtkHintRow)
-        stack.setCustomSpacing(22, after: autopilotKeepAwakeRow)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-
-        // The Autopilot section pushed the form past the window height, so the
-        // whole tab scrolls (same FlippedView + width-pinned document pattern
-        // as the Shortcuts tab).
-        let documentView = FlippedView()
-        documentView.translatesAutoresizingMaskIntoConstraints = false
-        documentView.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: documentView.topAnchor, constant: 20),
-            stack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: documentView.trailingAnchor, constant: -24),
-            stack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor, constant: -20),
-        ])
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.drawsBackground = false
-        scroll.documentView = documentView
-        NSLayoutConstraint.activate([
-            documentView.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
-        ])
-        return scroll
     }
 
     var autopilotSteppers: [LabeledStepper] {
@@ -283,7 +408,7 @@ extension SettingsWindowController {
          autopilotAttemptsStepper, autopilotStallStepper]
     }
 
-    // The Docs tab: a scrollable, read-only reference of every keyboard shortcut,
+    // The Shortcuts pane: a read-only reference of every keyboard shortcut,
     // built from KeyboardShortcuts.groups (the single source of truth that
     // README.md and AppDelegate's menu mirror).
     private func buildDocsView() -> NSView {
@@ -292,7 +417,9 @@ extension SettingsWindowController {
         content.alignment = .leading
         content.spacing = 6
         content.translatesAutoresizingMaskIntoConstraints = false
-        content.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 16, right: 20)
+
+        content.addArrangedSubview(paneTitle("Shortcuts"))
+        content.setCustomSpacing(16, after: content.arrangedSubviews.last!)
 
         for (index, group) in KeyboardShortcuts.groups.enumerated() {
             let header = sectionHeader(group.name)
@@ -310,28 +437,16 @@ extension SettingsWindowController {
             }
         }
 
-        // This scroll view is the tab item's top-level view; leave its
-        // autoresizing intact so NSTabView sizes it to fill the content area.
-        // (Disabling it would collapse the scroll view to zero height.)
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.drawsBackground = false
-        let documentView = FlippedView()
-        documentView.translatesAutoresizingMaskIntoConstraints = false
-        documentView.addSubview(content)
+        let document = FlippedView()
+        document.translatesAutoresizingMaskIntoConstraints = false
+        document.addSubview(content)
         NSLayoutConstraint.activate([
-            content.topAnchor.constraint(equalTo: documentView.topAnchor),
-            content.leadingAnchor.constraint(equalTo: documentView.leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: documentView.trailingAnchor),
-            content.bottomAnchor.constraint(equalTo: documentView.bottomAnchor),
+            content.topAnchor.constraint(equalTo: document.topAnchor, constant: 22),
+            content.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 28),
+            content.trailingAnchor.constraint(lessThanOrEqualTo: document.trailingAnchor, constant: -28),
+            content.bottomAnchor.constraint(equalTo: document.bottomAnchor, constant: -24),
         ])
-        scroll.documentView = documentView
-        // Pin the document to the clip view's width so rows lay out full-width and
-        // only vertical scrolling happens.
-        NSLayoutConstraint.activate([
-            documentView.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
-        ])
-        return scroll
+        return document
     }
 
     // One shortcut row: a fixed-width monospaced "keycap" column on the left, the
@@ -356,11 +471,32 @@ extension SettingsWindowController {
         return stack
     }
 
+    // A pane's large title, shown at the top of each detail form.
+    private func paneTitle(_ title: String) -> NSView {
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 18, weight: .semibold)
+        label.textColor = Theme.textPrimary
+        return label
+    }
+
     private func sectionHeader(_ title: String) -> NSView {
         let label = NSTextField(labelWithString: title.uppercased())
         label.font = .systemFont(ofSize: 10, weight: .semibold)
         label.textColor = Theme.textDim
         return label
+    }
+
+    // A dimmed, wrapping caption aligned under a form's controls (empty label
+    // gutter), used for the per-setting explanatory hints.
+    private func hintRow(_ text: String, width: CGFloat = 300) -> NSView {
+        let hint = NSTextField(labelWithString: text)
+        hint.font = .systemFont(ofSize: 10)
+        hint.textColor = Theme.textDim
+        hint.lineBreakMode = .byWordWrapping
+        hint.maximumNumberOfLines = 0
+        hint.translatesAutoresizingMaskIntoConstraints = false
+        hint.preferredMaxLayoutWidth = width
+        return row(label: "", controls: [hint])
     }
 
     private func row(label: String, controls: [NSView]) -> NSView {
