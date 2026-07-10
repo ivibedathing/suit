@@ -1,27 +1,54 @@
 import Cocoa
 
-// Cmd-, settings window: a two-tab NSTabView. The "Settings" tab is the
-// app-wide defaults form, grouped into Appearance (font, default font size,
-// text color, default pane background, opacity, blur), Terminal (shell, cursor,
-// bell responses), Viewer (word wrap) and Claude (default session arguments for
-// the quick-access launchers). The "Shortcuts" tab is a scrollable, read-only
-// keyboard-shortcut reference built from KeyboardShortcuts.groups (the single
-// source of truth README.md and AppDelegate's menu mirror).
-// A plain vertical form built with NSStackView + Auto Layout — safe here
-// since, unlike the pane/split tree, this window's view hierarchy is never
-// touched by NSSplitView's own frame management.
+// Cmd-, settings window: a macOS System-Settings-style layout — a category
+// sidebar on the left, one category's form on the right. Categories are
+// Appearance (font, default font size, text color, default pane background,
+// opacity, blur), Terminal (shell, cursor, bell responses), File Viewer (word
+// wrap), Claude (default session arguments + task/goal/token toggles),
+// Autopilot (ROADMAP autonomy budget), Budget (cost guardrails), and Shortcuts
+// (a read-only keyboard reference built from KeyboardShortcuts.groups — the
+// single source of truth README.md and AppDelegate's menu mirror). Only the
+// selected category is shown, so no single scroll dumps every setting at once.
+//
+// Each pane is a plain vertical NSStackView form built with Auto Layout — safe
+// here since, unlike the pane/split tree, this window's view hierarchy is never
+// touched by NSSplitView's own frame management. Selecting a sidebar row swaps
+// the detail scroll's document view.
 //
 // Every control writes straight through to AppDelegate (which applies it to
 // all windows and persists); show() re-reads all state, so values changed
 // elsewhere (⇧⌘B blur, ⇧⌘= font size, the palette) are fresh each time the
 // window opens.
 //
-// The form/section builders live in SettingsWindowController+Sections.swift and
-// the control-action handlers in SettingsWindowController+Actions.swift; stored
-// properties (which Swift forbids in extensions) stay here in the primary
-// declaration.
-final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
+// The sidebar + per-category pane builders live in
+// SettingsWindowController+Sections.swift and the control-action handlers in
+// SettingsWindowController+Actions.swift; stored properties (which Swift forbids
+// in extensions) stay here in the primary declaration.
+final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
+                                      NSTableViewDataSource, NSTableViewDelegate {
     weak var appDelegate: AppDelegate?
+
+    // The category sidebar (left) and the detail scroll (right) whose document
+    // view swaps to the selected category's pane. Built in buildUI(); panes are
+    // built once and cached in `panels`, index-aligned with `Self.categories`.
+    let sidebarTable = NSTableView()
+    let detailScroll = NSScrollView()
+    var panels: [NSView] = []
+    // The width pin tying the current document view to the clip view, replaced
+    // on each selection so only vertical scrolling happens in the detail area.
+    var detailWidthConstraint: NSLayoutConstraint?
+
+    // Sidebar categories: title + SF Symbol. Order is the display order; the
+    // index maps 1:1 to `panels`.
+    static let categories: [(title: String, symbol: String)] = [
+        ("Appearance", "paintbrush"),
+        ("Terminal", "terminal"),
+        ("File Viewer", "doc.text"),
+        ("Claude", "sparkles"),
+        ("Autopilot", "airplane"),
+        ("Budget", "dollarsign.circle"),
+        ("Shortcuts", "keyboard"),
+    ]
 
     let fontLabel = NSTextField(labelWithString: "")
     let fontSizeLabel = NSTextField(labelWithString: "")
@@ -70,7 +97,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate {
 
     convenience init(appDelegate: AppDelegate) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 560),
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 540),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

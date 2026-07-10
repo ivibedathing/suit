@@ -148,8 +148,7 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
     // by path relative to the index root, pruned to still-existing dirs on
     // every rebuild, and reset when the browsed root changes.
     var createdDirectories: Set<String> = []
-    private let rootHeader = RootHeaderView(frame: .zero)
-    private let gitFooter = GitFooterView(frame: .zero)
+    private let header = ProjectHeaderView(frame: .zero)
     var rootNodes: [FileNode] = []
     var index: FileIndex?
     // Whether the browsed root was explicitly picked (Select Folder…) rather
@@ -159,24 +158,30 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
 
     // Set by the window controller; receives the file's absolute path.
     var onOpenFile: ((String) -> Void)?
+    // Header search affordance (⌘⇧F equivalent): reveal the search field over
+    // the tree. Wired by the sidebar to its SearchView.
+    var onSearch: (() -> Void)? {
+        get { header.onSearch }
+        set { header.onSearch = newValue }
+    }
     // Header actions: open the folder picker / unpin.
     var onChooseFolder: (() -> Void)? {
-        get { rootHeader.onChooseFolder }
-        set { rootHeader.onChooseFolder = newValue }
+        get { header.onChooseFolder }
+        set { header.onChooseFolder = newValue }
     }
     var onUnpin: (() -> Void)? {
-        get { rootHeader.onUnpin }
-        set { rootHeader.onUnpin = newValue }
+        get { header.onUnpin }
+        set { header.onUnpin = newValue }
     }
-    // Footer branch switcher (moved here from the removed Git tab): repoint the
-    // sidebar at another worktree, or check out a local branch.
+    // Branch switcher (moved into the header from the removed bottom footer):
+    // repoint the sidebar at another worktree, or check out a local branch.
     var onSwitchWorktree: ((String) -> Void)? {
-        get { gitFooter.onSwitchWorktree }
-        set { gitFooter.onSwitchWorktree = newValue }
+        get { header.onSwitchWorktree }
+        set { header.onSwitchWorktree = newValue }
     }
     var onCheckoutBranch: ((_ root: String, _ branch: String) -> Void)? {
-        get { gitFooter.onCheckoutBranch }
-        set { gitFooter.onCheckoutBranch = newValue }
+        get { header.onCheckoutBranch }
+        set { header.onCheckoutBranch = newValue }
     }
 
     override init(frame frameRect: NSRect) {
@@ -210,10 +215,7 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         scrollView.drawsBackground = false
         addSubview(scrollView)
 
-        addSubview(rootHeader)
-
-        gitFooter.isHidden = true
-        addSubview(gitFooter)
+        addSubview(header)
     }
 
     required init?(coder: NSCoder) {
@@ -226,15 +228,13 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
     }
 
     private func layoutContents() {
-        let footerHeight = gitFooter.isHidden ? 0 : GitFooterView.height
-        gitFooter.frame = NSRect(x: 0, y: 0, width: bounds.width, height: footerHeight)
-        let headerHeight = RootHeaderView.height
-        rootHeader.frame = NSRect(x: 0, y: bounds.height - headerHeight, width: bounds.width, height: headerHeight)
+        let headerHeight = header.preferredHeight
+        header.frame = NSRect(x: 0, y: bounds.height - headerHeight, width: bounds.width, height: headerHeight)
         scrollView.frame = NSRect(
             x: 0,
-            y: footerHeight,
+            y: 0,
             width: bounds.width,
-            height: max(0, bounds.height - footerHeight - headerHeight)
+            height: max(0, bounds.height - headerHeight)
         )
     }
 
@@ -247,7 +247,7 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
 
     private func updateHeader() {
         guard let index else { return }
-        rootHeader.update(rootPath: index.root, pinned: isPinned)
+        header.updateRoot(path: index.root, pinned: isPinned)
     }
 
     var gitMonitor: GitStatusMonitor?
@@ -301,15 +301,14 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
 
     private func updateGitFooter() {
         if let gitMonitor {
-            gitFooter.isHidden = false
-            gitFooter.update(
+            header.updateBranch(
                 root: gitMonitor.root,
                 branch: gitMonitor.currentBranch,
                 branches: gitMonitor.branchCount,
                 worktrees: gitMonitor.worktreeCount
             )
         } else {
-            gitFooter.isHidden = true
+            header.updateBranch(root: nil, branch: nil, branches: 0, worktrees: 0)
         }
         layoutContents()
     }

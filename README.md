@@ -112,12 +112,17 @@ working.
 
 ### Files, search & navigation
 
-- **Sidebar** (⌘B) — an icon rail with Sessions, Files, Git, Bookmarks, SSH Hosts and Notes. The Files tree is
-  gitignore-consistent with the file index, shows sub-project badges (`go.mod`,
-  `package.json`, …) and git status letters, and can be pinned to any folder; a footer shows
-  the current branch and the repo's branch/worktree counts.
-- **Project search** (⇧⌘F) — live ripgrep search with regex/case toggles, a glob filter, and
-  Project / Sub-project / Pane Directory scopes; results stream in grouped by file.
+- **Sidebar** (⌘B) — an icon rail with Sessions, Files, Bookmarks, SSH Hosts and Notes. The
+  Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
+  search / choose-folder / unpin actions, and, inside a repo, a branch-switcher row with the
+  repo's branch/worktree counts — and gives the rest of the tab to the tree. The tree is
+  gitignore-consistent with the file index, shows sub-project badges (`go.mod`, `package.json`,
+  …) and git status letters, and can be pinned to any folder.
+- **Project search** (⇧⌘F, or the header's magnifier) — search isn't a permanent field: it
+  drops a compact search bar over the tree only when you invoke it, and **Esc** (or the ✕)
+  returns you to the file tree. Live ripgrep with regex/case toggles, a glob filter, and
+  Project / Sub-project / Pane Directory scopes tucked behind the options button; results
+  stream in grouped by file.
 - **Open quickly** (⌘P) — fuzzy-find any file in the project index; ⌘K opens the command
   palette over every app command plus your prompt library.
 - **Command history search** (⌃R) — the shell's reverse-i-search, made native and cross-pane. A
@@ -192,9 +197,10 @@ working.
   The header's **Review (N)** button lists them (edit / delete / open file), and **Send Review
   to Session…** (also in the palette) pipes the whole batch into a chosen Claude session as one
   structured prompt, then clears the draft. Comments persist across restarts with the diff tab.
-- **Branch / worktree switcher** — the Files tab's footer shows the checked-out branch with a
-  branch/worktree count; click the branch name to drop a switcher menu of the repo's **worktrees**
-  (pick one to repoint the whole sidebar there) and **local branches** (pick one to check it out).
+- **Branch / worktree switcher** — the Files tab header's branch row shows the checked-out branch
+  with a branch/worktree count; click the branch name to drop a switcher menu of the repo's
+  **worktrees** (pick one to repoint the whole sidebar there) and **local branches** (pick one to
+  check it out).
 - **Git surface** — the git review surface no longer has its own sidebar rail tab; reach it with
   **Show Git** in the command palette. It shows staged / changed files (click to open the scoped
   diff) and, below them, a **Branches** list: every local branch with its ahead/behind vs
@@ -420,11 +426,13 @@ working.
 
 ### Appearance & settings
 
-- **Settings** (⌘,) — a sectioned defaults form: font and default size, text color, default
-  pane background, opacity (⌘] / ⌘[) and blur (⇧⌘B); the shell new tabs run, cursor shape and
-  blinking, bell responses (pane flash, Dock bounce); word wrap for file viewers; Claude
-  session arguments, whether "Set as Goal" prepends the source location, and the rtk
-  tool-output compression toggle (see below). Everything persists across launches.
+- **Settings** (⌘,) — a category sidebar (macOS System-Settings style) with one pane per topic,
+  so only the settings you're changing are on screen: **Appearance** (font and default size,
+  text color, default pane background, opacity (⌘] / ⌘[), blur (⇧⌘B)), **Terminal** (the shell
+  new tabs run, cursor shape and blinking, bell responses — pane flash, Dock bounce),
+  **File Viewer** (word wrap), **Claude** (session arguments, "Set as Goal" provenance, and the
+  rtk tool-output compression toggle — see below), **Autopilot**, **Budget**, and a read-only
+  **Shortcuts** reference. Everything persists across launches.
 - **Per-pane looks** — right-click a pane for background presets or a custom color, per-pane
   font size (⌘= / ⌘-), and a decorative ASCII screensaver overlay (waves/stars) with its own
   colors and speed. Terminals ground a step darker than the chrome: "Midnight" (#0E1013) is the

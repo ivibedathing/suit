@@ -95,9 +95,11 @@ final class SidebarView: NSView {
         let restored = Tab(rawValue: saved) ?? .files
         selectedTab = Tab.railOrder.contains(restored) ? restored : .files
 
-        // The browser lives inside the search view, which shows it while the
-        // search pattern is empty and swaps in results while searching.
+        // The browser lives inside the search view, which owns the whole tab
+        // until search is activated, then drops its bar over the tree and swaps
+        // in results. The browser header's magnifier activates search too.
         searchView.idleView = fileBrowser
+        fileBrowser.onSearch = { [weak self] in self?.searchView.focusSearchField() }
         addSubview(searchView)
         addSubview(notesView)
         addSubview(gitView)
