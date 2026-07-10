@@ -3,7 +3,7 @@ import Cocoa
 // One chip in a pane's in-pane tab bar: type icon + title, a Claude session /
 // failed dot, and a hover-revealed close box. Purely visual + local hit
 // resolution; the bar routes select/close/context back to the pane's host.
-final class PaneTabChipView: NSView {
+final class PaneTabChipView: NSView, NSDraggingSource {
     static let height: CGFloat = 24
     static let minWidth: CGFloat = 70
     static let maxWidth: CGFloat = 180
@@ -12,6 +12,13 @@ final class PaneTabChipView: NSView {
     var onSelect: ((String) -> Void)?
     var onClose: ((String) -> Void)?
     var contextMenuProvider: ((String) -> NSMenu?)?
+    // Dragged off every Suit window → tear the tab into its own window.
+    var onTearOff: ((String, NSPoint) -> Void)?
+
+    // Retained so a drag can render the same pane-header preview a strip drag
+    // did, and so the tear-off payload matches the .suitTab drop side.
+    private var tab: Tab?
+    private var mouseDownLocation: NSPoint?
 
     private let iconView = NSImageView(frame: .zero)
     private let label = NSTextField(labelWithString: "")
@@ -54,6 +61,7 @@ final class PaneTabChipView: NSView {
     }
 
     func configure(tab: Tab, active: Bool) {
+        self.tab = tab
         tabId = tab.id
         toolTip = tab.title
         isActive = active
@@ -171,13 +179,71 @@ final class PaneTabChipView: NSView {
         closeLabel.textColor = hit ? Theme.textPrimary : Theme.textDim
     }
 
+    override func mouseDown(with event: NSEvent) {
+        mouseDownLocation = event.locationInWindow
+    }
+
+    // Only reached for a plain click: once mouseDragged begins a drag session,
+    // AppKit routes the rest of the gesture (including mouse-up) there instead.
     override func mouseUp(with event: NSEvent) {
+        defer { mouseDownLocation = nil }
+        guard mouseDownLocation != nil else { return }
         let point = convert(event.locationInWindow, from: nil)
         guard bounds.contains(point) else { return }
         if isCloseHit(point) {
             onClose?(tabId)
         } else {
             onSelect?(tabId)
+        }
+    }
+
+    // Dragging a chip tears the tab out: the payload is the tab id under
+    // .suitTab, so a pane's edge drop-zones split it into its own pane (and a
+    // drop over no window tears it into its own window) — the same machinery a
+    // window-strip tab drag used, now reachable from the in-pane tab bar.
+    override func mouseDragged(with event: NSEvent) {
+        guard let start = mouseDownLocation, let tab else { return }
+        // A few points of slop so a sloppy click doesn't become a drag.
+        guard hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y) > 4 else { return }
+        mouseDownLocation = nil
+
+        let item = NSPasteboardItem()
+        item.setString(tabId, forType: .suitTab)
+        let draggingItem = NSDraggingItem(pasteboardWriter: item)
+        // Preview as a pane header (matching a pane drag), centered under the
+        // cursor and small enough not to hide the drop indicator beneath it.
+        let preview = PaneTitleBarView.dragPreviewImage(for: tab)
+        let local = convert(event.locationInWindow, from: nil)
+        let frame = NSRect(
+            x: local.x - preview.size.width / 2,
+            y: local.y - preview.size.height / 2,
+            width: preview.size.width,
+            height: preview.size.height
+        )
+        draggingItem.setDraggingFrame(frame, contents: preview)
+        beginDraggingSession(with: [draggingItem], event: event, source: self)
+    }
+
+    // MARK: - NSDraggingSource
+
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        context == .withinApplication ? .generic : []
+    }
+
+    // A drag that ended on no drop target: if it left every Suit window (and
+    // wasn't Esc-cancelled), tear the tab off into its own window. Mirrors the
+    // window strip's tear-off. Esc-cancel also ends with operation == [], but
+    // the cancel keystroke is still NSApp.currentEvent here.
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        guard operation == [] else { return }
+        if let event = NSApp.currentEvent, event.type == .keyDown, event.keyCode == 53 {
+            return
+        }
+        let overSuitWindow = NSApp.windows.contains { window in
+            window.isVisible && window.frame.contains(screenPoint)
+        }
+        if !overSuitWindow {
+            onTearOff?(tabId, screenPoint)
         }
     }
 
@@ -207,6 +273,7 @@ final class PaneTabBarView: NSView {
 
     var onSelect: ((Tab) -> Void)?
     var onClose: ((Tab) -> Void)?
+    var onTearOff: ((Tab, NSPoint) -> Void)?
     var contextMenuProvider: ((Tab) -> NSMenu?)?
 
     private var chips: [String: PaneTabChipView] = [:]
@@ -242,6 +309,10 @@ final class PaneTabBarView: NSView {
                 chip.onClose = { [weak self] id in
                     guard let self, let tab = self.order.first(where: { $0.id == id }) else { return }
                     self.onClose?(tab)
+                }
+                chip.onTearOff = { [weak self] id, point in
+                    guard let self, let tab = self.order.first(where: { $0.id == id }) else { return }
+                    self.onTearOff?(tab, point)
                 }
                 chip.contextMenuProvider = { [weak self] id in
                     guard let self, let tab = self.order.first(where: { $0.id == id }) else { return nil }

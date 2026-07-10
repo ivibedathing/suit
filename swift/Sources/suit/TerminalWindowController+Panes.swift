@@ -74,6 +74,13 @@ extension TerminalWindowController {
         tabContextMenu(for: tab)
     }
 
+    // A chip dragged clear of every Suit window: tear it into its own window,
+    // the same tear-off the window strip performed. (No-op for a window's only
+    // tab — tearOffTab guards that, since it would just recreate the window.)
+    func paneDidTearOffOwnedTab(_ pane: Pane, tab: Tab, at screenPoint: NSPoint) {
+        appDelegate.tearOffTab(withId: tab.id, at: screenPoint)
+    }
+
     // Move every tab `pane` still owns to `dest` as background tabs — used
     // before a viewport dissolves (unsplit / merge / drag-away) so the pane's
     // tabs live on instead of vanishing with the viewport.

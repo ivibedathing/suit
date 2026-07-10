@@ -61,6 +61,7 @@ protocol PaneHost: AnyObject {
     func ownedTabs(for pane: Pane) -> [Tab]
     func paneDidSelectOwnedTab(_ pane: Pane, tab: Tab)
     func paneDidCloseOwnedTab(_ pane: Pane, tab: Tab)
+    func paneDidTearOffOwnedTab(_ pane: Pane, tab: Tab, at screenPoint: NSPoint)
     func contextMenu(forOwnedTab tab: Tab) -> NSMenu
 }
 
@@ -183,6 +184,10 @@ final class Pane: NSObject {
         container.tabBar.onClose = { [weak self] tab in
             guard let self else { return }
             self.host?.paneDidCloseOwnedTab(self, tab: tab)
+        }
+        container.tabBar.onTearOff = { [weak self] tab, point in
+            guard let self else { return }
+            self.host?.paneDidTearOffOwnedTab(self, tab: tab, at: point)
         }
         container.tabBar.contextMenuProvider = { [weak self] tab in
             self?.host?.contextMenu(forOwnedTab: tab)
