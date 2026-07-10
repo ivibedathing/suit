@@ -420,11 +420,13 @@ working.
 
 ### Appearance & settings
 
-- **Settings** (⌘,) — a sectioned defaults form: font and default size, text color, default
-  pane background, opacity (⌘] / ⌘[) and blur (⇧⌘B); the shell new tabs run, cursor shape and
-  blinking, bell responses (pane flash, Dock bounce); word wrap for file viewers; Claude
-  session arguments, whether "Set as Goal" prepends the source location, and the rtk
-  tool-output compression toggle (see below). Everything persists across launches.
+- **Settings** (⌘,) — a category sidebar (macOS System-Settings style) with one pane per topic,
+  so only the settings you're changing are on screen: **Appearance** (font and default size,
+  text color, default pane background, opacity (⌘] / ⌘[), blur (⇧⌘B)), **Terminal** (the shell
+  new tabs run, cursor shape and blinking, bell responses — pane flash, Dock bounce),
+  **File Viewer** (word wrap), **Claude** (session arguments, "Set as Goal" provenance, and the
+  rtk tool-output compression toggle — see below), **Autopilot**, **Budget**, and a read-only
+  **Shortcuts** reference. Everything persists across launches.
 - **Per-pane looks** — right-click a pane for background presets or a custom color, per-pane
   font size (⌘= / ⌘-), and a decorative ASCII screensaver overlay (waves/stars) with its own
   colors and speed. Terminals ground a step darker than the chrome: "Midnight" (#0E1013) is the
