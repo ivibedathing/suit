@@ -66,9 +66,7 @@ final class DictationController {
         guard isListening else { return }
         isListening = false
 
-        audioEngine.inputNode.removeTap(onBus: 0)
-        audioEngine.stop()
-        request?.endAudio()
+        stopAudio()
 
         hud.setMessage(latestTranscript.isEmpty ? "…" : latestTranscript, dim: true)
 
@@ -129,12 +127,54 @@ final class DictationController {
                     }
                     if result.isFinal { self.deliver() }
                 }
-                // An error after we've stopped is the normal end-of-stream; only
-                // a mid-listen error should surface. Either way, deliver what we
-                // have so a hold never hangs the HUD.
-                if error != nil { self.deliver() }
+                guard let error else { return }
+                if self.isListening {
+                    // Error arrived while we're still holding 🌐 — the recognizer
+                    // couldn't run at all. Almost always because macOS Dictation
+                    // is switched off: SFSpeechRecognizer reports isAvailable /
+                    // supportsOnDeviceRecognition = true even then, and only fails
+                    // once recognition starts (kLSRErrorDomain 201). Surface an
+                    // actionable message instead of silently dropping the HUD.
+                    self.reportUnavailable(error, over: window)
+                } else {
+                    // Benign end-of-stream error after endAudio(); deliver what we
+                    // have so a hold never hangs the HUD.
+                    self.deliver()
+                }
             }
         }
+    }
+
+    // Tear down the mic tap + engine and flush the recognizer. Shared by the
+    // normal release path (finish) and the error path (reportUnavailable).
+    private func stopAudio() {
+        audioEngine.inputNode.removeTap(onBus: 0)
+        audioEngine.stop()
+        request?.endAudio()
+    }
+
+    // A recognition error that fired before the user released 🌐 means no
+    // transcript is coming. Stop everything and tell the user how to fix the
+    // common cause (Dictation disabled) rather than leaving them with a HUD
+    // that just vanished.
+    private func reportUnavailable(_ error: Error, over window: NSWindow?) {
+        guard !didDeliver else { return }
+        didDeliver = true
+        isListening = false
+        stopAudio()
+        finalTimer?.invalidate()
+        finalTimer = nil
+        task?.cancel()
+        task = nil
+        request = nil
+        target = nil
+
+        // kLSRErrorDomain code 201 == "Siri and Dictation are disabled".
+        let message = (error as NSError).code == 201
+            ? "Turn on Dictation: System Settings ▸ Keyboard ▸ Dictation"
+            : "Speech recognition unavailable"
+        hud.show(caption: "🎙 DICTATION UNAVAILABLE", message: message, over: window)
+        hud.dismiss(after: 3.5)
     }
 
     // Inject the cleaned transcript once, then reset. Guarded so the final
