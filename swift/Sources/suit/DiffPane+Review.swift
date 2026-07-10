@@ -60,7 +60,7 @@ extension DiffPaneContent {
         pane?.openFileLink(path: gitRoot + "/" + path, line: nil)
     }
 
-    // MARK: - Review comments (ROADMAP Phase 16)
+    // MARK: - Review comments
 
     // `c`: comment on the diff line at the caret. Commenting happens in the
     // unified view (its line map is what we hit-test); side-by-side flips over.
@@ -102,7 +102,7 @@ extension DiffPaneContent {
         send.target = self
         send.isEnabled = !reviewDraft.isEmpty
 
-        // Submit straight to GitHub when this diff is a PR under review (Phase 39).
+        // Submit straight to GitHub when this diff is a PR under review.
         if reviewingPR != nil {
             let submit = menu.addItem(withTitle: "Submit as PR Review…", action: #selector(submitPRReview), keyEquivalent: "")
             submit.target = self

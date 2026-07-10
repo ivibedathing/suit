@@ -10,23 +10,18 @@ architecture, and the rationale live there. Read this first, then reach for
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app: a native
 AppKit app bundle whose windows host split trees of terminal panes, growing into
 a Claude-Code-first cockpit for monorepo work. Swift/AppKit is the whole product
-layer. See `ROADMAP.md` for the phased plan and `README.md` for shipped
-behavior.
+layer. See `README.md` for shipped behavior.
 
 ## The rules that bite (read before touching anything)
 
 1. **One worktree + branch per task.** Never work in the main checkout. Use
    `EnterWorktree` (or `git worktree add` under `.claude/worktrees/`). Concurrent
    agents have clobbered each other working directly in main — don't be the next.
-2. **Claim a ROADMAP phase before starting it.** Append
-   ` 🚧 in progress (<branch>, <date>)` to the `### Phase N` heading on the main
-   checkout and commit that one line to main *first*. Skip phases already marked
-   `🚧`/`✅`/`⏸`. Flip `🚧`→`✅` when it ships. (`/claim-phase` automates this.)
-3. **No SwiftPM, no Xcode project.** The toolchain can't link SwiftPM here (see
+2. **No SwiftPM, no Xcode project.** The toolchain can't link SwiftPM here (see
    CLAUDE.md "Why no SwiftPM"). Build with `./build.sh` or direct `swiftc`.
    Don't run `xcode-select --install` or create a `.xcodeproj`. Vendor new deps
    as source under `swift/Vendor/` like SwiftTerm.
-4. **Document what you ship.** After implementing a phase, update `README.md`
+3. **Document what you ship.** After implementing a feature, update `README.md`
    with the user-facing behavior/shortcuts/settings as part of the same task.
 
 ## Build, run, test
@@ -52,7 +47,7 @@ subsystem's pure, UI-free logic against an assertion driver — run them with
 
 ## Where things live (the 30-second map — full detail in CLAUDE.md)
 
-- `swift/Sources/suit/` — the AppKit app (the product). ~130 files; entry point
+- `swift/Sources/suit/` — the AppKit app (the product). ~170 files; entry point
   `main.swift`, app-level dispatch in `AppDelegate*.swift`, one window in
   `TerminalWindowController*.swift`.
   - Panes & tabs: `Pane*.swift`, `PaneContent.swift`, `Tab*.swift`,
@@ -63,14 +58,14 @@ subsystem's pure, UI-free logic against an assertion driver — run them with
     `SSHHosts*`, `Notes*`.
   - Claude integration: `Claude*.swift` (sessions, usage, mode, attention),
     `PromptComposer.swift`, plus the producer scripts in `scripts/claude/`.
-  - Autopilot (Phase 32): `Autopilot*.swift`, `RoadmapParser.swift`,
+  - Autopilot: `Autopilot*.swift`, `RoadmapParser.swift`,
     `FeedbackRouting.swift`/`FeedbackInbox.swift`.
 - `swift/Vendor/SwiftTerm/` — vendored SwiftTerm source (the pty terminal view).
 - `scripts/` — Claude producer scripts (`claude/`) and the logic harnesses.
 - `design/` — the visual contract (reference render + generator).
 - `Resources/Info.plist` — bundle metadata (id `dev.kosych.suit`); add
   `NS*UsageDescription` keys here for new permissions.
-- `.claude/commands/` — repo slash commands: `/build`, `/test`, `/claim-phase`,
+- `.claude/commands/` — repo slash commands: `/build`, `/test`,
   `/render-reference`, `/orient`, `/find-file`.
 
 ## Conventions

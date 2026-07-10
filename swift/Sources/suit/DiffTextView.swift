@@ -1,6 +1,6 @@
 import Cocoa
 
-// A read-only diff text view that takes review-mode keys (ROADMAP Phase 5):
+// A read-only diff text view that takes review-mode keys:
 // n/p walk the changed files, o opens the current file in the viewer pane.
 final class DiffTextView: NSTextView {
     weak var diffContent: DiffPaneContent?

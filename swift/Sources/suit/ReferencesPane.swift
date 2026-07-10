@@ -1,8 +1,8 @@
 import Cocoa
 
-// The find-references pane (ROADMAP Phase 33): every use of a symbol across the
+// The find-references pane: every use of a symbol across the
 // project, grouped by file, each row a click into the viewer at that line.
-// Reuses the Phase 2 search result view wholesale — SearchFileGroup /
+// Reuses the search result view wholesale — SearchFileGroup /
 // SearchMatchNode and their row views — fed by a ripgrep whole-word search of
 // the identifier (`SymbolIndexCore.referenceRegex`), which naturally surfaces
 // the definition among the uses. One references pane per window, reused like

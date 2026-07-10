@@ -1,5 +1,8 @@
 import Cocoa
 
+// A purely-decorative ASCII animation (waves, twinkling stars, or Matrix-style
+// digital rain) drawn over a pane's terminal, timer-driven and toggled from the
+// pane's right-click menu while the shell underneath keeps running.
 enum PaneScreensaverKind: String {
     case waves = "Waves"
     case stars = "Stars"

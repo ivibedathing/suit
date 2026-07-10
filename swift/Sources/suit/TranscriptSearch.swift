@@ -1,6 +1,6 @@
 import Cocoa
 
-// Cross-transcript search (ROADMAP Phase 20). Phase 7 shows one live session's
+// Cross-transcript search. The pane shows one live session's
 // transcript; this makes the whole conversation history queryable — the context
 // you lose steering several worktrees at once ("what did Claude do about the
 // auth bug yesterday"). The corpus is Claude Code's own JSONL transcript store

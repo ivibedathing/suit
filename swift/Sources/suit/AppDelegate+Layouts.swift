@@ -1,6 +1,6 @@
 import Cocoa
 
-// Saved layouts / named workspaces (ROADMAP Phase 41): the UI verbs on top of
+// Saved layouts / named workspaces: the UI verbs on top of
 // the `LayoutStore` core. Save snapshots the active window with
 // `captureState()` (the same `SavedWindow` quit-time restoration uses); open
 // rebuilds a saved layout in a *new* window through the exact replay path

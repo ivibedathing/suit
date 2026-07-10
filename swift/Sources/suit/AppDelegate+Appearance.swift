@@ -313,7 +313,7 @@ extension AppDelegate {
         if defaults.object(forKey: "autopilotPreventSleep") != nil {
             autopilotPreventSleep = defaults.bool(forKey: "autopilotPreventSleep")
         }
-        // Cost budget guardrails (ROADMAP Phase 42).
+        // Cost budget guardrails.
         if defaults.object(forKey: "budgetSessionCap") != nil {
             budgetSessionCap = defaults.double(forKey: "budgetSessionCap")
         }

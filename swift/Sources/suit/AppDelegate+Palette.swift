@@ -15,12 +15,12 @@ extension AppDelegate {
         activeWindowController()?.openGitDiff()
     }
 
-    // ROADMAP Phase 34 — the commit-graph pane for the shown repo.
+    // The commit-graph pane for the shown repo.
     @objc func showCommitGraph(_ sender: Any?) {
         activeWindowController()?.openCommitGraph()
     }
 
-    // Sidebar folder pinning (ROADMAP Phase 9).
+    // Sidebar folder pinning.
     @objc func selectSidebarFolder(_ sender: Any?) {
         activeWindowController()?.selectSidebarFolder()
     }
@@ -33,22 +33,22 @@ extension AppDelegate {
         activeWindowController()?.showGit()
     }
 
-    // ROADMAP Phase 29 — reveal the Git tab's Feedback inbox and refresh it.
+    // Reveal the Git tab's Feedback inbox and refresh it.
     @objc func showFeedbackInbox(_ sender: Any?) {
         activeWindowController()?.showFeedbackInbox()
     }
 
-    // ROADMAP Phase 39 — reveal the Git tab's PR review inbox and refresh it.
+    // Reveal the Git tab's PR review inbox and refresh it.
     @objc func showPRReviewInbox(_ sender: Any?) {
         activeWindowController()?.showPRReviewInbox()
     }
 
-    // ROADMAP Phase 22 — file:line bookmarks.
+    // File:line bookmarks.
     @objc func showBookmarks(_ sender: Any?) {
         activeWindowController()?.showBookmarks()
     }
 
-    // ROADMAP Phase 24 — "what changed while I was away" markers.
+    // "what changed while I was away" markers.
     @objc func markAwayPoint(_ sender: Any?) {
         activeWindowController()?.markAwayPoint()
     }
@@ -65,8 +65,8 @@ extension AppDelegate {
         }
     }
 
-    // "New task" (ROADMAP Phase 5): prompt for a name, then claude pane via the
-    // window controller. Phase 31 — the prompt carries an "Isolate in worktree"
+    // "New task": prompt for a name, then claude pane via the
+    // window controller. The prompt carries an "Isolate in worktree"
     // switch (seeded from the settings default) so isolation is a per-task
     // choice: on spins a worktree, off runs claude in the current checkout.
     @objc func newClaudeTask(_ sender: Any?) {
@@ -170,12 +170,12 @@ extension AppDelegate {
         }
     }
 
-    // Palette / View menu: the cross-transcript search panel (Phase 20).
+    // Palette / View menu: the cross-transcript search panel.
     @objc func searchTranscripts(_ sender: Any?) {
         transcriptSearch.show(relativeTo: activeWindowController()?.window)
     }
 
-    // Palette: open a session's checkpoint-timeline pane (ROADMAP Phase 25).
+    // Palette: open a session's checkpoint-timeline pane.
     // One live session opens directly; several go through the palette picker,
     // exactly like Open Claude Transcript.
     @objc func openCheckpointTimeline(_ sender: Any?) {
@@ -201,7 +201,7 @@ extension AppDelegate {
         }
     }
 
-    // Multi-definition picker (ROADMAP Phase 33): several definitions of one
+    // Multi-definition picker: several definitions of one
     // symbol reuse the palette in explicit-items mode (the Cmd-P trick), each
     // row `file:line` with the ctags kind, jumping straight to the chosen one.
     func showDefinitionPicker(symbol: String, definitions: [SymbolDefinition], root: String, controller: TerminalWindowController) {
@@ -341,7 +341,7 @@ extension AppDelegate {
         ] + autopilotPaletteCommands() + sshHostCommands() + recipeCommands() + promptLibraryCommands()
     }
 
-    // Session task recipes (ROADMAP Phase 36): each ~/.suit/recipes/*.md surfaces
+    // Session task recipes: each ~/.suit/recipes/*.md surfaces
     // as a "Recipe: <name>" entry that spins a worktree + claude + a
     // parameterized prompt in one keystroke.
     private func recipeCommands() -> [PaletteCommand] {
@@ -355,7 +355,7 @@ extension AppDelegate {
         }
     }
 
-    // Prompts for the task name (+ the Phase 31 isolation toggle), fills the
+    // Prompts for the task name (+ the isolation toggle), fills the
     // recipe's <NAME>/<SELECTION>/<FILE> from the input and the focused pane's
     // context, then launches the task.
     private func launchRecipe(_ recipe: Recipe) {
@@ -391,7 +391,7 @@ extension AppDelegate {
         }
     }
 
-    // The prompt library (ROADMAP Phase 8): ~/.suit/prompts/*.md surfaced
+    // The prompt library: ~/.suit/prompts/*.md surfaced
     // as palette entries that send into the focused pane's terminal. Saved
     // prompts as files, not a settings UI.
     private func promptLibraryCommands() -> [PaletteCommand] {

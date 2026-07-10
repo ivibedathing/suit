@@ -1,6 +1,6 @@
 import Cocoa
 
-// Where a search looks (ROADMAP Phase 2 "scope control"): the whole project,
+// Where a search looks ("scope control"): the whole project,
 // the sub-project the focused pane is in, or just the pane's cwd. For large repos
 // this is the difference between usable and noise. The window controller
 // resolves each case to a concrete directory at search time (scopeResolver),

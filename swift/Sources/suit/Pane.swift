@@ -41,7 +41,7 @@ protocol PaneHost: AnyObject {
     func paneRequestedOpenCommitDiff(forFile path: String, sha: String)
     func paneRequestedOpenCommitDiff(sha: String, root: String)
     func paneRequestedShowFileHistory(forPath path: String)
-    // Symbol navigation (ROADMAP Phase 33): the viewer resolved an identifier
+    // Symbol navigation: the viewer resolved an identifier
     // under the caret/click and asks the host (which owns the symbol index and
     // the tabs) to jump to its definition or list its references.
     func paneRequestedGoToDefinition(symbol: String, fromDirectory directory: String?)
@@ -70,7 +70,7 @@ protocol PaneHost: AnyObject {
 // content-agnostic chrome — focus border, header, drag & drop, background
 // color, screensaver.
 final class Pane: NSObject {
-    // Phase 11: 1pt amber at 70% when focused, hairline otherwise.
+    // 1pt amber at 70% when focused, hairline otherwise.
     private static let focusedBorder = Theme.focusBorder.cgColor
     private static let unfocusedBorder = Theme.hairline.cgColor
 
@@ -78,7 +78,7 @@ final class Pane: NSObject {
     static let presetColors: [(String, NSColor)] = [
         // "Midnight" is the terminal ground — a step darker than the chrome —
         // and the default for terminal panes. "Slate" is the chrome ground
-        // itself for anyone who wants the Phase 11 one-surface look back.
+        // itself for anyone who wants the one-surface look back.
         ("Midnight", Theme.terminalBg),
         ("Slate", Theme.bg),
         ("Charcoal", NSColor(calibratedRed: 0.118, green: 0.118, blue: 0.118, alpha: 1)),
@@ -165,7 +165,7 @@ final class Pane: NSObject {
         container.layer?.cornerRadius = Theme.Metrics.paneCornerRadius
         container.layer?.borderColor = Pane.unfocusedBorder
         // The 3pt content inset shows the container itself; ground it in the
-        // chrome color so the outline reads as one hairline (Phase 15) —
+        // chrome color so the outline reads as one hairline —
         // never the window backdrop (or black, in offscreen renders).
         container.layer?.backgroundColor = Theme.bg.cgColor
 
@@ -257,7 +257,7 @@ final class Pane: NSObject {
         host?.dropTab(withId: id, onto: self, drop: target) ?? false
     }
 
-    // Phase 27 — the context meter is a one-tap /compact. Fires when this pane
+    // The context meter is a one-tap /compact. Fires when this pane
     // shows a terminal tab with a live Claude session, injecting the command
     // over its pty. Returns whether it fired (false = nothing to compact, so
     // the title bar falls back to a plain focus click).
@@ -296,12 +296,12 @@ final class Pane: NSObject {
         host?.paneRequestedFooter(self)
     }
 
-    // Open the background-task monitor for this pane's shell (ROADMAP Phase 30).
+    // Open the background-task monitor for this pane's shell.
     @objc func showBackgroundTasks(_ sender: Any?) {
         host?.paneRequestedShowBackgroundTasks(self)
     }
 
-    // Finish this pane's task worktree (ROADMAP Phase 5): merge or discard the
+    // Finish this pane's task worktree: merge or discard the
     // branch, remove the worktree, and close the pane.
     @objc func finishClaudeTask(_ sender: Any?) {
         guard let path = workingDirectory, WorktreeTasks.isTaskWorktree(path) else { return }
@@ -335,14 +335,14 @@ final class Pane: NSObject {
         host?.paneRequestedOpenFile(path: path, line: line)
     }
 
-    // Blame/history chaining (ROADMAP Phase 17): the viewer routes a clicked
+    // Blame/history chaining: the viewer routes a clicked
     // blame sha or a "Show File History" request through the host, which owns
     // the diff tab / sidebar.
     func openCommitDiff(forFile path: String, sha: String) {
         host?.paneRequestedOpenCommitDiff(forFile: path, sha: sha)
     }
 
-    // Whole-commit diff (ROADMAP Phase 34): a clicked commit-graph node opens
+    // Whole-commit diff: a clicked commit-graph node opens
     // that commit's full changes in the window's diff tab.
     func openCommitDiff(sha: String, root: String) {
         host?.paneRequestedOpenCommitDiff(sha: sha, root: root)
@@ -352,7 +352,7 @@ final class Pane: NSObject {
         host?.paneRequestedShowFileHistory(forPath: path)
     }
 
-    // Go-to-definition / find-references (ROADMAP Phase 33), routed like the
+    // Go-to-definition / find-references, routed like the
     // file link / blame chaining above: the host owns the symbol index and the
     // tab it opens into.
     func goToDefinition(symbol: String, fromDirectory directory: String?) {

@@ -253,7 +253,7 @@ extension TerminalWindowController {
             item.target = self
             item.representedObject = tab.id
         }
-        // Tab-first splitting (Phase 13): showing a second tab is something
+        // Tab-first splitting: showing a second tab is something
         // you do to a tab, not to a pane.
         if tab.pane == nil {
             add("Split Screen", #selector(contextSplitScreen(_:)))

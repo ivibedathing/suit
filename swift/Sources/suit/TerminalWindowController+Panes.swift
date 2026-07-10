@@ -106,7 +106,7 @@ extension TerminalWindowController {
         openFile(atPath: path, line: line)
     }
 
-    // Blame sha click (ROADMAP Phase 17): open that commit's per-file diff.
+    // Blame sha click: open that commit's per-file diff.
     func paneRequestedOpenCommitDiff(forFile path: String, sha: String) {
         let directory = (path as NSString).deletingLastPathComponent
         guard let root = FileIndex.gitRoot(of: directory) else {
@@ -117,7 +117,7 @@ extension TerminalWindowController {
         openCommitDiff(root: root, file: relative, sha: sha)
     }
 
-    // Commit-graph node click (ROADMAP Phase 34): open that commit's whole diff.
+    // Commit-graph node click: open that commit's whole diff.
     func paneRequestedOpenCommitDiff(sha: String, root: String) {
         openCommitDiff(root: root, sha: sha)
     }
@@ -134,7 +134,7 @@ extension TerminalWindowController {
         sidebar.gitView.showFileHistory(absolutePath: (path as NSString).standardizingPath)
     }
 
-    // Symbol navigation (ROADMAP Phase 33): resolve against the pane's project.
+    // Symbol navigation: resolve against the pane's project.
     func paneRequestedGoToDefinition(symbol: String, fromDirectory directory: String?) {
         goToDefinition(symbol: symbol, fromDirectory: directory)
     }
@@ -143,7 +143,7 @@ extension TerminalWindowController {
         findReferences(symbol: symbol, fromDirectory: directory)
     }
 
-    // Background-task monitor for a pane's shell (ROADMAP Phase 30): a terminal
+    // Background-task monitor for a pane's shell: a terminal
     // pane scopes to its own shell's job subtree; any other pane kind opens the
     // window-wide monitor (shellPid 0).
     func paneRequestedShowBackgroundTasks(_ pane: Pane) {

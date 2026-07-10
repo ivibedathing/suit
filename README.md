@@ -602,9 +602,8 @@ Two integrations are wired up from inside the app rather than by hand:
 | `Resources/Info.plist` | App bundle metadata and permission usage strings |
 | `build.sh` | Builds everything and assembles `build/Suit.app` |
 | `AGENTS.md` | Concise front-door for coding agents (60-second orientation) |
-| `.claude/commands/` | Repo slash commands: `/build`, `/test`, `/claim-phase`, `/find-file`, `/orient`, … |
+| `.claude/commands/` | Repo slash commands: `/build`, `/test`, `/find-file`, `/orient`, … |
 | `CLAUDE.md` | Full architecture breakdown and contributor guidance |
-| `ROADMAP.md` | The phased plan Suit is growing through (and Autopilot's steering file) |
 
 ## Contributing
 
@@ -614,11 +613,9 @@ This is a personal project, but the workflow is documented if you want to hack o
   dev loop, and why the build avoids SwiftPM.
 - Start each change on its own branch in its own git worktree — never work directly in the main
   checkout — so concurrent Claude Code sessions don't step on each other's edits.
-- Claim a `ROADMAP.md` phase (append `🚧` to its heading on main) before starting it; `/claim-phase`
-  automates this.
 - Run `scripts/test.sh` before committing non-UI changes, and regenerate the reference render
   (`design/render-reference.sh`) after chrome edits.
-- After implementing a `ROADMAP.md` phase, document the user-facing behavior (shortcuts,
+- After implementing a feature, document the user-facing behavior (shortcuts,
   settings) in this README so it stays a current description of what the app does.
 
 ## License

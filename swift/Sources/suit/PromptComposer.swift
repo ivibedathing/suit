@@ -1,6 +1,6 @@
 import Cocoa
 
-// ROADMAP Phase 8 — talk back: steering Claude sessions by writing into their
+// Talk back: steering Claude sessions by writing into their
 // pane's pty. Text arrives as if typed (no new protocol, no Claude-side
 // changes), so the app becomes a control surface for many sessions, not just
 // a viewer of them.
@@ -65,7 +65,7 @@ private final class ComposerPanel: NSPanel {
 // doCommandBy via the owning controller.
 private final class ComposerTextView: NSTextView {}
 
-// The prompt composer (ROADMAP Phase 8): the command-palette machinery grown
+// The prompt composer: the command-palette machinery grown
 // a multi-line text view, targeting a chosen session. "@" completes over the
 // project's FileIndex and inserts repo-relative paths.
 final class PromptComposerController: NSObject, NSWindowDelegate, NSTextViewDelegate, NSTableViewDataSource, NSTableViewDelegate {
@@ -78,7 +78,7 @@ final class PromptComposerController: NSObject, NSWindowDelegate, NSTextViewDele
     private let suggestionScroll = NSScrollView(frame: .zero)
 
     private var terminal: TerminalPaneContent?
-    // Broadcast mode (ROADMAP Phase 35): non-empty means send to every terminal
+    // Broadcast mode: non-empty means send to every terminal
     // here instead of the single `terminal`, with a fan-out confirm. Cleared by
     // the single-target `show`.
     private var broadcastTerminals: [TerminalPaneContent] = []
@@ -111,7 +111,7 @@ final class PromptComposerController: NSObject, NSWindowDelegate, NSTextViewDele
 
         panel.delegate = self
 
-        // Flat overlay surface (Phase 11), replacing the .menu vibrancy.
+        // Flat overlay surface, replacing the .menu vibrancy.
         let effect = NSView(frame: NSRect(x: 0, y: 0, width: Self.panelWidth, height: 100))
         effect.wantsLayer = true
         effect.layer?.backgroundColor = Theme.overlay.cgColor
@@ -183,7 +183,7 @@ final class PromptComposerController: NSObject, NSWindowDelegate, NSTextViewDele
         panel.makeFirstResponder(textView)
     }
 
-    // Broadcast mode (ROADMAP Phase 35): the same composer aimed at a set of
+    // Broadcast mode: the same composer aimed at a set of
     // terminals. Type once, Enter fans it out to every one (with a fan-out
     // confirm). @-completion runs over `fileIndex` — the active window's, since
     // the targets may live in different projects.

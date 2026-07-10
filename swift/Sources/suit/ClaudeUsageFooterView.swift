@@ -67,8 +67,8 @@ private final class UsageRowView: NSView {
     }
 }
 
-// Autopilot's one-line status in the sidebar footer (ROADMAP Phase 32,
-// §2.11): a session-state dot plus the engine's composed status string
+// Autopilot's one-line status in the sidebar footer: a session-state dot
+// plus the engine's composed status string
 // ("Autopilot · next run ~03:40" / "⚙ Phase 23 · gate: build" / …), tooltip =
 // the full reason. Hidden while Autopilot is disabled; clicking focuses the
 // run tab while a run is active and opens the log otherwise (the footer
@@ -130,7 +130,7 @@ final class AutopilotRowView: NSView {
 // reports, e.g. Fable) plus a gear that opens the Claude Code integration
 // settings. Rows show "—" until a fresh claude-status.json exists (the
 // statusline script only writes while Claude Code runs). The Autopilot status
-// row (Phase 32) sits above the usage rows when Autopilot is enabled.
+// row sits above the usage rows when Autopilot is enabled.
 final class ClaudeUsageFooterView: NSView {
     private static let headerHeight: CGFloat = 16
     private static let padding: CGFloat = 6
@@ -138,7 +138,7 @@ final class ClaudeUsageFooterView: NSView {
     // Opens "Install Claude Code Integration…" (the window controller routes
     // to AppDelegate).
     var onOpenSettings: (() -> Void)?
-    // Autopilot row clicks (Phase 32): focus the run tab while running, open
+    // Autopilot row clicks: focus the run tab while running, open
     // the log otherwise (both route to AppDelegate via the window controller).
     var onAutopilotFocusRunTab: (() -> Void)?
     var onAutopilotOpenLog: (() -> Void)?
@@ -175,7 +175,7 @@ final class ClaudeUsageFooterView: NSView {
         settingsButton.action = #selector(openSettings)
         addSubview(settingsButton)
 
-        // The Autopilot status row (Phase 32), above the usage rows; hidden
+        // The Autopilot status row, above the usage rows; hidden
         // (and excluded from desiredHeight) while Autopilot is disabled.
         autopilotRow.isHidden = true
         autopilotRow.onClick = { [weak self] in

@@ -27,7 +27,7 @@ extension TerminalWindowController {
     // pane's cwd (falling back to the project root); "Pane Directory" is the
     // cwd itself.
     func resolveSearchScope(_ scope: SearchScope) -> (root: String, label: String)? {
-        // While the sidebar is pinned (Phase 9), "Project" means what the
+        // While the sidebar is pinned, "Project" means what the
         // Files tab shows, not the focused pane's project.
         let index = pinnedSidebarRoot.map { FileIndex.shared(forExactDirectory: $0) } ?? currentFileIndex()
         let projectRoot = index.root
@@ -80,7 +80,7 @@ extension TerminalWindowController {
     // pane's cwd), falling back to the window's current project. When Cmd-P
     // resolves a different project than the sidebar is showing, the sidebar
     // follows, so the two navigation surfaces never disagree — unless the
-    // sidebar is pinned to an explicit folder (Phase 9), which stops it from
+    // sidebar is pinned to an explicit folder, which stops it from
     // trailing pane cwds until unpinned.
     func currentFileIndex() -> FileIndex {
         let directory = focusedPane()?.workingDirectory ?? projectIndex.root
@@ -99,7 +99,7 @@ extension TerminalWindowController {
         return index
     }
 
-    // MARK: - Sidebar folder pinning (ROADMAP Phase 9)
+    // MARK: - Sidebar folder pinning
 
     // "Select Folder…" (Files-tab header button / palette): pin the sidebar's
     // browser and project-scoped search to a picked directory.
@@ -198,7 +198,7 @@ extension TerminalWindowController {
         sidebar.select(tab: .git)
     }
 
-    // Reveal the Bookmarks tab (palette / ROADMAP Phase 22).
+    // Reveal the Bookmarks tab (palette).
     func showBookmarks() {
         if sidebar.isHidden {
             sidebar.isHidden = false
@@ -208,18 +208,18 @@ extension TerminalWindowController {
         sidebar.select(tab: .bookmarks)
     }
 
-    // Reveal the Git tab's Feedback inbox and refresh it (palette, Phase 29).
+    // Reveal the Git tab's Feedback inbox and refresh it (palette).
     func showFeedbackInbox() {
         showGit()
         sidebar.gitView.loadFeedbackData()
     }
 
-    // The active window's gathered feedback events, for palette routing (Phase 29).
+    // The active window's gathered feedback events, for palette routing.
     func currentFeedbackEvents() -> [FeedbackEvent] {
         sidebar.gitView.feedbackEvents
     }
 
-    // Reveal the Git tab's PR review inbox and refresh it (palette, Phase 39).
+    // Reveal the Git tab's PR review inbox and refresh it (palette).
     func showPRReviewInbox() {
         showGit()
         sidebar.gitView.loadReviewInbox()

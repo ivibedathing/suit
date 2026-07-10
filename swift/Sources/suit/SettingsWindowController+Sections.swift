@@ -271,12 +271,12 @@ extension SettingsWindowController {
         let claudeArgsRow = row(label: "Arguments:", controls: [claudeArgsField])
         let claudeHintRow = hintRow("Appended to “claude” when starting a session from the ✦ button.")
 
-        // New-task isolation default (ROADMAP Phase 31).
+        // New-task isolation default.
         taskIsolateCheckbox.target = self
         taskIsolateCheckbox.action = #selector(taskIsolateChanged)
         let taskIsolateRow = row(label: "New task:", controls: [taskIsolateCheckbox])
 
-        // Set as Goal provenance (ROADMAP Phase 18).
+        // Set as Goal provenance.
         goalProvenanceCheckbox.target = self
         goalProvenanceCheckbox.action = #selector(goalProvenanceChanged)
         let goalProvenanceRow = row(label: "Goals:", controls: [goalProvenanceCheckbox])
@@ -300,7 +300,7 @@ extension SettingsWindowController {
         return stack
     }
 
-    // Autopilot (ROADMAP Phase 32, §2.9): ROADMAP autonomy + budget pacing.
+    // Autopilot: ROADMAP autonomy + budget pacing.
     private func autopilotPane() -> NSStackView {
         autopilotEnabledCheckbox.target = self
         autopilotEnabledCheckbox.action = #selector(autopilotEnabledToggled)
@@ -372,7 +372,7 @@ extension SettingsWindowController {
         return stack
     }
 
-    // Budget (ROADMAP Phase 42): per-session / per-task dollar caps + interrupt.
+    // Budget: per-session / per-task dollar caps + interrupt.
     private func budgetPane() -> NSStackView {
         for field in [budgetSessionCapField, budgetTaskCapField] {
             field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)

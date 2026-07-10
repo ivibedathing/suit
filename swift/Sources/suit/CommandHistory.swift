@@ -1,6 +1,6 @@
 import Foundation
 
-// Command history search (ROADMAP Phase 43) — the shell's reverse-i-search made
+// Command history search — the shell's reverse-i-search made
 // native and cross-pane: search past commands from any pane, pick one, and
 // re-run it in a pane of your choice.
 //

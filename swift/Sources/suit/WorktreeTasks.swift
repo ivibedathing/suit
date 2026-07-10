@@ -1,6 +1,6 @@
 import Foundation
 
-// Worktree orchestration (ROADMAP Phase 5): the CLAUDE.md "one worktree per
+// Worktree orchestration: the CLAUDE.md "one worktree per
 // task" discipline as one-keystroke product features. "New Claude Task" makes
 // a worktree + branch and opens a pane running claude inside it; "Finish"
 // merges (or discards) the branch and removes the worktree.
@@ -105,7 +105,7 @@ enum WorktreeTasks {
         return nil
     }
 
-    // Cleanup after a *remote* merge (Autopilot's PR flow, ROADMAP Phase 32):
+    // Cleanup after a *remote* merge (Autopilot's PR flow):
     // the branch already landed via gh, so nothing merges locally — just
     // remove the worktree (--force: the build gate leaves an untracked build/
     // dir that a plain remove refuses; safe post-merge), delete the local

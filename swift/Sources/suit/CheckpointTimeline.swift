@@ -1,6 +1,6 @@
 import Cocoa
 
-// Checkpoint / rewind timeline (ROADMAP Phase 25). Claude Code automatically
+// Checkpoint / rewind timeline. Claude Code automatically
 // saves a code snapshot before each change (the thing /rewind and Esc-Esc roll
 // back to). It records them in the session's JSONL transcript as
 // `file-history-snapshot` entries — each lists which files it backed up and to
@@ -13,7 +13,7 @@ import Cocoa
 // Rolling back itself stays Claude's job — "Rewind in session" injects /rewind
 // so its native picker opens in the pane. (A non-interactive `/rewind <ref>`
 // form would let us restore one specific node in a single click; whether that
-// exists is ROADMAP Phase 25's remaining open question — the *history* is
+// exists remains an open question — the *history* is
 // readable, which is what this pane needed.)
 
 // MARK: - Parsing

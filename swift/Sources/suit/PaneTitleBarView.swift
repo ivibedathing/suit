@@ -15,7 +15,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // Flat bar chrome (Phase 11), replacing the .titlebar vibrancy.
+        // Flat bar chrome, replacing the .titlebar vibrancy.
         wantsLayer = true
         layer?.backgroundColor = Theme.barChrome.cgColor
         layer?.cornerRadius = Theme.Metrics.paneCornerRadius
@@ -40,7 +40,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         contextLabel.isHidden = true
         addSubview(contextLabel)
 
-        // Unsaved-edits indicator for the editable viewer (Phase 37): a small
+        // Unsaved-edits indicator for the editable viewer: a small
         // accent dot on the right, alongside the session/context chrome.
         dirtyDot.wantsLayer = true
         dirtyDot.layer?.cornerRadius = 2.5
@@ -49,7 +49,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         addSubview(dirtyDot)
     }
 
-    // Phase 27 — the context meter reads as a one-tap /compact whenever a live
+    // The context meter reads as a one-tap /compact whenever a live
     // session is shown here; a pointing-hand cursor advertises the affordance.
     override func resetCursorRects() {
         super.resetCursorRects()
@@ -74,8 +74,8 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         didSet { updateStatusDot() }
     }
 
-    // The Claude session state of the tab shown here (ROADMAP Phase 4's
-    // attention routing): ● busy (orange), ◐ needs-input (yellow, pulsing so
+    // The Claude session state of the tab shown here (attention
+    // routing): ● busy (orange), ◐ needs-input (yellow, pulsing so
     // it's findable at a glance without stealing focus), ✓ done (green). The
     // exit-status dot wins once the shell is gone.
     var sessionState: ClaudeSessionState? {
@@ -84,7 +84,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         }
     }
 
-    // Context-window fill of the Claude session in this pane (ROADMAP Phase 7):
+    // Context-window fill of the Claude session in this pane:
     // the "should I /compact or let it ride" glance. Colored like a fuel gauge
     // as compaction nears; hidden when no session reports it.
     var contextPct: Double? {
@@ -103,7 +103,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         }
     }
 
-    // The open file has unsaved edits (editable viewer, Phase 37). Shown as an
+    // The open file has unsaved edits (editable viewer). Shown as an
     // accent dot in the header; the strip carries the same flag on the tab.
     var isDirty: Bool = false {
         didSet {
@@ -190,7 +190,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
     override func mouseUp(with event: NSEvent) {
         defer { mouseDownLocation = nil }
         guard mouseDownLocation != nil, let pane else { return }
-        // Phase 27 — a click on the context meter fires /compact instead of
+        // A click on the context meter fires /compact instead of
         // focusing, when there's a live session to compact.
         let local = convert(event.locationInWindow, from: nil)
         if !contextLabel.isHidden,

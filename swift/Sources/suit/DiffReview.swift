@@ -1,10 +1,10 @@
 import Foundation
 
-// ROADMAP Phase 16 — diff review comments, batched to Claude. Phase 5 opened
+// Diff review comments, batched to Claude. Earlier work opened
 // the review loop (a review set, n/p walk); this closes it. Instead of eyeballing
 // a diff and retyping feedback into a session's pane by hand, comment on lines the
 // way you would on a GitHub PR, then pipe the whole batch into a chosen Claude
-// session as one structured prompt (via Phase 8's SessionControl).
+// session as one structured prompt (via SessionControl).
 //
 // UI-free so it can be tested standalone (composePrompt / Codable round-trip) and
 // reused: `DiffPaneContent` owns a draft, and it travels with the diff tab through

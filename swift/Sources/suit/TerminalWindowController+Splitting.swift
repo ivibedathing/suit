@@ -2,7 +2,7 @@ import Cocoa
 
 extension TerminalWindowController {
 
-    // MARK: - Split Screen (tab-first, Phase 13)
+    // MARK: - Split Screen (tab-first)
 
     // Strip right-click ▸ Split Screen: show `tab` beside the active tab in a
     // new viewport — vertical when the screen is wide enough, else stacked.
@@ -118,7 +118,7 @@ extension TerminalWindowController {
     }
 
     // ⌃⌘M / palette: collapse the split tree back to the single-viewport
-    // default (the Chrome state — Phase 12). Every displaced tab stays open
+    // default (the Chrome state). Every displaced tab stays open
     // in the strip as a background tab; only the viewports go away.
     func mergeAllPanes() {
         guard panes.count > 1, let keep = displayTargetPane() else {

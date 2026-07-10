@@ -1,12 +1,12 @@
 import Cocoa
 
-// ROADMAP Phase 28 — Fleet-supervision dashboard. Suit signals per-window
+// Fleet-supervision dashboard. Suit signals per-window
 // session state (tab dots, title-bar meters) but had no cross-window view of
 // the whole fleet. This is the one surface that answers "who needs me right
 // now" across every window without hunting through tabs: every live Claude
 // session as a row (or Kanban card), fed by ClaudeSessionMonitor across all
 // windows, sorted needs-you-first, with per-row steering that routes through
-// the Phase 8 send path.
+// the send path.
 
 // MARK: - Model
 
@@ -33,7 +33,7 @@ struct FleetRow {
     let contextPct: Double?
     let costUSD: Double?
     let hosted: Bool         // some pane in some window hosts this session's pty
-    // Subagent tree (ROADMAP Phase 31): indent depth (0 = a top-level session,
+    // Subagent tree: indent depth (0 = a top-level session,
     // 1+ = a nested `isolation: worktree` subagent) and whether this row is a
     // bare subagent worktree with no live session (a checkout Claude Code spun
     // for a subagent but whose session file hasn't appeared / was pruned).
@@ -88,7 +88,7 @@ enum FleetModel {
         return ((cwd as NSString).lastPathComponent, nil)
     }
 
-    // Weaves the subagent tree (ROADMAP Phase 31) into the flat session rows:
+    // Weaves the subagent tree into the flat session rows:
     // each top-level session keeps its needs-you-first order, immediately
     // followed by its nested `isolation: worktree` subagents (indented via
     // `depth`). A subagent that has its own live session reuses that session's
@@ -194,7 +194,7 @@ private final class FleetDotView: NSView {
 // One list row: dot, a two-line title/place block, trailing context%+cost, and
 // the four steering buttons. Reused across reloads via configure(row:).
 private final class FleetRowView: NSView {
-    // Broadcast selection checkbox (ROADMAP Phase 35): checked rows are the
+    // Broadcast selection checkbox: checked rows are the
     // "Broadcast to Selected" target set; disabled on unhosted (unsteerable) rows.
     private let checkbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let dot = FleetDotView()
@@ -208,13 +208,13 @@ private final class FleetRowView: NSView {
 
     var onAction: ((FleetAction) -> Void)?
     var onToggleCheck: ((Bool) -> Void)?
-    // Cost budget guardrails (ROADMAP Phase 42): right-click ▸ Set Budget… on a
+    // Cost budget guardrails: right-click ▸ Set Budget… on a
     // steerable row. `rowId` is the session id the override keys on.
     var onSetBudget: ((String) -> Void)?
     private var rowId: String?
     private var isBareRow = false
 
-    // Subagent-tree indent (ROADMAP Phase 31): 0 = a top-level session, 1+ a
+    // Subagent-tree indent: 0 = a top-level session, 1+ a
     // nested subagent; bare worktrees hide their (unsteerable) buttons.
     private var depth = 0
     private var isBareWorktree = false
@@ -334,7 +334,7 @@ private final class FleetRowView: NSView {
     @objc private func archiveTapped() { onAction?(.archive) }
     @objc private func checkToggled() { onToggleCheck?(checkbox.state == .on) }
 
-    // Right-click ▸ Set Budget… (ROADMAP Phase 42). A bare subagent worktree has
+    // Right-click ▸ Set Budget…. A bare subagent worktree has
     // no session to budget, so it gets no menu.
     override func menu(for event: NSEvent) -> NSMenu? {
         guard !isBareRow, rowId != nil else { return nil }
@@ -428,10 +428,10 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     var onInterrupt: ((String) -> Void)?
     var onContinue: ((String) -> Void)?
     var onArchive: ((String) -> Void)?
-    // Broadcast (ROADMAP Phase 35): fan one instruction across a scope of
+    // Broadcast: fan one instruction across a scope of
     // sessions — the checked rows, or every live one.
     var onBroadcast: ((Broadcast.Scope) -> Void)?
-    // Cost budget guardrails (ROADMAP Phase 42): "Set Budget…" on a row — a
+    // Cost budget guardrails: "Set Budget…" on a row — a
     // per-session dollar override.
     var onSetBudget: ((String) -> Void)?
     // The set of session ids some pane currently hosts (steerable rows).
@@ -456,7 +456,7 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     // repo" so we don't re-shell every reload.
     private var branchCache: [String: String] = [:]
     private var branchInFlight: Set<String> = []
-    // Subagent tree (ROADMAP Phase 31): the repo's worktree list, cached by
+    // Subagent tree: the repo's worktree list, cached by
     // cwd (all cwds in one repo resolve to the same set). Re-shelled off the
     // main thread the first time a cwd is seen; a fresh reload lands the
     // subagents (and drops the ones whose worktrees Claude Code has removed).
@@ -495,7 +495,7 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
         segmented.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(segmented)
 
-        // Broadcast controls (Phase 35): "All" fans to every live session, the
+        // Broadcast controls: "All" fans to every live session, the
         // selected button to the checked rows (its title carries the count).
         configureBroadcastButton(broadcastAllButton, title: "Broadcast All", action: #selector(broadcastAllTapped))
         configureBroadcastButton(broadcastSelectedButton, title: "Broadcast Selected", action: #selector(broadcastSelectedTapped))
@@ -620,7 +620,7 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
             self?.branch(forCwd: cwd)
         }
 
-        // Subagent tree (ROADMAP Phase 31): nest each session's
+        // Subagent tree: nest each session's
         // `isolation: worktree` subagents under it, discovered from the repo's
         // worktree list. Pruning is implicit — a removed worktree simply drops
         // out of the gathered list, so its row disappears.
@@ -632,7 +632,7 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
         let roots = SubagentTree.build(sessions: treeSessions, worktrees: worktrees)
         rows = FleetModel.tree(sessionRows: sessionRows, roots: roots)
 
-        // Broadcast (ROADMAP Phase 35): drop checks for rows that are gone or no
+        // Broadcast: drop checks for rows that are gone or no
         // longer steerable, so a finished session's check can't linger.
         let steerable = Set(rows.filter { $0.hosted }.map { $0.id })
         checkedIds.formIntersection(steerable)

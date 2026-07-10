@@ -6,7 +6,7 @@ final class FileRowView: NSTableCellView {
     let iconView = NSImageView(frame: .zero)
     let nameLabel = NSTextField(labelWithString: "")
     let badgeLabel = NSTextField(labelWithString: "")
-    // Git status (ROADMAP Phase 5): M/A/D/R/? letter on files, a dot on
+    // Git status: M/A/D/R/? letter on files, a dot on
     // directories containing changes.
     let gitLabel = NSTextField(labelWithString: "")
 
@@ -164,7 +164,7 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         get { header.onSearch }
         set { header.onSearch = newValue }
     }
-    // Header actions (ROADMAP Phase 9): open the folder picker / unpin.
+    // Header actions: open the folder picker / unpin.
     var onChooseFolder: (() -> Void)? {
         get { header.onChooseFolder }
         set { header.onChooseFolder = newValue }
@@ -275,7 +275,7 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         )
         // Git badges only make sense inside a repo; a plain directory index
         // simply shows none. The monitor is keyed to the repo root even when
-        // the index is pinned to a subdirectory (Phase 9), with the offset
+        // the index is pinned to a subdirectory, with the offset
         // between the two bridged by gitPathPrefix at lookup time.
         if let gitRoot = FileIndex.gitRoot(of: index.root) {
             let status = GitStatusMonitor.shared(forRoot: gitRoot)

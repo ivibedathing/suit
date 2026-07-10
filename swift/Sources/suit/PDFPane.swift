@@ -1,7 +1,7 @@
 import Cocoa
 import PDFKit
 
-// PDF preview tab (ROADMAP Phase 19): a PDFKit PDFView with a page-thumbnail
+// PDF preview tab: a PDFKit PDFView with a page-thumbnail
 // rail down the left. Scroll, page navigation, selection/copy — all read-only,
 // so reviewing a design PDF or a spec doesn't mean a trip to Preview.app.
 final class PDFPaneContent: NSObject, FileBackedPaneContent {
@@ -81,7 +81,7 @@ final class PDFPaneContent: NSObject, FileBackedPaneContent {
         statusLabel.frame = NSRect(x: 0, y: bounds.midY - 10, width: bounds.width, height: 20)
     }
 
-    // MARK: - State restoration (ROADMAP Phase 19)
+    // MARK: - State restoration
 
     var currentPageIndex: Int {
         guard let document = pdfView.document, let page = pdfView.currentPage else { return 0 }

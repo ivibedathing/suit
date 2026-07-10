@@ -1,6 +1,6 @@
 import Cocoa
 
-// The commit-graph pane (ROADMAP Phase 34): a read-only viewer tab rendering
+// The commit-graph pane: a read-only viewer tab rendering
 // `git log --all --date-order` as a clickable DAG — nodes in lanes with edges
 // for parents/merges/forks, branch/tag/HEAD badges on tips, age-tinted like the
 // blame gutter. The lane assignment + edge routing is the pure CommitGraph

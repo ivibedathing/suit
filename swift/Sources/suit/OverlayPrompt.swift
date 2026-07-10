@@ -1,11 +1,11 @@
 import Cocoa
 
-// A single-field prompt on the overlay surface (Phase 15): the artifact's
+// A single-field prompt on the overlay surface: the artifact's
 // panel language (flat #23262C, radius 10, hairline border, mono caption)
 // instead of a stock NSAlert with an accessory field. Used for rename-tab
 // and new-Claude-task; Enter commits, Esc cancels.
 //
-// Phase 31: the prompt can carry one optional accessory toggle (an
+// The prompt can carry one optional accessory toggle (an
 // "Isolate in worktree" switch on the new-task prompt); the panel grows a
 // row and `onCommit` reports the toggle's final state alongside the text.
 final class OverlayPromptController: NSObject, NSTextFieldDelegate, NSWindowDelegate {

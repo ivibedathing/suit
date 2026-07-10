@@ -27,8 +27,8 @@ struct SavedTab: Codable {
     var filePath: String?        // viewer / markdown / image / PDF
     var firstVisibleLine: Int?   // viewer scroll position
     var diffRoot: String?        // diff: the project root it was showing
-    var graphRoot: String? = nil // commitGraph: the repo root it was showing (Phase 34)
-    var reviewComments: [DiffReviewComment]? = nil  // diff: Phase 16 review draft
+    var graphRoot: String? = nil // commitGraph: the repo root it was showing
+    var reviewComments: [DiffReviewComment]? = nil  // diff: review draft
     var isPreview = false
     var isPinned: Bool? = nil
     var customTitle: String? = nil
@@ -36,7 +36,7 @@ struct SavedTab: Codable {
     // A deleted host falls back to a plain terminal in `cwd`. Never a password.
     var sshHostId: String? = nil
     // Preview-tab scroll/zoom, restored after the window reaches full size
-    // (ROADMAP Phase 19): markdown scroll fraction, image zoom, PDF page.
+    //: markdown scroll fraction, image zoom, PDF page.
     var scrollFraction: Double? = nil
     var imageActualSize: Bool? = nil
     var pdfPage: Int? = nil

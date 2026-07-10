@@ -71,7 +71,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let goalProvenanceCheckbox = NSButton(checkboxWithTitle: "Prepend source location to goals (From file:lines:)", target: nil, action: nil)
     let rtkCompressionCheckbox = NSButton(checkboxWithTitle: "Compress tool output with rtk", target: nil, action: nil)
 
-    // Autopilot (ROADMAP Phase 32, §2.9): every control writes through
+    // Autopilot: every control writes through
     // appDelegate.autopilotXChanged(...) and is re-read in show().
     let autopilotEnabledCheckbox = NSButton(checkboxWithTitle: "Work through ROADMAP.md autonomously", target: nil, action: nil)
     let autopilotProjectField = NSTextField(string: "")
@@ -88,7 +88,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let autopilotReviewModelField = NSTextField(string: "")
     let autopilotKeepAwakeCheckbox = NSButton(checkboxWithTitle: "Keep the Mac awake during runs", target: nil, action: nil)
 
-    // Cost budget guardrails (ROADMAP Phase 42): per-session / per-task dollar
+    // Cost budget guardrails: per-session / per-task dollar
     // ceilings (blank / 0 = no cap) and the opt-in auto-interrupt. The fields
     // commit on Enter/focus-loss through controlTextDidEndEditing.
     let budgetSessionCapField = NSTextField(string: "")
@@ -107,7 +107,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         // Same over-release hazard as TerminalWindowController's window: ARC
         // owns this window, so it must not also release itself on close.
         window.isReleasedWhenClosed = false
-        // The committed dark ground (Phase 15) — native controls already
+        // The committed dark ground — native controls already
         // render dark under the app-pinned .darkAqua appearance.
         window.backgroundColor = Theme.bg
         self.init(window: window)

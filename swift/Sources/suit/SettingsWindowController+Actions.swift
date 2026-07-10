@@ -88,7 +88,7 @@ extension SettingsWindowController {
             autopilotReviewModelField.stringValue = appDelegate.autopilotReviewModel
             return
         }
-        // Budget caps (ROADMAP Phase 42): a dollar amount, or blank/0 for off.
+        // Budget caps: a dollar amount, or blank/0 for off.
         // A non-numeric entry beeps and snaps back.
         if (notification.object as? NSTextField) === budgetSessionCapField {
             appDelegate.budgetSessionCap = Self.parseDollarCap(budgetSessionCapField.stringValue, current: appDelegate.budgetSessionCap)
@@ -141,7 +141,7 @@ extension SettingsWindowController {
         appDelegate?.rtkCompressionChanged(sender.state == .on)
     }
 
-    // MARK: - Autopilot actions (ROADMAP Phase 32)
+    // MARK: - Autopilot actions
 
     // Enabling runs the §2.3 enable-time checks in AppDelegate (Claude
     // integration installed, gh hint); a refusal snaps the checkbox back.

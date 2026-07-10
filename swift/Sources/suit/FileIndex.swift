@@ -49,7 +49,7 @@ final class FileIndex {
     }
 
     // An index rooted exactly at `directory`, skipping the git-root
-    // normalization — for the sidebar's pinned folder (ROADMAP Phase 9), where
+    // normalization — for the sidebar's pinned folder, where
     // the picked folder itself is the root even inside a repo. `git ls-files`
     // run from a subdirectory returns subdirectory-relative paths, so
     // .gitignore semantics stay exact.
@@ -208,7 +208,7 @@ final class FileIndex {
 }
 
 // Runs a process to completion and returns stdout, or nil on nonzero exit /
-// launch failure. Used for git (here, the diff pane, Phase 5 review tooling);
+// launch failure. Used for git (here, the diff pane, review tooling);
 // never called on paths derived from file content.
 func runProcess(_ executable: String, _ arguments: [String]) -> String? {
     let process = Process()

@@ -1,9 +1,9 @@
 import Foundation
 
-// ROADMAP Phase 35 — Broadcast input to multiple sessions. Fan a single
+// Broadcast input to multiple sessions. Fan a single
 // instruction across many Claude panes at once (the iTerm "send to all
-// sessions" gesture), made deliberate rather than silent. Phase 8 pipes text
-// into one session; this loops that same `SessionControl.send` over a resolved
+// sessions" gesture), made deliberate rather than silent. Where `SessionControl.send`
+// pipes text into one session, this loops that same call over a resolved
 // set of targets.
 //
 // The pure decision logic lives here — Foundation-only, no AppKit — so the

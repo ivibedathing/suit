@@ -1,8 +1,8 @@
 import Foundation
 
-// Cost budget guardrails (ROADMAP Phase 42): per-session and per-task
+// Cost budget guardrails: per-session and per-task
 // (worktree) spend ceilings that warn — or, opt-in, interrupt — when a run
-// blows past its budget. Phase 23 makes spend legible; this acts on it.
+// blows past its budget. Spend is made legible elsewhere; this acts on it.
 //
 // This file is the UI-free, standalone-compilable core (the RoadmapParser /
 // AutopilotScheduler / FeedbackRouting pattern, Foundation-only, no AppKit and

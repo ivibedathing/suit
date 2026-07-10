@@ -1,9 +1,9 @@
 import Cocoa
 
-// File History section (ROADMAP Phase 17): reveal a file's commits under a
+// File History section: reveal a file's commits under a
 // "File History" section, loaded async off the main thread.
 extension GitView {
-    // Show File History for a file (ROADMAP Phase 17): reveal its commits under
+    // Show File History for a file: reveal its commits under
     // a "File History" section. Loaded async off the main thread; a later call
     // for another file supersedes an in-flight one via the generation guard.
     func showFileHistory(absolutePath: String) {

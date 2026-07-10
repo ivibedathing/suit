@@ -1,6 +1,6 @@
 import Foundation
 
-// Autopilot persistence (ROADMAP Phase 32): everything the engine needs to
+// Autopilot persistence: everything the engine needs to
 // survive a relaunch lives under ~/.suit/autopilot/. Follows the
 // FavoritesStore pattern (static shared, didUpdate, all-optional Codable
 // model, $HOME-resolved paths, atomic writes) — but Foundation-only so the

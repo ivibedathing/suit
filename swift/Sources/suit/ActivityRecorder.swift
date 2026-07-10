@@ -1,6 +1,6 @@
 import Cocoa
 
-// The producer side of the Phase 38 activity feed. Watches the session monitor
+// The producer side of the activity feed. Watches the session monitor
 // for state transitions and turns each into an ActivityEvent; the other
 // producers (Autopilot merged/blocked, CI failures) call `record(...)` directly
 // from their existing transition points. Also drives the once-daily digest

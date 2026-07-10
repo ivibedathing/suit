@@ -1,6 +1,6 @@
 import Foundation
 
-// Phase 29 IO layer: gathers the actual feedback events for a repo by running
+// IO layer: gathers the actual feedback events for a repo by running
 // git (conflict state per worktree) and gh (CI failures + PR review comments
 // per open PR), then attributing each to its originating session. Runs off the
 // main thread — GitView calls it like `loadBranchData` — so it takes a session

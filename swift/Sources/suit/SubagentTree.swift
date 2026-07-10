@@ -1,6 +1,6 @@
 import Foundation
 
-// Subagent tree (ROADMAP Phase 31), the UI-free, standalone-compilable core
+// Subagent tree, the UI-free, standalone-compilable core
 // (the RoadmapParser / FeedbackRouting / TaskLaunch pattern, Foundation-only):
 // turns the flat session map + git worktree list into a nested forest so a
 // session that fans out into `isolation: worktree` subagents reads as a tree

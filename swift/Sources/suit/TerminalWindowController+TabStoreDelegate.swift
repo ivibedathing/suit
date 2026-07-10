@@ -1,5 +1,9 @@
 import Cocoa
 
+// Conforms TerminalWindowController to TabStoreDelegate: it reacts to tab
+// changes, process exits (closing clean exits, keeping failed ones red, and
+// deferring Autopilot worker tabs to AutopilotEngine), and attention requests
+// by refreshing the strip/chrome and flashing tabs.
 extension TerminalWindowController: TabStoreDelegate {
 
     func tabDidChange(_ tab: Tab) {
@@ -17,7 +21,7 @@ extension TerminalWindowController: TabStoreDelegate {
     func tabProcessDidExit(_ tab: Tab) {
         reloadStrip()
         tab.pane?.refreshChrome()
-        // Autopilot's worker tab (ROADMAP Phase 32): the engine owns what a
+        // Autopilot's worker tab: the engine owns what a
         // death means (§2.7 one --continue respawn, then blocked) and the
         // scrollback must survive for debugging — skip the clean-exit close.
         if AutopilotEngine.shared.ownsTab(withId: tab.id) {

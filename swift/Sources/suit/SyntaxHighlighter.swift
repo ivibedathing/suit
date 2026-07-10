@@ -1,6 +1,6 @@
 import Cocoa
 
-// Lightweight syntax highlighting for the file viewer (ROADMAP Phase 3). Per
+// Lightweight syntax highlighting for the file viewer. Per
 // the roadmap's fallback note, this is a hand-rolled single-pass scanner, not
 // tree-sitter: good-enough token classes (comments, strings, keywords, numbers,
 // types, attributes) for the languages actually in use, swappable for

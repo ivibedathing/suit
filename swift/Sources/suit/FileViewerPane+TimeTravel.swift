@@ -1,6 +1,6 @@
 import Cocoa
 
-// The Cocoa half of the file time-travel scrubber (ROADMAP Phase 40). The pure
+// The Cocoa half of the file time-travel scrubber. The pure
 // timeline / git-argv / diff-parse decisions live in FileTimeTravel.swift
 // (harness-tested); this drives the read-only viewer through a file's revisions
 // and hosts the scrubber bar. Read-only and non-destructive — scrubbing never
@@ -126,7 +126,7 @@ extension FileViewerPaneContent {
     }
 
     // The "Show Diff" flip: that commit's per-file change in the diff pane
-    // (Phase 17's openCommitDiff). No-op at the working-tree stop — there's no
+    // (via openCommitDiff). No-op at the working-tree stop — there's no
     // commit to `git show`; the ordinary Show Git Diff covers uncommitted work.
     func showTimeTravelDiff() {
         guard let timeline = timeTravelTimeline, let filePath else { NSSound.beep(); return }

@@ -1,10 +1,10 @@
 import Cocoa
 
-// The feed panel (ROADMAP Phase 38): a floating, window-spanning "Activity"
+// The feed panel: a floating, window-spanning "Activity"
 // panel — the chronological record of what moved across the fleet, newest-first,
 // filterable by repo / kind, with a "what happened today" digest header. A row
 // click routes to the thing it names (session pane / PR on GitHub / Autopilot
-// log). Same floating-panel shape as the Fleet dashboard (Phase 28).
+// log). Same floating-panel shape as the Fleet dashboard.
 
 // Tone → Theme color, kept out of the Foundation-only core.
 private extension ActivityKind.Tone {

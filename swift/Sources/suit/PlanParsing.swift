@@ -1,6 +1,6 @@
 import Foundation
 
-// Plan-approval parsing (ROADMAP Phase 26). When a Claude session in Plan mode
+// Plan-approval parsing. When a Claude session in Plan mode
 // finishes planning, it calls the ExitPlanMode tool with the proposed plan as
 // markdown. That tool_use in the session's JSONL transcript is the reliable
 // signal a plan has arrived — far more robust than scraping rendered text — so
@@ -99,7 +99,7 @@ enum PlanParser {
     }
 }
 
-// The three actions on the plan-approval pane (ROADMAP Phase 26), mapped onto
+// The three actions on the plan-approval pane, mapped onto
 // the numbered options of Claude Code's ExitPlanMode approval menu:
 //
 //   Would you like to proceed?

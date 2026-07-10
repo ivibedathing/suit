@@ -1,6 +1,6 @@
 import Cocoa
 
-// The ⌃R command-history overlay (ROADMAP Phase 43): the shell's reverse-i-search
+// The ⌃R command-history overlay: the shell's reverse-i-search
 // made native and cross-pane. Reuses the command-palette machinery in explicit-
 // items mode (like ⌘P): each remembered command is a row (fuzzy type-to-filter,
 // arrows/Enter/Esc), Enter runs it in the focused terminal pane and ⇧Enter types

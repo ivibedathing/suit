@@ -1,6 +1,6 @@
 import Foundation
 
-// Claude Code permission-mode control (ROADMAP Phase 26). Claude Code's Plan /
+// Claude Code permission-mode control. Claude Code's Plan /
 // auto-accept / normal modes hide behind Shift+Tab cycling; Suit surfaces them
 // as a visible Ask · Plan · Agent segmented control on a Claude tab's title bar
 // and drives them the only way a control surface can — by writing the Shift+Tab

@@ -45,7 +45,7 @@ protocol PaneContent: AnyObject {
 }
 
 // A pane content backed by a single file on disk (viewer, markdown, image,
-// PDF — ROADMAP Phase 1 & 19). openFile dedups by `filePath` so a file opens at
+// PDF). openFile dedups by `filePath` so a file opens at
 // most one tab regardless of which preview kind renders it, and `load` re-points
 // an existing one (honoring an optional line jump where the kind supports it).
 protocol FileBackedPaneContent: PaneContent {
@@ -53,7 +53,7 @@ protocol FileBackedPaneContent: PaneContent {
     func load(path: String, line: Int?)
 }
 
-// Which preview pane a file opens into (ROADMAP Phase 19): routed by extension
+// Which preview pane a file opens into: routed by extension
 // from openFile. Everything that isn't markdown/image/PDF falls through to the
 // syntax-highlighted text viewer.
 enum PreviewKind: Equatable {
@@ -74,7 +74,7 @@ enum PreviewKind: Equatable {
 // has no font or no cwd just leaves the defaults.
 extension PaneContent {
     var focusTarget: NSView { view }
-    // One surface (Phase 11): every pane kind grounds on the chrome bg unless
+    // One surface: every pane kind grounds on the chrome bg unless
     // it says otherwise, so a split window reads as one dark world.
     var initialBackgroundColor: NSColor { Theme.bg }
     var workingDirectory: String? { nil }

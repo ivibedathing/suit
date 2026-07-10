@@ -1,7 +1,7 @@
 import Cocoa
 
-// The sidebar's Git tab — the review-workflow surface (the home ROADMAP
-// Phase 5 implied) merged with worktree orchestration. Shows the displayed
+// The sidebar's Git tab — the review-workflow surface merged with worktree
+// orchestration. Shows the displayed
 // project's working-tree state: staged and unstaged files letter-badged like
 // the Files tree, under a header naming the current branch + worktree. The
 // header's dropdown switches the sidebar between the repo's worktrees, checks
@@ -20,7 +20,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var onOpenFile: ((String) -> Void)?
     // Show the whole working tree's diff for the shown repo root.
     var onShowFullDiff: ((String) -> Void)?
-    // ROADMAP Phase 34 — open the commit-graph pane for the shown repo.
+    // Open the commit-graph pane for the shown repo.
     var onShowCommitGraph: ((String) -> Void)?
     // Point the sidebar at another worktree (absolute path).
     var onSwitchWorktree: ((String) -> Void)?
@@ -28,17 +28,17 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     // repo's main checkout.
     var onTaskFinished: ((String) -> Void)?
     // Open a commit's per-file diff (absolute file path, full sha) — File
-    // History rows (ROADMAP Phase 17).
+    // History rows.
     var onOpenCommitDiff: ((String, String) -> Void)?
-    // Drop an away-marker for the shown repo (ROADMAP Phase 24).
+    // Drop an away-marker for the shown repo.
     var onMarkNow: ((String) -> Void)?
     // Show the aggregate catch-up diff since the last marker.
     var onCatchUp: ((String) -> Void)?
-    // Route a feedback event into its originating Claude session (Phase 29).
+    // Route a feedback event into its originating Claude session.
     var onRouteFeedback: ((FeedbackEvent) -> Void)?
-    // Kick a dedicated review pass in the event's worktree (Phase 29, optional).
+    // Kick a dedicated review pass in the event's worktree (optional).
     var onStartReviewPass: ((FeedbackEvent) -> Void)?
-    // Open an inbox PR's diff for review (ROADMAP Phase 39).
+    // Open an inbox PR's diff for review.
     var onOpenPR: ((PRReviewItem) -> Void)?
 
     enum Row {
@@ -67,14 +67,14 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var monitor: GitStatusMonitor?
     private var rows: [Row] = []
 
-    // Branch/PR overview (Phase 21), loaded off the main thread and cached:
+    // Branch/PR overview, loaded off the main thread and cached:
     // branches from local git, PR badges from `gh` (when installed). `loadToken`
     // discards results that land after the shown root has changed.
     var branches: [GitBranchInfo] = []
     var prByBranch: [String: GitPRInfo] = [:]
     var loadToken = 0
 
-    // File History section (ROADMAP Phase 17): the absolute path of the file
+    // File History section: the absolute path of the file
     // whose history is shown, its commits, and a generation guard so a stale
     // async result from a superseded file doesn't land.
     var historyPath: String?
@@ -82,15 +82,15 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var historyGeneration = 0
 
     // The shown repo's main-checkout path, resolved once per repo switch —
-    // markers are keyed by it (ROADMAP Phase 24). Kept off `reload()`'s hot
+    // markers are keyed by it. Kept off `reload()`'s hot
     // FSEvents path since it shells out to git.
     private var markerMainRoot: String?
-    // Feedback inbox (Phase 29): CI failures / PR review comments / merge
+    // Feedback inbox: CI failures / PR review comments / merge
     // conflicts across the repo's worktrees, gathered off the main thread and
     // token-guarded against a superseded root, same pattern as the branch load.
     var feedbackEvents: [FeedbackEvent] = []
     var feedbackToken = 0
-    // PR review inbox (ROADMAP Phase 39): open PRs that involve me (authored /
+    // PR review inbox: open PRs that involve me (authored /
     // assigned / review-requested), from `gh`, loaded off the main thread and
     // token-guarded against a superseded root like the branch/feedback passes.
     var reviewPRs: [PRReviewItem] = []
@@ -215,7 +215,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             historyGeneration += 1
             // The feedback inbox is repo-scoped too.
             feedbackEvents = []
-            // As is the PR review inbox (Phase 39).
+            // As is the PR review inbox.
             reviewPRs = []
         }
         monitor?.refresh()
@@ -256,13 +256,13 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         branchButton.toolTip = (monitor.root as NSString).abbreviatingWithTildeInPath
 
         // Feedback inbox first — machine feedback that needs routing is the
-        // "who needs me right now" of the review workflow (Phase 29).
+        // "who needs me right now" of the review workflow.
         if !feedbackEvents.isEmpty {
             rows.append(.section("Feedback — \(feedbackEvents.count)"))
             rows += feedbackEvents.map { .feedback($0) }
         }
 
-        // PR review inbox next (Phase 39): other people's PRs awaiting my review,
+        // PR review inbox next: other people's PRs awaiting my review,
         // the outward-facing twin of the local review workflow.
         if !reviewPRs.isEmpty {
             rows.append(.section("PR Review Inbox — \(reviewPRs.count)"))
@@ -366,15 +366,15 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         case let .branch(info):
             activate(branch: info)
         case let .commit(commit):
-            // A File History row opens that commit's per-file diff (Phase 17).
+            // A File History row opens that commit's per-file diff.
             if let historyPath {
                 onOpenCommitDiff?(historyPath, commit.sha)
             }
         case let .feedback(event):
-            // Clicking a feedback row routes it to its session (Phase 29).
+            // Clicking a feedback row routes it to its session.
             onRouteFeedback?(event)
         case let .reviewPR(pr):
-            // Clicking a PR inbox row opens its diff for review (Phase 39).
+            // Clicking a PR inbox row opens its diff for review.
             onOpenPR?(pr)
         default:
             break
@@ -391,7 +391,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         onShowCommitGraph?(root)
     }
 
-    // MARK: - Away marker (ROADMAP Phase 24)
+    // MARK: - Away marker
 
     private var currentMarker: MarkerStore.Marker? {
         markerMainRoot.flatMap { MarkerStore.shared.marker(forRepo: $0) }

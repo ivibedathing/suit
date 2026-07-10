@@ -1,6 +1,6 @@
 import Cocoa
 
-// ROADMAP Phase 22 — file:line bookmarks. Phase 9 favorites pin *files*; a
+// File:line bookmarks. Favorites pin *files*; a
 // review or refactor lives at *specific lines*, so a bookmark points at a
 // file:line with an optional name. Lightweight navigation for holding several
 // threads of a change in your head at once.
@@ -166,7 +166,7 @@ private final class BookmarkTableView: NSTableView {
     }
 }
 
-// The sidebar's Bookmarks tab (ROADMAP Phase 22): a keyboard-navigable list of
+// The sidebar's Bookmarks tab: a keyboard-navigable list of
 // saved file:line locations. Enter / double-click opens the file at that line;
 // right-click renames or removes. Backed by the shared BookmarksStore, so every
 // window's tab stays in sync.

@@ -186,7 +186,7 @@ extension AutopilotEngine {
             title: "Phase \(run.phaseId) merged — \(run.title)",
             body: body, identifier: "autopilot-merged"
         )
-        // Fleet activity feed (ROADMAP Phase 38): a merged run is feed-worthy.
+        // Fleet activity feed: a merged run is feed-worthy.
         appDelegate?.recordAutopilotMerged(
             runId: run.id, phaseId: run.phaseId, title: run.title,
             repo: FleetModel.projectAndWorktree(cwd: run.worktreePath).project,

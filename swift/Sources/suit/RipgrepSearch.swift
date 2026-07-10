@@ -1,6 +1,6 @@
 import Foundation
 
-// Project-wide search (ROADMAP Phase 2) shells out to `rg --json` rather than
+// Project-wide search shells out to `rg --json` rather than
 // implementing a search engine — ripgrep is the industry answer (VSCode does
 // exactly this). The binary ships in Contents/Resources so search doesn't
 // depend on the user's PATH; the fallbacks mirror resolveTUIExecutable().
@@ -45,7 +45,7 @@ struct RipgrepOptions {
     // Comma/space-separated rg -g globs, e.g. "*.swift, go/**".
     var globs: String
     var rootDirectory: String
-    // Cross-transcript search (Phase 20) searches ~/.claude — a hidden tree that
+    // Cross-transcript search searches ~/.claude — a hidden tree that
     // may carry its own ignore rules — so it opts into --hidden/--no-ignore.
     // Project search leaves both at their defaults (respect .gitignore, skip
     // dotfiles), matching VSCode.

@@ -1,6 +1,6 @@
 import Cocoa
 
-// The AppKit half of Phase 42's cost budget guardrails. Each session heartbeat
+// The AppKit half of the cost budget guardrails. Each session heartbeat
 // it reads the live sessions' cumulative cost_usd (Phases 7/23), builds
 // per-session and per-task (worktree) spend samples, and runs them through the
 // pure BudgetMonitor. A new trip is handed to `onTrip` — AppDelegate notifies

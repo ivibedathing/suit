@@ -1,6 +1,6 @@
 import Cocoa
 
-// Git awareness (ROADMAP Phase 5): one status monitor per repo root, refreshed
+// Git awareness: one status monitor per repo root, refreshed
 // whenever that root's FileIndex rescans (FSEvents already drives those), so
 // the file browser's modified/added badges and the viewer's changed-line marks
 // stay live without any polling of their own.
@@ -227,7 +227,7 @@ enum GitChangedLines {
                 return
             }
             // The @@ +c,d side is where the file's current content changed; the
-            // parse is shared with the time-travel scrubber (Phase 40).
+            // parse is shared with the time-travel scrubber.
             let lines = TimeTravelDiff.changedNewLines(inDiff: diff)
             DispatchQueue.main.async { completion(lines) }
         }

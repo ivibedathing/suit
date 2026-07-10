@@ -1,6 +1,6 @@
 import Cocoa
 
-// The search half of the sidebar's Files tab (ROADMAP Phase 2, restyled in the
+// The search half of the sidebar's Files tab (restyled in the
 // "Minimal" sidebar redesign): search is no longer a permanent field stacked
 // over the tree — the file browser (`idleView`) owns the whole tab until search
 // is activated (⌘⇧F, or the header's magnifier). Activating drops a compact

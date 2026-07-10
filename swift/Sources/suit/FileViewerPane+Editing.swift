@@ -1,8 +1,7 @@
 import Cocoa
 
-// Editing, saving and outside-change reconciliation for the file viewer
-// (ROADMAP Phase 37 — the thesis's sanctioned "additive later phase"). Split
-// out of FileViewerPane.swift like the highlighting/blame/symbol wiring; the
+// Editing, saving and outside-change reconciliation for the file viewer.
+// Split out of FileViewerPane.swift like the highlighting/blame/symbol wiring; the
 // pure dirty/reconcile decisions live in FileEdit.swift (harness-tested). The
 // stored state (editState, timers, savedModificationDate, isEditableFile) is on
 // the primary declaration.

@@ -1,6 +1,6 @@
 import Cocoa
 
-// The background-task monitor pane (ROADMAP Phase 30): lists the background
+// The background-task monitor pane: lists the background
 // processes launched from a pane's shell — command, status (running /
 // done / failed), listening port when detectable — over a live tail of the
 // selected task's captured output. Read-only, like the transcript/diff panes;

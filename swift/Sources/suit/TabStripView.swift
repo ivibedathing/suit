@@ -47,7 +47,7 @@ final class TabStripView: NSView, NSDraggingSource {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // Flat bar chrome (Phase 11) — the committed-dark design replaced the
+        // Flat bar chrome — the committed-dark design replaced the
         // .titlebar vibrancy with the Theme fill.
         wantsLayer = true
         layer?.backgroundColor = Theme.barChrome.cgColor

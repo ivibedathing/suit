@@ -1,7 +1,7 @@
 import Cocoa
 
 extension AppDelegate {
-    // MARK: - Autopilot (ROADMAP Phase 32)
+    // MARK: - Autopilot
 
     // Enabling runs the §2.3 enable-time checks: the hook/statusline scripts
     // are Autopilot's nervous system (refuse without them), and gh gets an
@@ -154,7 +154,7 @@ extension AppDelegate {
         attentionCenter?.postAutopilotEvent(title: title, body: body, identifier: identifier)
     }
 
-    // Fleet activity feed (ROADMAP Phase 38): record an Autopilot run that
+    // Fleet activity feed: record an Autopilot run that
     // merged — a positive row that routes to its PR on GitHub (or the log when
     // there's no URL). id keyed by run so re-entry can't double-record.
     func recordAutopilotMerged(runId: String, phaseId: Int, title: String, repo: String?, prNumber: Int?, prURL: String?) {

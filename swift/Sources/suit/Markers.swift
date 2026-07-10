@@ -1,6 +1,6 @@
 import Cocoa
 
-// "What changed while I was away" markers (ROADMAP Phase 24): the async-
+// "What changed while I was away" markers: the async-
 // delegation review. You start Claude sessions across a repo's worktrees, step
 // away, and come back wanting *one* diff of everything that moved — not to
 // re-inspect each worktree by hand.
@@ -8,7 +8,7 @@ import Cocoa
 // A marker records a per-repo checkpoint: every worktree's HEAD sha plus a
 // timestamp. "What Changed Since Mark" then composes an aggregate diff across
 // all of the repo's worktrees (each `git diff <marker-sha>`, which spans
-// commits + staged + unstaged) into a single review set fed to the Phase 5
+// commits + staged + unstaged) into a single review set fed to the
 // diff machinery (diff tab, n/p walk, o open, c comment). Because the diff pane
 // is driven by diff *text*, the composer just rewrites each worktree's file
 // paths to be relative to the main checkout, so the changed-file list reads
