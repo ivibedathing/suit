@@ -90,12 +90,12 @@ working.
   to a screen edge); the split-out tab becomes the new pane's own. Unsplit with ⌥⌘W (its tabs
   fold back into a neighbor), walk splits with ⌥⌘arrows. Closing the active tab falls back to
   another tab the same pane owns; background tabs keep their processes running.
-- **Drag a tab into its own pane** — dragging a tab onto a viewport shows the same split-zone
-  preview a pane drag does: drop on an outer half (left / right / top / bottom) to split it out
-  into its own new pane on that edge, or drop on the center or the header to just show it in that
-  pane (the displaced tab backgrounds, its process untouched). The tab even previews as a pane
-  header while you drag, so it's clear it can become a pane. Moving a tab to another window and
-  tearing off a new one are unchanged.
+- **Drag a tab into its own pane** — grab a chip from a pane's in-pane tab bar and drag it onto
+  any viewport; it shows the same split-zone preview a pane drag does: drop on an outer half
+  (left / right / top / bottom) to split it out into its own new pane on that edge, or drop on
+  the center or the header to just show it in that pane (the displaced tab backgrounds, its
+  process untouched). The tab previews as a pane header while you drag, so it's clear it can
+  become a pane. Drag a chip clear of every window to tear it off into a new window of its own.
 - **Exit status** — a clean shell exit closes its tab; a failure leaves it open with a red dot
   (hover for the signal/exit reason). Bells flash the pane and bounce the Dock icon while the
   app is inactive.
