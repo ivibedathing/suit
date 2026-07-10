@@ -128,17 +128,20 @@ final class DictationController {
                     if result.isFinal { self.deliver() }
                 }
                 guard let error else { return }
-                if self.isListening {
-                    // Error arrived while we're still holding 🌐 — the recognizer
-                    // couldn't run at all. Almost always because macOS Dictation
-                    // is switched off: SFSpeechRecognizer reports isAvailable /
+                if self.isListening && self.latestTranscript.isEmpty {
+                    // Error arrived while we're still holding 🌐 and nothing was
+                    // ever transcribed — the recognizer couldn't run at all.
+                    // Almost always because macOS Dictation is switched off:
+                    // SFSpeechRecognizer reports isAvailable /
                     // supportsOnDeviceRecognition = true even then, and only fails
                     // once recognition starts (kLSRErrorDomain 201). Surface an
                     // actionable message instead of silently dropping the HUD.
                     self.reportUnavailable(error, over: window)
                 } else {
-                    // Benign end-of-stream error after endAudio(); deliver what we
-                    // have so a hold never hangs the HUD.
+                    // Either a benign end-of-stream error after endAudio(), or a
+                    // mid-listen error (no-speech timeout, transient) that still
+                    // left us a partial. Deliver what we have so the transcript is
+                    // never discarded and a hold never hangs the HUD.
                     self.deliver()
                 }
             }
@@ -162,19 +165,28 @@ final class DictationController {
         didDeliver = true
         isListening = false
         stopAudio()
+        resetRecognition()
+        target = nil
+
+        // kLSRErrorDomain code 201 == "Siri and Dictation are disabled". Match
+        // the domain too — a bare code 201 in another domain means something else.
+        let ns = error as NSError
+        let message = (ns.domain == "kLSRErrorDomain" && ns.code == 201)
+            ? "Turn on Dictation: System Settings ▸ Keyboard ▸ Dictation"
+            : "Speech recognition unavailable"
+        hud.show(caption: "🎙 DICTATION UNAVAILABLE", message: message, over: window)
+        hud.dismiss(after: 3.5)
+    }
+
+    // Cancel the recognizer, drop the pending timeout, and release the request.
+    // Shared teardown for both terminal paths (deliver / reportUnavailable);
+    // callers set didDeliver first and handle target/audio themselves.
+    private func resetRecognition() {
         finalTimer?.invalidate()
         finalTimer = nil
         task?.cancel()
         task = nil
         request = nil
-        target = nil
-
-        // kLSRErrorDomain code 201 == "Siri and Dictation are disabled".
-        let message = (error as NSError).code == 201
-            ? "Turn on Dictation: System Settings ▸ Keyboard ▸ Dictation"
-            : "Speech recognition unavailable"
-        hud.show(caption: "🎙 DICTATION UNAVAILABLE", message: message, over: window)
-        hud.dismiss(after: 3.5)
     }
 
     // Inject the cleaned transcript once, then reset. Guarded so the final
@@ -182,11 +194,13 @@ final class DictationController {
     private func deliver() {
         guard !didDeliver else { return }
         didDeliver = true
-        finalTimer?.invalidate()
-        finalTimer = nil
-        task?.cancel()
-        task = nil
-        request = nil
+        // A final result can arrive before the user releases 🌐; stop the mic
+        // now rather than leaving the tap running until finish().
+        if isListening {
+            isListening = false
+            stopAudio()
+        }
+        resetRecognition()
 
         let text = DictationText.normalize(latestTranscript)
         let terminal = target
