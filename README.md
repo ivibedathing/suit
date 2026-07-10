@@ -246,6 +246,13 @@ working.
   5h/7d usage, and the Sessions sidebar tab lists every open tab with its live session dot.
 - **Attention** — a session that needs input while Suit is inactive posts a notification
   (click to jump to its pane) and badges the Dock with the needs-input count.
+- **Dictation (speech to text)** — hold the **🌐 (Globe / Fn)** key to talk; release and the
+  transcribed text drops into the focused pane's prompt (it is *not* auto-submitted, so you can
+  review and edit before Enter). A small "Listening…" HUD shows the live transcription. Recognition
+  is **on-device** (Apple's Speech framework) — no network, no API key, works offline. First use
+  prompts for microphone and speech-recognition access. **Dictate…** in the command palette (and
+  View menu) primes that permission and reminds you of the gesture. If holding 🌐 pops the emoji
+  picker instead, set *System Settings ▸ Keyboard ▸ Press 🌐 key to* → **Do Nothing**.
 - **Fleet dashboard** — "Show Fleet" (⇧⌘O, or the command palette) opens a floating,
   cross-window panel listing every live Claude session as a row — status dot, current task,
   project · worktree · branch, context %, and cost — sorted needs-you-first, so one glance

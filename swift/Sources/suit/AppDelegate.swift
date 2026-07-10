@@ -168,6 +168,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         )
         loadSettings()
         buildMenu()
+        // Push-to-talk dictation: hold 🌐 (Fn/Globe) to speak into the focused
+        // pane (see AppDelegate+Dictation / Dictation.swift).
+        installDictationHotkey()
 
         // Reopen with the last quit's layout when one was saved (state
         // restoration); otherwise the classic single shell in the last cwd.

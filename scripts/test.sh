@@ -34,6 +34,7 @@ HARNESSES=(
   "budget|scripts/budget-test.sh|fast"
   "command-history|scripts/command-history-test.sh|fast"
   "rtk|scripts/rtk-test.sh|fast"
+  "dictation|scripts/dictation-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 

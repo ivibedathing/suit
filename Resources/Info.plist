@@ -24,6 +24,10 @@
     <string>public.app-category.developer-tools</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Suit records from the microphone while you hold the 🌐 (Globe) key to dictate text into the focused pane.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Suit transcribes your speech on-device to type dictated text into the focused terminal or prompt.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>
