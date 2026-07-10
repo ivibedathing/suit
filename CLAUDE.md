@@ -5,7 +5,7 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 ## What this is
 
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app growing from a terminal
-into a Claude-code-first cockpit for codebase work (see `ROADMAP.md` for the phased plan). It's a
+into a Claude-code-first cockpit for codebase work. It's a
 native AppKit app bundle whose windows host split trees of panes displaying browser-style tabs —
 terminals (interactive `/bin/zsh -l -i` on SwiftTerm's pty), file viewers, diffs, and other
 `PaneContent` implementations. Swift/AppKit is the product/UI layer; heavy non-UI logic may move
@@ -85,21 +85,29 @@ change so visual drift shows up in review diffs.
 
 Everything lives in `swift/Sources/suit/` unless noted. Roughly by area:
 
-- **App shell**: `main.swift`, `AppDelegate.swift` (windows, menu bar, palette command
-  registry, settings persistence, global shortcuts), `SettingsWindowController.swift`,
-  `CommandPalette.swift` (⌘K palette, also ⌘P file picker), `OverlayPrompt.swift`.
-- **Tabs & panes**: `TabStore.swift`, `TabStripView.swift`, `TabSwitcherPanel.swift` (⌃Tab MRU),
-  `Pane.swift`, `PaneContent.swift`, `StateRestoration.swift`, `Layouts.swift` +
-  `AppDelegate+Layouts.swift`, `PaneScreensaverView.swift`, `ProcessUtil.swift`.
+- **App shell**: `main.swift` (entry point), `AppDelegate.swift` + its many `AppDelegate+*.swift`
+  extensions (windows, menu bar, palette command registry, settings persistence, global
+  shortcuts), `TerminalWindowController.swift` + `TerminalWindowController+*.swift` (the per-window
+  controller — open tabs, panes, sidebar, state, tab-store delegate), `SettingsWindowController.swift`
+  (+ `+Sections` / `+Actions`), `CommandPalette.swift` (⌘K palette, also ⌘P file picker),
+  `OverlayPrompt.swift`, `KeyboardShortcuts.swift`, `Theme.swift` (central styling), `Broadcast.swift`
+  (⌘-typing to many terminals at once).
+- **Tabs & panes**: `TabStore.swift`, `TabStripView.swift`, `TabItemView.swift`,
+  `TabSwitcherPanel.swift` (⌃Tab MRU), `Pane.swift`, `PaneContent.swift`, `PaneTerminalView.swift`,
+  `PaneTabBarView.swift`, `PaneTitleBarView.swift`, `RootHeaderView.swift`, `PaneScreensaverView.swift`,
+  `SplitOrientation.swift`, `StateRestoration.swift`, `Layouts.swift` + `AppDelegate+Layouts.swift`,
+  `ProcessUtil.swift`.
 - **Sidebar**: `SidebarView.swift` (icon rail: Files / Bookmarks / SSH Hosts / Notes),
   `FileBrowserView.swift` (tree + `GitFooterView` branch/worktree switcher),
   `SearchView.swift` (⇧⌘F), `FileIndex.swift` (git-aware file list behind ⌘P and the browser),
   `RipgrepSearch.swift` (bundled `rg --json`), `Favorites.swift` (recent project roots),
-  `Notes.swift`, `SSHHosts.swift` / `SSHPane.swift` / `SSHHostsView.swift`.
-- **Viewer & editing**: `FileViewerPane.swift` (+ `Editing`, `Symbols`, `TimeTravel` extensions),
-  `FileEdit.swift`, `FileTimeTravel.swift`, `SyntaxHighlighter.swift`, `MinimapView.swift`,
-  `SymbolIndexCore.swift` / `SymbolIndex.swift` (ctags go-to-definition),
-  `ReferencesPane.swift`.
+  `Notes.swift`, `Bookmarks.swift`, `SSHHosts.swift` / `SSHPane.swift` / `SSHHostsView.swift`.
+- **Viewer & editing**: `FileViewerPane.swift` (+ `Editing`, `Symbols`, `TimeTravel`,
+  `Highlighting`, `Blame` extensions), `ViewerContainerView.swift`, `ViewerTextView.swift`,
+  `LineNumberRulerView.swift`, `FileEdit.swift`, `FileTimeTravel.swift`, `SyntaxHighlighter.swift`,
+  `MinimapView.swift`, `SymbolIndexCore.swift` / `SymbolIndex.swift` (ctags go-to-definition),
+  `ReferencesPane.swift`. Other pane kinds: `MarkdownPane.swift`, `ImagePane.swift`,
+  `PDFPane.swift`.
 - **Git & GitHub**: `GitStatus.swift`, `GitBlame.swift`, `GitView.swift` (review surface, shown
   via the palette — no sidebar rail tab) + `GitView+Feedback.swift` / `GitView+PRInbox.swift`,
   `GitBranches.swift` (`GitHubCLI` gh wrapper with graceful no-gh degradation),
@@ -111,8 +119,14 @@ Everything lives in `swift/Sources/suit/` unless noted. Roughly by area:
   `PlanParsing.swift` / `PlanApprovalPane.swift`, `PromptComposer.swift`, `Recipes.swift`,
   `TaskLaunch.swift` / `SubagentTree.swift`, `Activity.swift` / `ActivityRecorder.swift` /
   `ActivityFeedController.swift`.
-- **Autopilot**: `AutopilotEngine.swift`, `AutopilotScheduler.swift`, `RoadmapParser.swift`,
-  `AutopilotStore.swift`, `AutopilotGates.swift`, `AutopilotPrompts.swift`.
+- **Autopilot & fleet**: `AutopilotEngine.swift` + `AutopilotEngine+*.swift`,
+  `AutopilotScheduler.swift`, `RoadmapParser.swift`, `AutopilotStore.swift`, `AutopilotGates.swift`,
+  `AutopilotPrompts.swift`, `AutopilotEngineTypes.swift`, `BudgetGuardrails.swift` +
+  `AppDelegate+Budget.swift`, `FleetDashboard.swift` (fleet-supervision dashboard),
+  `GoalComposition.swift` (`/goal` task composition).
+- **Sessions & history**: `CommandHistory.swift` + `AppDelegate+CommandHistory.swift`,
+  `CheckpointTimeline.swift`, `Markers.swift`, `SlashCommands.swift`, `TranscriptSearch.swift`,
+  `BackgroundTasks.swift` / `BackgroundTaskStore.swift` / `BackgroundTaskPane.swift`.
 - **Repo root**: `scripts/claude/` (statusline + hook scripts, bundled by `build.sh`),
   `scripts/*.sh` test harnesses, `design/` (reference render), `Resources/Info.plist`
   (bundle id `dev.kosych.suit`; add `NS*UsageDescription` keys here when a feature needs one),
@@ -125,7 +139,7 @@ the source of truth for details.
 
 - `AGENTS.md` — the 60-second orientation; keep it in sync with this file when build/test
   commands or load-bearing rules change.
-- `.claude/commands/` — repo slash commands: `/build`, `/test`, `/claim-phase`,
+- `.claude/commands/` — repo slash commands: `/build`, `/test`,
   `/render-reference`, `/orient`, `/find-file`.
 - `.claude/settings.json` — shared permission allowlist for safe repeated commands. It
   deliberately does not auto-allow `git push` (asks) or force-push (denied).
@@ -136,11 +150,7 @@ the source of truth for details.
 - **Always work on a new branch in its own git worktree** (`EnterWorktree`) — never directly in
   the main checkout. Concurrent sessions have clobbered each other here before. Exit with
   `keep` to persist, `remove` once merged/abandoned.
-- **Claim a ROADMAP.md phase before starting it**: append ` 🚧 in progress (<branch>, <date>)`
-  to the phase heading and commit that one line to main *before* creating the worktree. Pick
-  the first phase in document order not marked `🚧` / `✅` / `⏸`. Replace `🚧` with `✅` when it
-  ships (or remove it if abandoned).
-- **After implementing a phase, document it in `README.md`** (user-facing behavior, shortcuts,
+- **After implementing a feature, document it in `README.md`** (user-facing behavior, shortcuts,
   settings) as part of the same task.
 - **`/goal` tasks follow the full loop** without asking: worktree → implement → `gh pr create`
   against `main` → `gh pr merge`, resolving any conflicts (rebase on `main`, re-push) until

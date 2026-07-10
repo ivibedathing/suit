@@ -2,7 +2,7 @@ import Foundation
 
 // The app's one fuzzy matcher, shared by the command palette (Cmd-K commands,
 // Cmd-P files), the definition picker, and the ⌃R command-history overlay
-// (ROADMAP Phase 43). Kept in a Foundation-only file so the standalone logic
+//. Kept in a Foundation-only file so the standalone logic
 // harnesses can compile the pieces that rank against it (command-history-test)
 // without pulling in AppKit.
 //

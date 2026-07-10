@@ -1,6 +1,6 @@
 import Cocoa
 
-// Image preview tab (ROADMAP Phase 19): PNG/JPG/GIF/SVG open here instead of
+// Image preview tab: PNG/JPG/GIF/SVG open here instead of
 // bouncing out to Preview.app. An image drawn over a checkerboard backing (so
 // transparency reads), a zoom-to-fit / actual-size toggle, and the pixel
 // dimensions in a slim header. Read-only — no scope creep toward an editor.
@@ -173,7 +173,7 @@ final class ImagePaneContent: NSObject, FileBackedPaneContent {
         if !actualSize { relayoutCanvas() }
     }
 
-    // MARK: - State restoration (ROADMAP Phase 19)
+    // MARK: - State restoration
 
     var isActualSize: Bool { actualSize }
 

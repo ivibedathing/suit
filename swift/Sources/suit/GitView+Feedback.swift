@@ -1,6 +1,6 @@
 import Cocoa
 
-// Feedback inbox (ROADMAP Phase 29): the Git tab's section for machine feedback
+// Feedback inbox: the Git tab's section for machine feedback
 // — CI failures, PR review comments, and merge conflicts across the repo's
 // worktrees — each attributed to its originating Claude session and one-tap
 // routable there. Loading mirrors the branch/PR pass (off the main thread,
@@ -33,7 +33,7 @@ extension GitView {
         }
     }
 
-    // Fleet activity feed (ROADMAP Phase 38): a CI failure surfaced by the
+    // Fleet activity feed: a CI failure surfaced by the
     // inbox is feed-worthy. Deduped on the FeedbackEvent id (kind+worktree+PR),
     // so several windows' passes over the same repo record it once; a row
     // routes to its attributed session, else falls back (no PR URL is known
@@ -97,7 +97,7 @@ extension GitView {
     }
 }
 
-// One feedback row (Phase 29): a kind glyph (red for CI/conflict, amber for
+// One feedback row: a kind glyph (red for CI/conflict, amber for
 // review comments), the event title on top, and a faint subtitle naming the
 // worktree/branch and the originating session — or "route to a session" when
 // attribution was ambiguous.

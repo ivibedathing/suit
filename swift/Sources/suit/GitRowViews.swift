@@ -126,7 +126,7 @@ final class GitHintRowView: NSTableCellView {
     }
 }
 
-// One File History commit row (ROADMAP Phase 17): short sha (age-tinted, mono)
+// One File History commit row: short sha (age-tinted, mono)
 // beside the subject on top, author + relative date below in faint text.
 final class GitCommitRowView: NSTableCellView {
     private let shaLabel = NSTextField(labelWithString: "")
@@ -185,7 +185,7 @@ final class GitCommitRowView: NSTableCellView {
     }
 }
 
-// One branch row (Phase 21): branch-icon + name on the left (current branch in
+// One branch row: branch-icon + name on the left (current branch in
 // accent/semibold), and a right-aligned cluster of ahead/behind counts, an
 // optional PR badge, and a dirty dot. A worktree glyph marks branches checked
 // out in a linked worktree.

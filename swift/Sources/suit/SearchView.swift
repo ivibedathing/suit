@@ -1,6 +1,6 @@
 import Cocoa
 
-// The search half of the sidebar's Files tab (ROADMAP Phase 2): pattern field
+// The search half of the sidebar's Files tab: pattern field
 // with the regex/case toggles, glob filter, and scope picker collapsed behind
 // its options button (only the input shows by default), and live-updating
 // results grouped by file. Clicking a match opens it in the window's viewer pane at

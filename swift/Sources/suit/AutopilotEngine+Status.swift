@@ -182,7 +182,7 @@ extension AutopilotEngine {
             title: phaseId.map { "Autopilot blocked — Phase \($0)" } ?? "Autopilot blocked",
             body: message, identifier: "autopilot-blocked"
         )
-        // Fleet activity feed (ROADMAP Phase 38): a block is feed-worthy.
+        // Fleet activity feed: a block is feed-worthy.
         appDelegate?.recordAutopilotBlocked(reason: reason.rawValue, message: message, phaseId: phaseId, at: at)
         setState(.blocked(reason))
     }

@@ -1,6 +1,6 @@
 import Cocoa
 
-// Go-to-definition & find-references from the viewer (ROADMAP Phase 33): pull
+// Go-to-definition & find-references from the viewer: pull
 // the identifier out from under the caret (menu / keystroke) or a Cmd-click,
 // and hand it to the host, which owns the symbol index and the tab it opens
 // into (Pane.goToDefinition / findReferences → the window controller). This is

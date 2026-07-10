@@ -1,6 +1,6 @@
 import Cocoa
 
-// The AppKit half of Phase 43's command-history search: the source that feeds
+// The AppKit half of the command-history search: the source that feeds
 // the ⌃R overlay. Two sources, merged by the pure CommandHistory core:
 //
 //   • shell history — $HISTFILE (or ~/.zsh_history / ~/.bash_history), read off

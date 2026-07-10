@@ -1,13 +1,13 @@
 import Cocoa
 
-// The viewer's root view: an optional top bar (the Phase 40 time-travel
+// The viewer's root view: an optional top bar (the time-travel
 // scrubber) above a text scroll view on the left and a minimap strip on the
 // right. Manual layout like the rest of the pane tree.
 final class ViewerContainerView: NSView {
     let scrollView: NSScrollView
     let minimap: MinimapView
 
-    // The time-travel scrubber bar (ROADMAP Phase 40): non-nil only while the
+    // The time-travel scrubber bar: non-nil only while the
     // viewer is scrubbing, laid out as a strip across the top that pushes the
     // text + minimap down.
     var topBar: NSView? {

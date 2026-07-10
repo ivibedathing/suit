@@ -1,6 +1,6 @@
 import Foundation
 
-// The UI-free core of go-to-definition / find-references (ROADMAP Phase 33),
+// The UI-free core of go-to-definition / find-references,
 // the RoadmapParser/FeedbackRouting pattern: Foundation-only, no app deps, so
 // scripts/symbol-index-test can compile it standalone and assert the parsing
 // and lookup rules. The app-side SymbolIndex.swift wraps this with the ctags

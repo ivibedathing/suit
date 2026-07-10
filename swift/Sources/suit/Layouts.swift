@@ -1,6 +1,6 @@
 import Foundation
 
-// Saved layouts / named workspaces (ROADMAP Phase 41). State restoration
+// Saved layouts / named workspaces. State restoration
 // (StateRestoration.swift) already reopens the *last* layout at quit; this
 // makes layouts nameable and switchable — a "review" layout, a "debug"
 // layout — on top of the same capture/replay machinery.

@@ -1,9 +1,9 @@
 import Foundation
 
-// The per-task isolation decision (ROADMAP Phase 31), pulled out UI-free and
+// The per-task isolation decision, pulled out UI-free and
 // standalone-compilable so the harness can assert it (the RoadmapParser /
-// FeedbackRouting pattern). Phase 5 made "New Claude Task" always spin a
-// worktree; Phase 31 makes it a choice — on isolates the task in its own
+// FeedbackRouting pattern). "New Claude Task" originally always spun a
+// worktree; it is now a choice — on isolates the task in its own
 // worktree, off runs `claude` in the current checkout.
 enum TaskLaunch {
     // Whether the task should get its own worktree at all.

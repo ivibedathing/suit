@@ -1,6 +1,6 @@
 import Cocoa
 
-// PR review inbox (ROADMAP Phase 39): the Git tab's section listing open PRs
+// PR review inbox: the Git tab's section listing open PRs
 // that involve me — authored, assigned, or review-requested — so other people's
 // PRs can be reviewed end-to-end without leaving Suit. Loading mirrors the
 // branch/feedback pass (off the main thread, token-guarded); the gh calls +

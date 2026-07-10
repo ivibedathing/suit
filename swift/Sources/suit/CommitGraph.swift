@@ -1,6 +1,6 @@
 import Foundation
 
-// Commit-graph layout (ROADMAP Phase 34), the UI-free, standalone-compilable
+// Commit-graph layout, the UI-free, standalone-compilable
 // core (the RoadmapParser / FeedbackRouting / SubagentTree pattern,
 // Foundation-only): parses `git log --all --date-order` output and assigns
 // each commit a lane (column) with edges to its parents, so the pane can draw

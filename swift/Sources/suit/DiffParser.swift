@@ -1,7 +1,7 @@
 import Foundation
 
-// Unified-diff parsing (ROADMAP Phase 3), separate from the pane UI so it can
-// be reused (Phase 5 review sets) and tested standalone.
+// Unified-diff parsing, separate from the pane UI so it can
+// be reused (review sets) and tested standalone.
 struct DiffLine {
     enum Kind {
         case fileHeader   // diff --git a/… b/…

@@ -1,6 +1,6 @@
 import Foundation
 
-// GitHub PR review inbox (ROADMAP Phase 39): the UI-free core (the
+// GitHub PR review inbox: the UI-free core (the
 // Recipes / FeedbackRouting pattern — Foundation-only, no app or UI deps).
 // Parses `gh pr list` JSON into inbox items, summarizes the check rollup to a
 // glyph, and composes a `gh pr review` decision + body from a diff-review

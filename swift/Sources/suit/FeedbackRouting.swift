@@ -1,6 +1,6 @@
 import Foundation
 
-// Phase 29 — Automated feedback-loop routing. When CI fails, a reviewer leaves
+// Automated feedback-loop routing. When CI fails, a reviewer leaves
 // PR comments, or a merge conflicts, the fix belongs in the exact Claude
 // session that wrote the change. This file is the UI-free, deterministic core:
 // the `FeedbackEvent` model, the pure parsers that turn `git`/`gh` output into
@@ -207,7 +207,7 @@ enum FeedbackRouting {
         }
     }
 
-    // The instruction that primes a dedicated review-pass session (Phase 29's
+    // The instruction that primes a dedicated review-pass session (the
     // optional reviewer lane): review the branch's changes with the machine
     // feedback as context, then report — deliberately read-only ("don't edit
     // yet"), in keeping with the review pillar.

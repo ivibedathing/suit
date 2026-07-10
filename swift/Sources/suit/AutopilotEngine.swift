@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-// The Autopilot engine (ROADMAP Phase 32): the main-queue state machine that
+// The Autopilot engine: the main-queue state machine that
 // works through ROADMAP.md autonomously. Ticked every 3 s off AppDelegate's
 // existing sessionRefreshTimer, it throttles everything internally: the budget
 // decision runs every tick from the cached usage snapshot (no I/O beyond it),

@@ -11,7 +11,7 @@ extension AppDelegate {
         (controller ?? activeWindowController())?.focusPane(runningSession: session)
     }
 
-    // MARK: - Session steering (ROADMAP Phase 8)
+    // MARK: - Session steering
 
     // The terminal tab hosting a session's pty, whichever window and tab it's
     // hidden in — the write-side counterpart of focusSession.
@@ -32,7 +32,7 @@ extension AppDelegate {
         action.perform(on: terminal)
     }
 
-    // Fleet dashboard (ROADMAP Phase 28) routes its per-row verbs by session id.
+    // Fleet dashboard routes its per-row verbs by session id.
     func performQuickAction(_ action: SessionQuickAction, onSessionId id: String) {
         guard let terminal = terminalContent(forSessionId: id) else {
             NSSound.beep()
@@ -41,7 +41,7 @@ extension AppDelegate {
         action.perform(on: terminal)
     }
 
-    // MARK: - Fleet-supervision dashboard (ROADMAP Phase 28)
+    // MARK: - Fleet-supervision dashboard
 
     // Every session id some pane currently hosts, across all windows — the
     // steerable rows in the dashboard (an unhosted "done" file can't be written).
@@ -73,12 +73,12 @@ extension AppDelegate {
         fleetDashboard.toggle(relativeTo: activeWindowController()?.window)
     }
 
-    // ROADMAP Phase 38 — the fleet activity feed / daily digest panel.
+    // The fleet activity feed / daily digest panel.
     @objc func showActivityFeed(_ sender: Any?) {
         activityFeed.toggle(relativeTo: activeWindowController()?.window)
     }
 
-    // MARK: - Broadcast (ROADMAP Phase 35)
+    // MARK: - Broadcast
 
     // The steerable targets a broadcast will reach, each paired with its
     // terminal, in the fleet's needs-you-first order (so the composer count and
@@ -113,7 +113,7 @@ extension AppDelegate {
         presentBroadcast(scope: .allLive)
     }
 
-    // ROADMAP Phase 30 — the background-task monitor. Scoped to the focused
+    // The background-task monitor. Scoped to the focused
     // terminal pane's shell when there is one, otherwise the whole window's
     // tracked tasks.
     @objc func showBackgroundTasks(_ sender: Any?) {
@@ -156,7 +156,7 @@ extension AppDelegate {
         composePrompt(for: session, prefill: prefill)
     }
 
-    // ROADMAP Phase 16 — pipe a diff pane's review draft into a chosen session
+    // Pipe a diff pane's review draft into a chosen session
     // as one structured prompt, then clear the draft (session picker when
     // several are live, same as the other steering verbs).
     func sendReview(from content: DiffPaneContent) {
@@ -184,9 +184,9 @@ extension AppDelegate {
         sendReview(from: content)
     }
 
-    // ROADMAP Phase 39 — submit the diff tab's review straight to GitHub as a
+    // Submit the diff tab's review straight to GitHub as a
     // `gh pr review`. One dialog picks the verdict (Approve / Request Changes /
-    // Comment) and an optional overall note; the line comments (Phase 16) fold
+    // Comment) and an optional overall note; the line comments fold
     // into the body via PRReviewComposer. Confirmed before send, posted off the
     // main thread, and the inbox refreshes on success.
     func submitPRReview(from content: DiffPaneContent) {
@@ -253,7 +253,7 @@ extension AppDelegate {
         submitPRReview(from: content)
     }
 
-    // ROADMAP Phase 29 — route a machine-feedback event (CI failure, PR review
+    // Route a machine-feedback event (CI failure, PR review
     // comments, merge conflict) into its originating session as one structured
     // prompt. When attribution resolved a single session whose pty is hosted,
     // send straight there and focus it; otherwise fall back to the picker (the
@@ -328,7 +328,7 @@ extension AppDelegate {
         }
     }
 
-    // MARK: - Live slash-command menu (ROADMAP Phase 27)
+    // MARK: - Live slash-command menu
 
     // The command menu: pick a session (picker when several are live), then a
     // palette of that session's available slash commands — built-ins plus the
@@ -359,7 +359,7 @@ extension AppDelegate {
         )
     }
 
-    // The context bar action (Phase 27): /compact the focused pane's session
+    // The context bar action: /compact the focused pane's session
     // directly (no picker) — the keyboard binding behind the title-bar meter tap.
     @objc func compactFocusedSession(_ sender: Any?) {
         guard let pane = activeWindowController()?.focusedPane(), pane.compactContextSession() else {
@@ -371,7 +371,7 @@ extension AppDelegate {
     // Runs `body` on the one session, or shows a session-picker palette when
     // several are live. Only sessions whose pty is actually hosted by some
     // pane are offered — the others can't be written to.
-    // Cost budget guardrails (ROADMAP Phase 42): the palette route to the
+    // Cost budget guardrails: the palette route to the
     // per-session "Set Budget…" override (the fleet row's context menu is the
     // other). Picks a hosted session, then hands off to the OverlayPrompt.
     @objc func setSessionBudgetFromPalette(_ sender: Any?) {
@@ -402,7 +402,7 @@ extension AppDelegate {
         }
     }
 
-    // MARK: - Mode control (ROADMAP Phase 26)
+    // MARK: - Mode control
 
     // Switch a session to a permission mode by writing Shift+Tab presses into
     // its pty — the palette-side counterpart of the title bar's mode control.
@@ -435,7 +435,7 @@ extension AppDelegate {
         withSession(placeholder: "Set Agent mode in session…") { [weak self] in self?.switchClaudeMode(.agent, forSessionId: $0.id) }
     }
 
-    // MARK: - Plan approval (ROADMAP Phase 26)
+    // MARK: - Plan approval
 
     // Palette: open a session's plan-approval pane. One session opens directly;
     // several go through the picker, exactly like Open Claude Transcript.
@@ -472,7 +472,7 @@ extension AppDelegate {
         SessionControl.send(text: action.ptyPayload, to: terminal, submit: true)
     }
 
-    // MARK: - Set as Goal (ROADMAP Phase 18)
+    // MARK: - Set as Goal
 
     // Composes `/goal ` + the selection (optionally prefixed with provenance)
     // and sends it into a chosen Claude session's pty, bracketed-paste-wrapped
@@ -566,7 +566,7 @@ extension AppDelegate {
     }
 
     // Injects /rewind into a session's pty so Claude's native rewind picker
-    // opens in the pane (ROADMAP Phase 25). Driven from the timeline's header.
+    // opens in the pane. Driven from the timeline's header.
     func rewindSession(withId id: String) {
         guard let terminal = terminalContent(forSessionId: id) else {
             NSSound.beep()

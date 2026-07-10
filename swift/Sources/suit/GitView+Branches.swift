@@ -1,10 +1,10 @@
 import Cocoa
 
-// Branch / PR overview (Phase 21): loads the repo's local branches and layers
+// Branch / PR overview: loads the repo's local branches and layers
 // gh PR badges on top, plus the per-branch context-menu actions (checkout /
 // switch worktree, create PR, open on GitHub).
 extension GitView {
-    // MARK: - Branch / PR overview (Phase 21)
+    // MARK: - Branch / PR overview
 
     // Loads local branches (ahead/behind, worktree, dirty) off the main thread,
     // then — if `gh` is installed — layers PR badges on in a second pass so the
@@ -23,7 +23,7 @@ extension GitView {
                 // Conflicts need no gh, so gather feedback now; the PR pass
                 // below refreshes it once CI/review data is available.
                 self.loadFeedbackData()
-                // The PR review inbox is its own gh pass (Phase 39).
+                // The PR review inbox is its own gh pass.
                 self.loadReviewInbox()
                 self.loadPullRequests(root: root, token: token)
             }
@@ -58,7 +58,7 @@ extension GitView {
         }
     }
 
-    // Per-branch gh actions (Phase 21). gh entries only appear when gh is
+    // Per-branch gh actions. gh entries only appear when gh is
     // installed; without it, a disabled hint says so and Checkout still works.
     func buildBranchMenu(_ menu: NSMenu, branch: GitBranchInfo) {
         if !branch.isCurrent {

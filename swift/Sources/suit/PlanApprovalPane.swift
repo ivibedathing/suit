@@ -11,7 +11,7 @@ private final class PlanContainerView: NSView {
     }
 }
 
-// The plan-approval pane (ROADMAP Phase 26): when a Claude session in Plan mode
+// The plan-approval pane: when a Claude session in Plan mode
 // proposes a plan (an ExitPlanMode tool call in its transcript — see
 // PlanParser), this pane renders it read-only as numbered steps with a footer
 // of Approve & Run / Edit / Discard buttons. Each button dispatches the

@@ -1,8 +1,8 @@
 import Darwin
 import Foundation
 
-// Standalone model/state/config types for the Autopilot engine (ROADMAP
-// Phase 32). Split out of AutopilotEngine.swift; see that file's header for
+// Standalone model/state/config types for the Autopilot engine.
+// Split out of AutopilotEngine.swift; see that file's header for
 // the engine overview.
 
 // §2.2 engine states. `running` reads its run detail from AutopilotStore

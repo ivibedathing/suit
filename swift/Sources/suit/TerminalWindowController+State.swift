@@ -209,7 +209,7 @@ extension TerminalWindowController {
         }
     }
 
-    // MARK: - Claude sessions (ROADMAP Phase 4)
+    // MARK: - Claude sessions
 
     func updateUsageLabel() {
         guard let usage = ClaudeSessionMonitor.shared.usage else {

@@ -1,6 +1,6 @@
 import Foundation
 
-// Fleet activity feed / daily digest (ROADMAP Phase 38): the chronological
+// Fleet activity feed / daily digest: the chronological
 // record of what *moved* across the fleet — sessions finishing, PRs opening/
 // merging, CI passing/failing, Autopilot runs merging/blocking — plus a
 // "what happened today" recap.
@@ -29,7 +29,7 @@ enum ActivityKind: String, Codable, CaseIterable {
     case ciFail = "ci_fail"
     case autopilotMerged = "autopilot_merged"
     case autopilotBlocked = "autopilot_blocked"
-    // Cost budget guardrails (ROADMAP Phase 42): a session/task crossed its
+    // Cost budget guardrails: a session/task crossed its
     // configured spend cap (warned, or auto-interrupted).
     case budgetTripped = "budget_tripped"
 

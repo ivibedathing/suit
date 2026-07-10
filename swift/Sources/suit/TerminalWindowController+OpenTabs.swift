@@ -26,7 +26,7 @@ extension TerminalWindowController {
         activate(tab)
     }
 
-    // Routes a file to its preview pane by extension (ROADMAP Phase 19):
+    // Routes a file to its preview pane by extension:
     // markdown/image/PDF get their own kind, everything else the text viewer.
     private func makePreviewContent(forPath path: String) -> FileBackedPaneContent {
         switch PreviewKind.forPath(path) {
@@ -44,7 +44,7 @@ extension TerminalWindowController {
     }
 
     // The window's reused diff tab's content, if one is open — the review
-    // draft that "Send Review to Session…" acts on (ROADMAP Phase 16).
+    // draft that "Send Review to Session…" acts on.
     var currentDiffContent: DiffPaneContent? {
         store.tabs.first { $0.content is DiffPaneContent }?.content as? DiffPaneContent
     }
@@ -94,7 +94,7 @@ extension TerminalWindowController {
         activate(tab)
     }
 
-    // Open a PR's diff for review (ROADMAP Phase 39): `gh pr diff <n>` into the
+    // Open a PR's diff for review: `gh pr diff <n>` into the
     // window's diff tab, tagged with the PR number so Submit Review knows where
     // to post. gh hits the network, so fetch off the main thread and show a
     // placeholder meanwhile; Refresh re-fetches via the stored producer.
@@ -129,7 +129,7 @@ extension TerminalWindowController {
     }
 
     // Opens (or reuses, same policy) the diff tab showing one commit's changes
-    // to a single file (ROADMAP Phase 17 — from a File History row or a clicked
+    // to a single file (from a File History row or a clicked
     // blame sha). `git show --format=` prints just the per-file diff, no commit
     // header; it handles the root commit (whole-file addition) too.
     func openCommitDiff(root: String, file: String, sha: String) {
@@ -154,7 +154,7 @@ extension TerminalWindowController {
         activate(tab)
     }
 
-    // Whole-commit diff (ROADMAP Phase 34): from a commit-graph node click.
+    // Whole-commit diff: from a commit-graph node click.
     // `git show <sha>` prints the commit's header + full diff; reuses the
     // window's diff tab like the per-file variant.
     func openCommitDiff(root: String, sha: String) {
@@ -177,7 +177,7 @@ extension TerminalWindowController {
         activate(tab)
     }
 
-    // The commit-graph pane (ROADMAP Phase 34): one per window, reused like the
+    // The commit-graph pane: one per window, reused like the
     // diff/transcript tabs (scan the store for the existing one). Opened from
     // the Git tab's button and the "Show Commit Graph" palette command.
     func openCommitGraph(root explicitRoot: String? = nil) {
@@ -195,7 +195,7 @@ extension TerminalWindowController {
         activate(tab)
     }
 
-    // MARK: - "What changed while I was away" markers (ROADMAP Phase 24)
+    // MARK: - "What changed while I was away" markers
 
     // Drops a per-repo checkpoint: every worktree's HEAD sha + a timestamp,
     // into markers.json. Silent by design — the Git tab's marker button fills
@@ -211,7 +211,7 @@ extension TerminalWindowController {
 
     // "What Changed Since Mark": composes the aggregate diff across every
     // worktree since the mark into the window's diff tab (reused like
-    // openGitDiff) — the Phase 5 review machinery fed a multi-worktree set.
+    // openGitDiff) — the review machinery fed a multi-worktree set.
     func openCatchUpDiff(root explicitRoot: String? = nil) {
         let root = explicitRoot ?? currentFileIndex().root
         guard let mainRoot = MarkerCatchUp.mainRoot(root) else {
@@ -259,7 +259,7 @@ extension TerminalWindowController {
     }
 
     // Opens (or reuses) the window's transcript tab showing a Claude session's
-    // conversation (ROADMAP Phase 7).
+    // conversation.
     func openTranscript(for session: ClaudeSession) {
         if let tab = store.tabs.first(where: { $0.content is TranscriptPaneContent }) {
             (tab.content as? TranscriptPaneContent)?.load(session: session)
@@ -274,7 +274,7 @@ extension TerminalWindowController {
     }
 
     // Opens (or reuses) the window's plan-approval tab showing a Claude
-    // session's proposed plan (ROADMAP Phase 26), reused like the transcript.
+    // session's proposed plan, reused like the transcript.
     func openPlanApproval(for session: ClaudeSession) {
         if let tab = store.tabs.first(where: { $0.content is PlanApprovalPaneContent }) {
             (tab.content as? PlanApprovalPaneContent)?.load(session: session)
@@ -289,7 +289,7 @@ extension TerminalWindowController {
     }
 
     // Opens (or reuses) the window's checkpoint-timeline tab showing a Claude
-    // session's change history (ROADMAP Phase 25), reused like the transcript.
+    // session's change history, reused like the transcript.
     func openCheckpointTimeline(for session: ClaudeSession) {
         if let tab = store.tabs.first(where: { $0.content is CheckpointTimelinePaneContent }) {
             (tab.content as? CheckpointTimelinePaneContent)?.load(session: session)
@@ -303,8 +303,8 @@ extension TerminalWindowController {
         activate(tab)
     }
 
-    // Opens (or reuses) the window's background-task monitor tab (ROADMAP
-    // Phase 30), scoped to a shell's process subtree — the background jobs
+    // Opens (or reuses) the window's background-task monitor tab,
+    // scoped to a shell's process subtree — the background jobs
     // launched from that pane's terminal. A shellPid of 0 shows every tracked
     // task (the window-wide fallback when no terminal pane is focused). Reused
     // like the transcript pane; the monitor pane is bound to its shell at
@@ -327,7 +327,7 @@ extension TerminalWindowController {
     }
 
     // Opens (or reuses) the window's transcript tab for an explicit transcript
-    // file — how cross-transcript search (Phase 20) jumps to a historical
+    // file — how cross-transcript search jumps to a historical
     // session, anchoring the pane on the matching line.
     func openTranscript(path: String, cwd: String?, title: String, line: Int?) {
         let content: TranscriptPaneContent
@@ -350,7 +350,7 @@ extension TerminalWindowController {
         }
     }
 
-    // MARK: - Go to definition / find references (ROADMAP Phase 33)
+    // MARK: - Go to definition / find references
 
     // Resolves `symbol` to its definition(s) via the project's SymbolIndex and
     // navigates: exactly one jumps straight there; several open the palette
@@ -407,10 +407,10 @@ extension TerminalWindowController {
         activate(tab)
     }
 
-    // MARK: - Claude task worktrees (ROADMAP Phase 5)
+    // MARK: - Claude task worktrees
 
-    // "New task": a tab running claude, tagged with the task name (ROADMAP
-    // Phase 5 as one keystroke). Phase 31 makes isolation a per-task choice —
+    // "New task": a tab running claude, tagged with the task name (originally
+    // one keystroke). Isolation is now a per-task choice —
     // `isolate` on spins a dedicated worktree + branch (the original
     // behavior); off runs claude straight in the current checkout, for cheap
     // tasks that don't want the worktree churn.
@@ -444,9 +444,9 @@ extension TerminalWindowController {
         }
     }
 
-    // Session task recipe (ROADMAP Phase 36): the startClaudeTask recipe plus a
+    // Session task recipe: the startClaudeTask recipe plus a
     // parameterized prompt. Spins the worktree (or current checkout, honoring
-    // Phase 31's isolation choice), opens the `claude` tab, and — once its TUI
+    // the isolation choice), opens the `claude` tab, and — once its TUI
     // is up — sends the already-substituted recipe prompt (the startReviewPass
     // fixed-delay approach; this is a manual, interactive launcher, not the
     // Autopilot session-file handshake).
@@ -501,7 +501,7 @@ extension TerminalWindowController {
         return ("", "")
     }
 
-    // ROADMAP Phase 29 (reviewer-agent lane, optional): open a fresh claude in
+    // Reviewer-agent lane (optional): open a fresh claude in
     // the feedback event's worktree, primed to review the branch's changes with
     // the machine feedback as context — a dedicated review pass alongside the
     // working session. The instruction is sent after a beat, once claude's TUI
@@ -538,7 +538,7 @@ extension TerminalWindowController {
         forceCloseTab(pane.tab)
     }
 
-    // Autopilot cleanup (ROADMAP Phase 32, §2.8 item 4): a merged run's worker
+    // Autopilot cleanup: a merged run's worker
     // tab closes without the running-process confirmation — the merge already
     // decided the run's fate (the paneFinishedTask trust, but tab-addressed:
     // the worker tab is usually backgrounded with no pane).
@@ -560,7 +560,7 @@ extension TerminalWindowController {
         forceCloseTab(tab)
     }
 
-    // Autopilot run tab (ROADMAP Phase 32, §2.5 launch stage): the
+    // Autopilot run tab (launch stage): the
     // startClaudeTask recipe minus worktree creation — the engine already made
     // the worktree. Inserted WITHOUT stealing focus (attention is signaled via
     // the strip/footer, never forced); only a window with no tab at all

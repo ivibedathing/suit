@@ -2,13 +2,13 @@ import Cocoa
 
 // One entry in the command palette: every app action by another door, so the
 // menu bar never has to be memorized. Later phases register their commands
-// here too (fuzzy file open shares this machinery in Phase 1 — see ROADMAP.md).
+// here too (fuzzy file open shares this machinery).
 struct PaletteCommand {
     let title: String
     // Display-only shortcut hint, e.g. "⌘D"; the palette doesn't dispatch keys.
     let shortcut: String?
     let action: () -> Void
-    // ⇧Enter alternate (ROADMAP Phase 43: the ⌃R history overlay's edit-before-run).
+    // ⇧Enter alternate (the ⌃R history overlay's edit-before-run).
     // nil — the common case — means ⇧Enter behaves exactly like Enter.
     let altAction: (() -> Void)?
 
@@ -100,7 +100,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate, NSTextFieldDel
 
         panel.delegate = self
 
-        // Flat overlay surface (Phase 11), replacing the .menu vibrancy.
+        // Flat overlay surface, replacing the .menu vibrancy.
         let effect = NSView(frame: NSRect(origin: .zero, size: Self.panelSize))
         effect.wantsLayer = true
         effect.layer?.backgroundColor = Theme.overlay.cgColor

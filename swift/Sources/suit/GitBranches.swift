@@ -1,6 +1,6 @@
 import Foundation
 
-// Branch / PR overview (ROADMAP Phase 21): the shipping end of the review
+// Branch / PR overview: the shipping end of the review
 // workflow. `GitBranchList` reads the repo's local branches with their
 // ahead/behind vs upstream, which worktree (if any) has them checked out, and
 // whether that worktree is dirty — all from plumbing git, off the main thread.
@@ -268,7 +268,7 @@ enum GitHubCLI {
         }
     }
 
-    // The reviewer feedback on a PR (Phase 29): review summaries + conversation
+    // The reviewer feedback on a PR: review summaries + conversation
     // comments from `gh pr view <n> --json reviews,comments`, parsed by the
     // UI-free `FeedbackRouting`. Nil on any failure (gh missing / not authed /
     // offline) so the feedback inbox just skips that PR.
@@ -280,7 +280,7 @@ enum GitHubCLI {
         return FeedbackRouting.parsePRFeedback(json: data)
     }
 
-    // The failing checks on a PR (Phase 29): the per-check detail behind the
+    // The failing checks on a PR: the per-check detail behind the
     // `pr list` traffic light, from `gh pr view <n> --json statusCheckRollup`.
     static func failingChecks(root: String, number: Int) -> [FeedbackRouting.CheckFailure] {
         guard let gh = resolvedPath,
@@ -290,7 +290,7 @@ enum GitHubCLI {
         return FeedbackRouting.parseFailingChecks(json: data)
     }
 
-    // A best-effort tail of the failed CI run's log for the branch (Phase 29):
+    // A best-effort tail of the failed CI run's log for the branch:
     // find the newest failed run (`gh run list`) and pull only its failed steps
     // (`gh run view --log-failed`), capped so a huge log can't blow up the
     // routed prompt. Empty when gh can't surface it (Actions off, no failed run,
@@ -337,7 +337,7 @@ enum GitHubCLI {
         DispatchQueue.global(qos: .userInitiated).async { _ = run(gh, cwd: root, args) }
     }
 
-    // MARK: - PR review inbox (ROADMAP Phase 39)
+    // MARK: - PR review inbox
 
     // Open PRs that involve me — authored, assigned, or review-requested — as a
     // review inbox (`PRReviewInbox`). Two `gh pr list --search` passes (involves

@@ -1,6 +1,6 @@
 import Foundation
 
-// Autopilot budget math (ROADMAP Phase 32), separate from the engine so it is
+// Autopilot budget math, separate from the engine so it is
 // pure and tested standalone: given a usage snapshot, the configured budget
 // mode and "now", decide whether a new run may start. Budget gates *starting*
 // only — an in-flight run always finishes.

@@ -1,6 +1,6 @@
 import Cocoa
 
-// The viewer's minimap (ROADMAP Phase 3): the whole document as ~2px-tall
+// The viewer's minimap: the whole document as ~2px-tall
 // run-length line blocks, a draggable viewport rectangle, and overlay markers
 // (jump targets now; search hits and git-modified regions as their phases
 // land). It's the "where is stuff in this file" instrument, not decoration.
@@ -159,7 +159,7 @@ final class MinimapView: NSView {
             width: bounds.width,
             height: max(8, (viewportEnd - viewportStart) * contentHeight)
         )
-        // Restated from Theme (Phase 15): the viewport is a quiet primary-text
+        // Restated from Theme: the viewport is a quiet primary-text
         // tint, not a raw white — it has to sit on the committed dark ground.
         Theme.textPrimary.withAlphaComponent(0.07).setFill()
         viewportRect.fill()

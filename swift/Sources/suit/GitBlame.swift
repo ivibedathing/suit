@@ -1,6 +1,6 @@
 import Cocoa
 
-// Git blame + per-file history (ROADMAP Phase 17): read-only context around the
+// Git blame + per-file history: read-only context around the
 // open file — "who and what last changed this line, and why". Both reads run
 // off the main thread and hand their result back on the main queue, mirroring
 // GitChangedLines so the viewer can consume them the same way.

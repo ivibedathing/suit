@@ -1,6 +1,6 @@
 import Foundation
 
-// ROADMAP Phase 27 — the live slash-command catalog. Claude Code's hidden verbs
+// The live slash-command catalog. Claude Code's hidden verbs
 // (built-ins, custom ~/.claude/commands/*.md, and skills) become a discoverable
 // list the command menu dispatches into a session's pty via SessionControl.send,
 // so steering is one tap instead of a typed incantation. Pure and Foundation-only
@@ -24,7 +24,7 @@ struct SlashCommand: Equatable {
 
 enum SlashCommandCatalog {
     // The built-ins Claude Code always understands. `/context` and `/compact`
-    // pair with the Phase 7 context meter; the rest are the common steering
+    // pair with the context meter; the rest are the common steering
     // verbs. Curated because the SDK doesn't surface the list in the session
     // file today — custom commands and skills are discovered live below.
     static let builtins: [SlashCommand] = [

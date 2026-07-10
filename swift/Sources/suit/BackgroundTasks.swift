@@ -1,6 +1,6 @@
 import Foundation
 
-// Background-task monitor core (ROADMAP Phase 30), the UI-free, standalone-
+// Background-task monitor core, the UI-free, standalone-
 // compilable pattern (RoadmapParser / AutopilotScheduler / FeedbackRouting):
 // Foundation-only, no app dependencies, so scripts/background-tasks-test.sh can
 // compile just this file and assert the pure logic.

@@ -1,7 +1,7 @@
 import Foundation
 
-// Session task templates / recipes (ROADMAP Phase 36): the Steer pillar. Phase 5
-// productized worktree tasks and Phase 8 added the prompt library; this fuses
+// Session task templates / recipes: the Steer pillar. Earlier work
+// productized worktree tasks and added the prompt library; this fuses
 // them — one command spins a worktree + `claude` + a parameterized prompt, so a
 // bugfix / feature / refactor / review each launches in a single keystroke.
 //
@@ -90,7 +90,7 @@ struct Recipe: Equatable {
 enum RecipeLibrary {
     // The built-ins seeded when the recipes directory is empty. Each is written
     // as a front-matter file so the seeded set doubles as documentation of the
-    // format. The review recipe echoes the Phase 29 reviewer-agent lane — a
+    // format. The review recipe echoes the reviewer-agent lane — a
     // read-only review pass — but stays a manual, interactive launcher (no
     // gating, no auto-merge, unlike Autopilot).
     static let builtIns: [Recipe] = [

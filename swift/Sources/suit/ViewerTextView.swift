@@ -10,7 +10,7 @@ final class ViewerTextView: NSTextView {
         viewerContent?.promptForLine()
     }
 
-    // ROADMAP Phase 37 — write the editable buffer to disk (⌘S / palette).
+    // Write the editable buffer to disk (⌘S / palette).
     @objc func saveFile(_ sender: Any?) {
         viewerContent?.save()
     }
@@ -23,12 +23,12 @@ final class ViewerTextView: NSTextView {
         viewerContent?.showFileHistory()
     }
 
-    // ROADMAP Phase 40 — scrub the open file backward through its git history.
+    // Scrub the open file backward through its git history.
     @objc func toggleTimeTravel(_ sender: Any?) {
         viewerContent?.toggleTimeTravel()
     }
 
-    // ROADMAP Phase 18 — send the selection into a Claude session as a `/goal`.
+    // Send the selection into a Claude session as a `/goal`.
     @objc func setAsGoal(_ sender: Any?) {
         viewerContent?.setSelectionAsGoal()
     }
@@ -37,7 +37,7 @@ final class ViewerTextView: NSTextView {
         viewerContent?.toggleBookmarkAtCurrentLine()
     }
 
-    // Symbol navigation (ROADMAP Phase 33): the identifier under the caret /
+    // Symbol navigation: the identifier under the caret /
     // selection resolves to its definition or a references list.
     @objc func goToDefinition(_ sender: Any?) {
         viewerContent?.goToDefinitionAtCaret()
@@ -64,8 +64,8 @@ final class ViewerTextView: NSTextView {
         super.mouseDown(with: event)
     }
 
-    // Grey out File ▸ Save unless there's an editable file with unsaved edits
-    // (Phase 37). Other actions keep NSTextView's own validation.
+    // Grey out File ▸ Save unless there's an editable file with unsaved edits.
+    // Other actions keep NSTextView's own validation.
     override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
         if item.action == #selector(saveFile(_:)) {
             return viewerContent?.canSave ?? false

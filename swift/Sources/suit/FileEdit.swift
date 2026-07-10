@@ -2,7 +2,7 @@ import Foundation
 
 // The editable file viewer's save/dirty logic, factored out of the Cocoa pane
 // so it can be unit-tested standalone (the RoadmapParser / Recipes / TaskLaunch
-// pattern — Foundation-only, no app or UI dependencies). ROADMAP Phase 37.
+// pattern — Foundation-only, no app or UI dependencies).
 //
 // FileEditState tracks whether the live buffer has diverged from what's on disk
 // and, when the file changes underneath the buffer, decides how to reconcile.

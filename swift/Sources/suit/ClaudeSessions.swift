@@ -1,7 +1,7 @@
 import Cocoa
 import Darwin
 
-// Claude session awareness (ROADMAP Phase 4). Claude Code hooks + the
+// Claude session awareness. Claude Code hooks + the
 // statusline script (scripts/claude/) write one JSON file per session into
 // ~/.suit/sessions/; this monitor watches that directory and publishes the
 // parsed sessions, and the assigner maps them onto terminal panes by pid
@@ -51,7 +51,7 @@ struct ClaudeSession {
     let sessionName: String?
     let contextPct: Double?
     let costUSD: Double?
-    // Best-effort mode readback (ROADMAP Phase 26): the permission mode from the
+    // Best-effort mode readback: the permission mode from the
     // session JSON when Claude Code exposes it, mapped onto Ask/Plan/Agent. nil
     // when absent — the mode control then reflects the last mode Suit sent.
     let permissionMode: ClaudeMode?
@@ -208,7 +208,7 @@ final class ClaudeSessionMonitor {
         return usage
     }
 
-    // The ungated reader (ROADMAP Phase 32): the Autopilot scheduler applies
+    // The ungated reader: the Autopilot scheduler applies
     // its own staleness policy (a stale snapshot still carries resets_at, which
     // tells it *when* the window rolls over), so it reads the raw values +
     // capturedAt and decides for itself. The UI keeps the gated `usage`.

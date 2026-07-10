@@ -1,6 +1,6 @@
 import Cocoa
 
-// Claude transcript pane (ROADMAP Phase 7): renders a session's JSONL
+// Claude transcript pane: renders a session's JSONL
 // transcript — the conversation itself, not the terminal's scrollback — and
 // live-tails it while Claude works. Read-only, like the file viewer: what
 // Claude *did* (prompts, replies, tool calls) at a glance, with file paths
@@ -17,7 +17,7 @@ import Cocoa
 final class TranscriptTextView: NSTextView {
     weak var transcriptContent: TranscriptPaneContent?
 
-    // ROADMAP Phase 18 — send the selection into a Claude session as a `/goal`.
+    // Send the selection into a Claude session as a `/goal`.
     @objc func setAsGoal(_ sender: Any?) {
         transcriptContent?.setSelectionAsGoal()
     }
@@ -48,7 +48,7 @@ final class TranscriptPaneContent: NSObject, PaneContent, NSTextViewDelegate {
     var entries: [TranscriptEntry] = []
     // The 1-based source-file line each entry was parsed from, parallel to
     // `entries` — lets cross-transcript search jump the pane to a matching line
-    // (Phase 20). `lineCounter` counts every complete line read, entry-producing
+    // `lineCounter` counts every complete line read, entry-producing
     // or not, so it tracks the file's real line numbers (what ripgrep reports).
     var entrySourceLines: [Int] = []
     var lineCounter = 0
@@ -113,7 +113,7 @@ final class TranscriptPaneContent: NSObject, PaneContent, NSTextViewDelegate {
 
     // Path-based load — the same viewer, driven by an explicit transcript file
     // rather than a live session (cross-transcript search opens historical
-    // sessions this way; Phase 20).
+    // sessions this way).
     func load(path: String?, cwd: String?, title: String) {
         sessionCwd = cwd
         sessionTitle = title
@@ -155,7 +155,7 @@ final class TranscriptPaneContent: NSObject, PaneContent, NSTextViewDelegate {
 
     // Scrolls the pane to the entry parsed from (or nearest after) a given
     // source-file line and flashes it — how cross-transcript search anchors a
-    // clicked result (Phase 20). Rebuilds the full document first so the
+    // clicked result. Rebuilds the full document first so the
     // recorded char offsets line up with what's on screen.
     func jump(toSourceLine line: Int) {
         render()
@@ -301,7 +301,7 @@ final class TranscriptPaneContent: NSObject, PaneContent, NSTextViewDelegate {
         stopWatching()
     }
 
-    // ROADMAP Phase 18 — hand the current selection to AppDelegate as a Claude
+    // Hand the current selection to AppDelegate as a Claude
     // goal. No provenance: a JSONL transcript line is not a source location.
     func setSelectionAsGoal() {
         let range = textView.selectedRange()

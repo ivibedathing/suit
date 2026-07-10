@@ -35,16 +35,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // (the strip's ✦ button, ⌃⌘C, the palette) — e.g. "--continue" or
     // "--model opus". A raw string handed to the shell, not validated.
     var claudeSessionArgs = ""
-    // New Claude Task isolation default (ROADMAP Phase 31): whether the
+    // New Claude Task isolation default: whether the
     // "New Claude Task" prompt's "Isolate in worktree" switch starts on. On
-    // reproduces Phase 5's always-a-worktree behavior; off runs claude in the
+    // reproduces the always-a-worktree behavior; off runs claude in the
     // current checkout. The prompt's per-task choice overrides it.
     var taskIsolateByDefault = true
     // Bell responses (PaneTerminalView.bell): the white pane flash and the
     // Dock-icon bounce while the app is inactive.
     var bellFlashEnabled = true
     var bellDockBounceEnabled = true
-    // Set as Goal (ROADMAP Phase 18): prepend a `From <file>:<lines>:` line so
+    // Set as Goal: prepend a `From <file>:<lines>:` line so
     // the goal carries where the selection came from. Off by default — the
     // selection alone is usually the directive.
     var goalPrependProvenanceEnabled = false
@@ -53,7 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // before it reaches the context window. Off by default — the hook rewrites
     // the commands Claude runs, so it's opt-in (RtkHook / rtkCompressionChanged).
     var rtkCompressionEnabled = false
-    // Autopilot (ROADMAP Phase 32) — the §2.9 config table. The engine reads
+    // Autopilot — the §2.9 config table. The engine reads
     // these live through its weak appDelegate reference; the Settings window's
     // Autopilot section writes them through autopilotXChanged(...).
     var autopilotEnabled = false
@@ -70,7 +70,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     var autopilotExtraArgs = ""               // appended to the worker's claude
     var autopilotReviewModel = ""             // review gate --model; empty = default
     var autopilotPreventSleep = true          // hold .idleSystemSleepDisabled across runs
-    // Cost budget guardrails (ROADMAP Phase 42): per-session / per-task spend
+    // Cost budget guardrails: per-session / per-task spend
     // ceilings in dollars (0 = no ceiling), whether crossing one auto-interrupts
     // the run (Esc over the pty) or only warns, and the per-session "Set Budget…"
     // overrides keyed by session id. The guard reads these live each heartbeat.
@@ -89,7 +89,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         self?.paletteCommands() ?? []
     }
     lazy var promptComposer = PromptComposerController()
-    // Fleet-supervision dashboard (ROADMAP Phase 28): a floating cross-window
+    // Fleet-supervision dashboard: a floating cross-window
     // view of every live Claude session, sorted needs-you-first, with per-row
     // steering routed through the same paths as the palette's session verbs.
     lazy var fleetDashboard: FleetDashboardController = {
@@ -103,7 +103,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         controller.onSetBudget = { [weak self] id in self?.setBudget(forSessionId: id) }
         return controller
     }()
-    // Fleet activity feed / daily digest (ROADMAP Phase 38): a floating
+    // Fleet activity feed / daily digest: a floating
     // cross-window timeline of what *moved* — sessions finishing, PRs/CI,
     // Autopilot runs — with a "what happened today" recap. The recorder is the
     // producer side (session transitions + the once-daily digest); the panel is
@@ -125,7 +125,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             identifier: "activity-digest"
         )
     }
-    // Cross-transcript search (ROADMAP Phase 20): a floating "Search
+    // Cross-transcript search: a floating "Search
     // Transcripts…" panel; a picked result opens that session's transcript pane
     // in the active window, anchored to the matching line.
     lazy var transcriptSearch: TranscriptSearchController = {
@@ -141,7 +141,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return controller
     }()
 
-    // Claude session awareness heartbeat (ROADMAP Phase 4).
+    // Claude session awareness heartbeat.
     private var sessionRefreshTimer: Timer?
     private var sessionRefreshTick = 0
     var attentionCenter: ClaudeAttentionCenter?
@@ -157,7 +157,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     weak var paletteFileIndex: FileIndex?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Committed dark (ROADMAP Phase 11): the design artifact is one
+        // Committed dark: the design artifact is one
         // deliberate dark world, not a system-theme chameleon. Pinning the
         // app-wide appearance keeps every system control — menus, alerts,
         // scrollers, panels — consistent with the Theme chrome.
@@ -192,7 +192,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
         NSApp.activate(ignoringOtherApps: true)
 
-        // Claude session awareness (ROADMAP Phase 4): remap sessions onto panes
+        // Claude session awareness: remap sessions onto panes
         // whenever the session files change, plus a slow heartbeat — pids and
         // pane cwds drift without any file event, and session staleness only
         // shows up by re-reading. Every 10th tick re-reads the files themselves.
@@ -200,7 +200,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self, selector: #selector(claudeSessionsUpdated(_:)),
             name: ClaudeSessionMonitor.didUpdate, object: nil
         )
-        // Start the background-task record watcher up front (ROADMAP Phase 30),
+        // Start the background-task record watcher up front,
         // so tracked jobs surface even before the first heartbeat.
         _ = BackgroundTaskStore.shared
         sessionRefreshTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
@@ -212,14 +212,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 self.remapClaudeSessions()
             }
             AutopilotEngine.shared.tick()
-            // Background-task monitor (ROADMAP Phase 30): a job that crashed
+            // Background-task monitor: a job that crashed
             // without the wrapper's exit trap firing changes no record file, so
             // the same heartbeat re-runs the liveness sweep that catches it.
             BackgroundTaskStore.shared.reload()
-            // Fleet activity feed (ROADMAP Phase 38): deliver yesterday's digest
+            // Fleet activity feed: deliver yesterday's digest
             // once per calendar day, on the first heartbeat past local midnight.
             self.activityRecorder.maybePostDailyDigest()
-            // Cost budget guardrails (ROADMAP Phase 42): check each live
+            // Cost budget guardrails: check each live
             // session's cost against its cap and trip (warn / interrupt) once
             // on a crossing.
             self.budgetGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
@@ -227,7 +227,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         attentionCenter = ClaudeAttentionCenter { [weak self] sessionId in
             self?.focusSession(withId: sessionId)
         }
-        // Fleet activity feed (ROADMAP Phase 38): start recording session
+        // Fleet activity feed: start recording session
         // transitions now, so the feed captures movement even before it's first
         // opened. The recorder is lazily created here (its first didUpdate seeds
         // the baseline without recording the already-live sessions).
@@ -242,17 +242,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 self.openAutopilotLog()
             }
         }
-        // Activity digest click-through (ROADMAP Phase 38): open the feed.
+        // Activity digest click-through: open the feed.
         attentionCenter?.onActivityEvent = { [weak self] in
             self?.activityFeed.show(relativeTo: self?.activeWindowController()?.window)
         }
-        // Budget-trip click-through (ROADMAP Phase 42): focus the pane whose run
+        // Budget-trip click-through: focus the pane whose run
         // blew its cap.
         attentionCenter?.onBudgetEvent = { [weak self] sessionId in
             self?.focusSession(withId: sessionId)
         }
 
-        // Autopilot (ROADMAP Phase 32): the engine hangs off the same 3 s
+        // Autopilot: the engine hangs off the same 3 s
         // timer (tick added in the closure above) and needs the session
         // monitor, which the observers above have already instantiated.
         AutopilotEngine.shared.appDelegate = self
@@ -285,7 +285,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationWillTerminate(_ notification: Notification) {
         // A debounced notes save may still be pending; the timer dies with us.
         NotesStore.shared.flush()
-        // Likewise flush any editable viewer's pending autosave (Phase 37), so
+        // Likewise flush any editable viewer's pending autosave, so
         // the sub-second debounce window never loses edits across a quit — the
         // file on disk is then current and restoration just reloads it.
         for controller in windowControllers {

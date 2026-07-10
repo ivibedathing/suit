@@ -87,7 +87,7 @@ final class TabSwitcherController {
         let width: CGFloat = 340
         let height = CGFloat(tabs.count) * rowHeight + 36
 
-        // Flat overlay surface (Phase 11) — the committed-dark design replaced
+        // Flat overlay surface — the committed-dark design replaced
         // the HUD vibrancy with the Theme overlay fill.
         let content = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         content.wantsLayer = true

@@ -1,6 +1,6 @@
 import Cocoa
 
-// Markdown preview tab (ROADMAP Phase 19): renders `.md`/`.markdown` as
+// Markdown preview tab: renders `.md`/`.markdown` as
 // formatted read-only text — headings, lists, fenced code (colored by
 // SyntaxHighlighter), blockquotes, rules, and inline emphasis/code/links.
 // A toggle flips rendered ↔ raw; raw is the plain highlighted source, the same
@@ -153,7 +153,7 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
         return false
     }
 
-    // MARK: - State restoration (ROADMAP Phase 19)
+    // MARK: - State restoration
 
     var scrollFraction: Double {
         guard let documentView = scrollView.documentView else { return 0 }

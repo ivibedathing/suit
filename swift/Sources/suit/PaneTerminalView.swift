@@ -36,7 +36,7 @@ final class PaneTerminalView: LocalProcessTerminalView {
         super.send(source: source, data: data)
     }
 
-    // Per-pane command recorder (ROADMAP Phase 43): reconstruct the line the
+    // Per-pane command recorder: reconstruct the line the
     // user is typing from the bytes headed to the pty, and on Return hand a
     // clean single-line command to CommandHistoryStore so ⌃R can find commands
     // run in this pane — including before they reach $HISTFILE, and when there
@@ -81,12 +81,12 @@ final class PaneTerminalView: LocalProcessTerminalView {
         let noteItem = menu.addItem(withTitle: "Create Note from Selection", action: #selector(PaneTerminalView.createNoteFromSelection(_:)), keyEquivalent: "")
         noteItem.isEnabled = selectionActive
 
-        // Send the selection into a Claude session as a `/goal` (ROADMAP
-        // Phase 18) — the picker handles which session when several are live.
+        // Send the selection into a Claude session as a `/goal` — the picker
+        // handles which session when several are live.
         let goalItem = menu.addItem(withTitle: "Set Selection as Goal", action: #selector(PaneTerminalView.setSelectionAsGoal(_:)), keyEquivalent: "")
         goalItem.isEnabled = selectionActive
 
-        // Pipe the selection into a Claude session (ROADMAP Phase 8): opens
+        // Pipe the selection into a Claude session: opens
         // the prompt composer prefilled, so one line of context + Enter sends
         // an error, diff hunk, or log line without touching that pane.
         let sessions = ClaudeSessionMonitor.shared.sessions
@@ -115,11 +115,11 @@ final class PaneTerminalView: LocalProcessTerminalView {
         footerItem.target = pane
         footerItem.state = (pane?.isFooter == true) ? .on : .off
 
-        // Background-task monitor for this pane's shell (ROADMAP Phase 30).
+        // Background-task monitor for this pane's shell.
         let tasksItem = menu.addItem(withTitle: "Show Background Tasks", action: #selector(Pane.showBackgroundTasks(_:)), keyEquivalent: "")
         tasksItem.target = pane
 
-        // Only offered inside a task worktree (ROADMAP Phase 5).
+        // Only offered inside a task worktree.
         if WorktreeTasks.isTaskWorktree(pane?.workingDirectory) {
             let finishItem = menu.addItem(withTitle: "Finish Claude Task…", action: #selector(Pane.finishClaudeTask(_:)), keyEquivalent: "")
             finishItem.target = pane
@@ -222,19 +222,19 @@ final class PaneTerminalView: LocalProcessTerminalView {
     }
 
     // Opens the composer prefilled with the selection, aimed at the session
-    // picked from the context-menu submenu (ROADMAP Phase 8).
+    // picked from the context-menu submenu.
     @objc func sendSelectionToSession(_ sender: NSMenuItem) {
         guard let text = getSelection(), let sessionId = sender.representedObject as? String else { return }
         (NSApp.delegate as? AppDelegate)?.composePrompt(forSessionId: sessionId, prefill: "\n```\n\(text)\n```")
     }
 
-    // Sends the selection into a Claude session as a `/goal` (ROADMAP Phase 18).
+    // Sends the selection into a Claude session as a `/goal`.
     @objc func setSelectionAsGoal(_ sender: Any?) {
         guard let text = getSelection() else { return }
         (NSApp.delegate as? AppDelegate)?.setSelectionAsGoal(text)
     }
 
-    // MARK: - File-path links (terminal → viewer, ROADMAP Phase 1)
+    // MARK: - File-path links (terminal → viewer)
 
     // SwiftTerm's implicit link detection (the ghostty-style regex in
     // Terminal.swift) already finds path-shaped runs and underlines them on

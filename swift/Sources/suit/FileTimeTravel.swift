@@ -1,6 +1,6 @@
 import Foundation
 
-// ROADMAP Phase 40 — File time-travel scrubber. The UI-free core (the
+// File time-travel scrubber. The UI-free core (the
 // RoadmapParser / CommitGraph / Recipes pattern, Foundation-only so
 // scripts/file-time-travel-test.sh can compile it standalone): it builds the
 // ordered timeline of a file's revisions from its history, maps each scrubber
@@ -102,7 +102,7 @@ enum TimeTravelGit {
 
 // Parses the new-side (+) line numbers changed in a unified diff from its @@
 // hunk headers — the shared parser behind both the diff-to-neighbour gutter
-// marks here and Phase 5's GitChangedLines. A pure 0-count deletion still marks
+// marks here and GitChangedLines. A pure 0-count deletion still marks
 // its anchor line so the removal site stays findable.
 enum TimeTravelDiff {
     static func changedNewLines(inDiff diff: String) -> IndexSet {

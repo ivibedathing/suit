@@ -11,13 +11,13 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
     // cheaper than re-walking the string on every draw.
     var lineStarts: [Int] = [0]
 
-    // Lines changed vs HEAD (ROADMAP Phase 5), drawn as an orange bar along
+    // Lines changed vs HEAD, drawn as an orange bar along
     // the gutter's right edge.
     var changedLines = IndexSet() {
         didSet { needsDisplay = true }
     }
 
-    // Blame gutter (ROADMAP Phase 17): a toggleable column left of the line
+    // Blame gutter: a toggleable column left of the line
     // numbers showing each line's last-touching commit (sha + author, tinted by
     // age), the full subject on hover, and the sha clickable to that commit's
     // diff. Reuses the ruler's line-fragment walk — the same plumbing as the
@@ -37,7 +37,7 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
 
     private static let blameWidth: CGFloat = 172
 
-    // Bookmarked lines in this file (ROADMAP Phase 22), drawn as an accent bar
+    // Bookmarked lines in this file, drawn as an accent bar
     // along the gutter's *left* edge (the right edge is the changed-line bar).
     var bookmarkedLines = IndexSet() {
         didSet { needsDisplay = true }
@@ -89,7 +89,7 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
     override func mouseDown(with event: NSEvent) {
         let location = convert(event.locationInWindow, from: nil)
         // A click in the blame column on a committed line opens that commit's
-        // diff (ROADMAP Phase 17).
+        // diff.
         if blameVisible, location.x <= blameColumnWidth,
            let line = line(atWindowPoint: event.locationInWindow),
            let blame = blameByLine[line], !blame.isUncommitted {
@@ -97,7 +97,7 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
             return
         }
         // Otherwise a gutter click toggles the bookmark on that line
-        // (ROADMAP Phase 22).
+        //.
         if let line = line(atWindowPoint: event.locationInWindow) {
             onToggleLine?(line)
             return

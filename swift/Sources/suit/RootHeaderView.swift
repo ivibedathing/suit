@@ -1,6 +1,6 @@
 import Cocoa
 
-// The strip above the Files tree (ROADMAP Phase 9): the browsed root's name
+// The strip above the Files tree: the browsed root's name
 // on the left (pin icon when the root is pinned rather than following the
 // focused pane), a folder-picker button on the right, and an unpin button
 // while pinned.

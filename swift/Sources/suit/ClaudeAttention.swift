@@ -1,7 +1,7 @@
 import Cocoa
 import UserNotifications
 
-// Native attention escalation (ROADMAP Phase 7): a session flipping to
+// Native attention escalation: a session flipping to
 // needs-input while Suit is in the background posts a user notification
 // (click → activate + focus that pane), and the Dock badge counts sessions
 // waiting on you. In-app attention stays exactly as before (pulsing title-bar
@@ -17,17 +17,17 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
     // either way; notifications just switch off outside the app bundle.
     private let notificationsAvailable = Bundle.main.bundleIdentifier != nil
 
-    // Autopilot events (ROADMAP Phase 32, §2.11): click-through routing for
+    // Autopilot events: click-through routing for
     // notifications whose identifier carries the "autopilot-" prefix —
     // AppDelegate focuses the run tab when one is open, else opens the log.
     var onAutopilotEvent: ((String) -> Void)?
 
-    // Activity feed (ROADMAP Phase 38): the once-daily digest notification
+    // Activity feed: the once-daily digest notification
     // ("activity-" prefixed identifier) routes here — AppDelegate opens the
     // Activity panel. Same plumbing rationale as onAutopilotEvent.
     var onActivityEvent: (() -> Void)?
 
-    // Cost budget guardrails (ROADMAP Phase 42): a budget trip notification
+    // Cost budget guardrails: a budget trip notification
     // ("budget-" prefixed identifier) routes here with the session id carried in
     // the notification's userInfo — AppDelegate focuses that pane.
     var onBudgetEvent: ((String) -> Void)?
@@ -95,7 +95,7 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: session.id, content: content, trigger: nil))
     }
 
-    // Autopilot's notifications (ROADMAP Phase 32, §2.11): merged / blocked /
+    // Autopilot's notifications: merged / blocked /
     // idle events with *stable* identifiers ("autopilot-merged",
     // "autopilot-blocked", "autopilot-idle") — a newer event of the same kind
     // replaces the previous one instead of piling up. Lives here because this
@@ -115,7 +115,7 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
     }
 
-    // Budget-trip notifications (ROADMAP Phase 42): a per-trip identifier (so a
+    // Budget-trip notifications: a per-trip identifier (so a
     // distinct crossing is its own banner, not a replacement) with the session
     // id in userInfo for click-through routing to the pane. Presents even while
     // the app is active — a cap trip is always news, never silent.

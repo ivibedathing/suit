@@ -25,7 +25,7 @@ extension AppDelegate {
         let fileMenu = NSMenu(title: "File")
         let openQuicklyItem = fileMenu.addItem(withTitle: "Open Quickly…", action: #selector(openQuickly(_:)), keyEquivalent: "p")
         openQuicklyItem.target = self
-        // ⌘S — responder-chain routed to the focused editable viewer (Phase 37);
+        // ⌘S — responder-chain routed to the focused editable viewer;
         // auto-disabled (and the write no-ops) when no editable file is focused.
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Save", action: #selector(ViewerTextView.saveFile(_:)), keyEquivalent: "s")
@@ -67,7 +67,7 @@ extension AppDelegate {
         // the Find items above) already reserve for Find Next.
         editMenu.addItem(withTitle: "Go to Line…", action: #selector(ViewerTextView.goToLine(_:)), keyEquivalent: "l")
 
-        // ⇧⌘L: bookmark the caret's line (ROADMAP Phase 22), routed to the
+        // ⇧⌘L: bookmark the caret's line, routed to the
         // focused viewer through the responder chain.
         let toggleBookmarkItem = editMenu.addItem(withTitle: "Toggle Bookmark", action: #selector(toggleBookmark(_:)), keyEquivalent: "l")
         toggleBookmarkItem.keyEquivalentModifierMask = [.command, .shift]
@@ -135,7 +135,7 @@ extension AppDelegate {
 
         tabMenuItem.submenu = tabMenu
 
-        // The Screen menu (Phase 13): the main screen shows one tab; splitting
+        // The Screen menu: the main screen shows one tab; splitting
         // it is a tab operation (strip right-click ▸ Split Screen, or drag a
         // tab to an edge), so only unsplit and focus movement live here.
         let paneMenuItem = NSMenuItem()
@@ -176,7 +176,7 @@ extension AppDelegate {
 
         paneMenu.addItem(.separator())
 
-        // Saved layouts / named workspaces (ROADMAP Phase 41): snapshot the
+        // Saved layouts / named workspaces: snapshot the
         // window's tab list + split tree under a name and reopen it later.
         let saveLayoutItem = paneMenu.addItem(withTitle: "Save Layout As…", action: #selector(saveLayoutAs(_:)), keyEquivalent: "")
         saveLayoutItem.target = self
@@ -212,11 +212,11 @@ extension AppDelegate {
         showFleetItem.keyEquivalentModifierMask = [.command, .shift]
         showFleetItem.target = self
 
-        // Fleet activity feed / daily digest (ROADMAP Phase 38).
+        // Fleet activity feed / daily digest.
         let activityItem = viewMenu.addItem(withTitle: "Show Activity Feed", action: #selector(showActivityFeed(_:)), keyEquivalent: "")
         activityItem.target = self
 
-        // Command history search (ROADMAP Phase 43): ⌃R, the shell's reverse-i-
+        // Command history search: ⌃R, the shell's reverse-i-
         // search made native and cross-pane. A menu key equivalent, so it's
         // caught app-wide (in place of the terminal's own ⌃R) whenever a pane
         // has focus.
@@ -224,7 +224,7 @@ extension AppDelegate {
         commandHistoryItem.keyEquivalentModifierMask = [.control]
         commandHistoryItem.target = self
 
-        // Broadcast one instruction across every live session (ROADMAP Phase 35).
+        // Broadcast one instruction across every live session.
         let broadcastItem = viewMenu.addItem(withTitle: "Broadcast to All Sessions…", action: #selector(broadcastToAllSessions(_:)), keyEquivalent: "")
         broadcastItem.target = self
 
@@ -240,7 +240,7 @@ extension AppDelegate {
         searchTranscriptsItem.keyEquivalentModifierMask = [.command, .control]
         searchTranscriptsItem.target = self
 
-        // Live slash-command menu + context-bar /compact (ROADMAP Phase 27).
+        // Live slash-command menu + context-bar /compact.
         let slashMenuItem = viewMenu.addItem(withTitle: "Slash Command Menu…", action: #selector(showSlashCommandMenu(_:)), keyEquivalent: "/")
         slashMenuItem.keyEquivalentModifierMask = [.command, .control]
         slashMenuItem.target = self
@@ -269,19 +269,19 @@ extension AppDelegate {
         let wordWrapItem = viewMenu.addItem(withTitle: "Word Wrap", action: #selector(toggleWordWrap(_:)), keyEquivalent: "")
         wordWrapItem.target = self
 
-        // Blame gutter + file history (ROADMAP Phase 17) — responder-routed to
+        // Blame gutter + file history — responder-routed to
         // the focused viewer, so both auto-disable when no viewer is focused.
         let toggleBlameItem = viewMenu.addItem(withTitle: "Toggle Blame", action: #selector(ViewerTextView.toggleBlame(_:)), keyEquivalent: "b")
         toggleBlameItem.keyEquivalentModifierMask = [.command, .control]
 
         viewMenu.addItem(withTitle: "Show File History", action: #selector(ViewerTextView.showFileHistory(_:)), keyEquivalent: "")
 
-        // Time-travel scrubber (ROADMAP Phase 40) — responder-routed to the
+        // Time-travel scrubber — responder-routed to the
         // focused viewer; the check reflects whether it's currently scrubbing.
         let timeTravelItem = viewMenu.addItem(withTitle: "Time Travel", action: #selector(ViewerTextView.toggleTimeTravel(_:)), keyEquivalent: "h")
         timeTravelItem.keyEquivalentModifierMask = [.command, .control]
 
-        // Go to definition / find references (ROADMAP Phase 33) — responder-
+        // Go to definition / find references — responder-
         // routed to the focused viewer like blame above.
         let goToDefinitionItem = viewMenu.addItem(withTitle: "Go to Definition", action: #selector(ViewerTextView.goToDefinition(_:)), keyEquivalent: "j")
         goToDefinitionItem.keyEquivalentModifierMask = [.command, .control]

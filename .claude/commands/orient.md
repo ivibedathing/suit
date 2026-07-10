@@ -9,8 +9,6 @@ Give me a quick orientation to this repo so I can start working effectively.
    `CLAUDE.md` — do not dump them back to me, just internalize them.
 2. Report the current state: `git status`, current branch, active worktrees,
    and the last few commits.
-3. Read the `### Phase` headings in `ROADMAP.md` and tell me which phases are
-   unclaimed (no `🚧`/`✅`/`⏸` marker) — those are available to pick up.
-4. Remind me of the non-negotiables in one line each: worktree-per-task, claim
-   before starting, no SwiftPM (`./build.sh` / direct `swiftc`), tests via
-   `scripts/test.sh`, document shipped phases in `README.md`.
+3. Remind me of the non-negotiables in one line each: worktree-per-task, no
+   SwiftPM (`./build.sh` / direct `swiftc`), tests via `scripts/test.sh`,
+   document shipped features in `README.md`.

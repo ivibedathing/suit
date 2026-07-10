@@ -1,12 +1,12 @@
 import Foundation
 
-// ROADMAP.md as an interface (ROADMAP Phase 32): Autopilot steers itself by
+// ROADMAP.md as an interface: Autopilot steers itself by
 // re-reading the roadmap at every scheduling decision. Priority is document
 // order; a ✅ anywhere in a phase heading means shipped (which covers the
 // "✅ shipped (note)" parenthetical variants), a ⏸ anywhere means skipped,
 // and the first phase that is neither is the next unit of work. Pure string
 // parsing with no app dependencies, so it compiles standalone for the
-// scratch logic tests (the Phase 16/22 convention).
+// scratch logic tests (the scratch-logic-test convention).
 
 // One `### Phase N — Title` section of the roadmap.
 struct RoadmapPhase {

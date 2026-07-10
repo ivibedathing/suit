@@ -12,7 +12,7 @@ enum TranscriptEntry: Equatable {
     case toolUse(name: String, summary: String)
 
     // The searchable / snippet text of an entry, independent of its rendered
-    // decoration (used by cross-transcript search — Phase 20 — and the pane's
+    // decoration (used by cross-transcript search and the pane's
     // jump anchoring).
     var plainText: String {
         switch self {

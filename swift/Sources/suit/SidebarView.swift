@@ -1,10 +1,10 @@
 import Cocoa
 
 // The window's left rail, toggled with Cmd-B: Files / Git / Notes, picked
-// via an icon rail (ROADMAP Phase 9 — text segments don't scale in a
+// via an icon rail (text segments don't scale in a
 // 180–420pt sidebar; restyled to the mockup's flat hover-square icons in the
-// Phase 15 fidelity work). The Files tab is the SearchView (Phase 2) with its
-// search input on top and the FileBrowserView (Phase 1) filling the area below
+// fidelity work). The Files tab is the SearchView with its
+// search input on top and the FileBrowserView filling the area below
 // until a pattern is typed — then results take that space. Git hosts the
 // GitView (changes + worktree/branch switcher); Notes hosts the NotesView.
 final class SidebarView: NSView {
@@ -77,7 +77,7 @@ final class SidebarView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        // Flat bar chrome (Phase 11), replacing the .sidebar vibrancy — the
+        // Flat bar chrome, replacing the .sidebar vibrancy — the
         // left rail is part of the same dark world as the strip and headers.
         wantsLayer = true
         layer?.backgroundColor = Theme.barChrome.cgColor

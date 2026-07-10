@@ -1,7 +1,7 @@
 import Cocoa
 
 // Syntax highlighting and minimap wiring for the read-only viewer
-// (ROADMAP Phase 3). Split out of FileViewerPane.swift; stored state lives in
+//. Split out of FileViewerPane.swift; stored state lives in
 // the primary declaration.
 extension FileViewerPaneContent {
     // MARK: - Minimap

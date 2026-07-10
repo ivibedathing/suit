@@ -124,7 +124,7 @@ final class TabItemView: NSView {
         needsDisplay = true
 
         // A dirty (unsaved) viewer tab reserves the close slot even while idle
-        // so its indicator stays visible (Phase 37); the slot shows an accent
+        // so its indicator stays visible; the slot shows an accent
         // dot, flipping to the ✕ on hover so the tab is still closable.
         showsClose = !tab.isPinned && (active || hovered || tab.isDirty)
         closeLabel.isHidden = !showsClose
@@ -142,7 +142,7 @@ final class TabItemView: NSView {
         }
 
         // Session dot (or the red failed dot once the shell is gone) —
-        // attention routes through background tabs (ROADMAP Phase 4/6).
+        // attention routes through background tabs.
         // Pinned tabs keep their dot too (corner badge over the icon) — the
         // pinned claude session is exactly the one whose needs-input must
         // stay visible.

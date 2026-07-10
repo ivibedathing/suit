@@ -15,7 +15,7 @@ extension DiffPaneContent {
         tab?.contentTitleDidChange("diff: \((root as NSString).lastPathComponent)")
     }
 
-    // Feeds an arbitrary diff (Phase 5 review sets use this).
+    // Feeds an arbitrary diff (review sets use this).
     func loadDiffText(_ diff: String, title: String, root: String?, reload: (() -> String)? = nil) {
         gitRoot = root
         self.reload = reload
@@ -56,7 +56,7 @@ extension DiffPaneContent {
         updateReviewButton()
     }
 
-    // Loads comments restored from a SavedTab into the draft (ROADMAP Phase 16).
+    // Loads comments restored from a SavedTab into the draft.
     func restoreComments(_ comments: [DiffReviewComment]?) {
         guard let comments, !comments.isEmpty else { return }
         for c in comments {

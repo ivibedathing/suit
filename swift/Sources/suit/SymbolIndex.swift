@@ -1,6 +1,6 @@
 import Foundation
 
-// The symbol index behind go-to-definition (ROADMAP Phase 33): runs
+// The symbol index behind go-to-definition: runs
 // universal-ctags over a project's FileIndex file list, caches the resulting
 // definitions per git root, and refreshes when FileIndex's FSEvents watcher
 // fires. The pure parsing/lookup lives in SymbolIndexCore.swift (standalone-

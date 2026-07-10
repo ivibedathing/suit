@@ -106,13 +106,13 @@ extension SettingsWindowController {
         claudeArgsHint.textColor = Theme.textDim
         let claudeHintRow = row(label: "", controls: [claudeArgsHint])
 
-        // New-task isolation default (ROADMAP Phase 31): whether the "New
+        // New-task isolation default: whether the "New
         // Claude Task" prompt's "Isolate in worktree" switch starts on.
         taskIsolateCheckbox.target = self
         taskIsolateCheckbox.action = #selector(taskIsolateChanged)
         let taskIsolateRow = row(label: "New task:", controls: [taskIsolateCheckbox])
 
-        // Set as Goal (ROADMAP Phase 18): whether "Set as Goal" from a viewer
+        // Set as Goal: whether "Set as Goal" from a viewer
         // selection carries a `From <file>:<lines>:` line into the goal.
         goalProvenanceCheckbox.target = self
         goalProvenanceCheckbox.action = #selector(goalProvenanceChanged)
@@ -132,7 +132,7 @@ extension SettingsWindowController {
         rtkHint.preferredMaxLayoutWidth = 300
         let rtkHintRow = row(label: "", controls: [rtkHint])
 
-        // Autopilot (ROADMAP Phase 32, §2.9).
+        // Autopilot.
         autopilotEnabledCheckbox.target = self
         autopilotEnabledCheckbox.action = #selector(autopilotEnabledToggled)
         let autopilotEnabledRow = row(label: "", controls: [autopilotEnabledCheckbox])
@@ -193,7 +193,7 @@ extension SettingsWindowController {
         autopilotKeepAwakeCheckbox.action = #selector(autopilotKeepAwakeChanged)
         let autopilotKeepAwakeRow = row(label: "", controls: [autopilotKeepAwakeCheckbox])
 
-        // Cost budget guardrails (ROADMAP Phase 42): per-session / per-task
+        // Cost budget guardrails: per-session / per-task
         // dollar ceilings + the auto-interrupt toggle.
         for field in [budgetSessionCapField, budgetTaskCapField] {
             field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)

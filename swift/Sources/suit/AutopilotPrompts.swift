@@ -1,11 +1,11 @@
 import Foundation
 
-// Prompt composition for Autopilot (ROADMAP Phase 32): the worker prompt typed
+// Prompt composition for Autopilot: the worker prompt typed
 // into a run's interactive claude session, the headless review-gate prompt,
 // and the feedback messages sent back into the live session (nudge / resume /
 // build failure / review rejection / merge conflict). Pure string composition
 // — no UI, no engine state — so it compiles standalone for the scratch logic
-// tests (Phase 16/22 convention).
+// tests.
 enum AutopilotPrompts {
 
     // MARK: - Worker prompt

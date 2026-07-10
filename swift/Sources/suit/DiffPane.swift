@@ -1,7 +1,7 @@
 import Cocoa
 
-// The diff pane (ROADMAP Phase 3): renders `git diff` output side-by-side or
-// unified. Heavy use comes in Phase 5's review mode - the pane is driven by
+// The diff pane: renders `git diff` output side-by-side or
+// unified. Heavy use comes in review mode - the pane is driven by
 // diff *text* (see DiffParser.swift), so any producer can feed it.
 
 // The diff pane: a header (mode toggle + refresh) above one unified text view
@@ -16,7 +16,7 @@ final class DiffPaneContent: NSObject, PaneContent {
     let reviewButton = NSButton(title: "Review", target: nil, action: nil)
     let statusLabel = NSTextField(labelWithString: "")
 
-    // The review draft (ROADMAP Phase 16): comments accumulate here, render
+    // The review draft: comments accumulate here, render
     // inline in the unified view, and compose into one prompt sent to a session.
     let reviewDraft = DiffReviewDraft()
 
@@ -45,7 +45,7 @@ final class DiffPaneContent: NSObject, PaneContent {
     private var background = Theme.bg
     var syncingScroll = false
 
-    // Review walking (ROADMAP Phase 5): each changed file's path and where its
+    // Review walking: each changed file's path and where its
     // header sits in the rendered unified / side-by-side texts, in diff order.
     var changedFilePaths: [String] = []
     var unifiedAnchors: [Int] = []
@@ -56,7 +56,7 @@ final class DiffPaneContent: NSObject, PaneContent {
     var reload: (() -> String)?
     var gitRoot: String?
 
-    // Set while this diff tab is reviewing a GitHub PR (ROADMAP Phase 39): the
+    // Set while this diff tab is reviewing a GitHub PR: the
     // number + repo root "Submit Review" posts to, and the title for the compose
     // header. nil for an ordinary git-diff tab.
     struct ReviewingPR { let number: Int; let root: String; let title: String }
@@ -107,7 +107,7 @@ final class DiffPaneContent: NSObject, PaneContent {
         containerView.addSubview(refreshButton)
 
         // The review inspector's entry point: shown only once the draft has a
-        // comment (ROADMAP Phase 16). Click pops the list + Send / Clear menu.
+        // comment. Click pops the list + Send / Clear menu.
         reviewButton.controlSize = .small
         reviewButton.bezelStyle = .texturedRounded
         reviewButton.target = self

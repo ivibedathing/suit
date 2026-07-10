@@ -1,6 +1,6 @@
 import Foundation
 
-// Autopilot gate runners (ROADMAP Phase 32): the two checks a finished run must
+// Autopilot gate runners: the two checks a finished run must
 // pass before its PR is merged. `AutopilotBuildGate` runs the worktree's own
 // build.sh; `AutopilotReviewGate` runs a headless `claude -p` review whose
 // prompt arrives on **stdin** (never argv — no quoting or length hazards) and

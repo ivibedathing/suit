@@ -1,7 +1,7 @@
 import Foundation
 import Darwin
 
-// The IO layer behind the background-task monitor (ROADMAP Phase 30) — the
+// The IO layer behind the background-task monitor — the
 // ClaudeSessionMonitor/GitStatusMonitor pattern. Watches ~/.suit/tasks/ for the
 // JSON records scripts/suit-bg.sh drops there, reconciles each against real
 // process liveness (BackgroundTasks.resolveStatus), enriches running tasks with

@@ -1,10 +1,10 @@
 import Cocoa
 
 // Changed-region marks, the blame gutter + file history, and bookmarks for the
-// read-only viewer (ROADMAP Phases 5, 17, 22). Split out of FileViewerPane.swift;
+// read-only viewer. Split out of FileViewerPane.swift;
 // stored state lives in the primary declaration.
 extension FileViewerPaneContent {
-    // MARK: - Changed regions (ROADMAP Phase 5)
+    // MARK: - Changed regions
 
     @objc func gitStatusChanged(_ note: Notification) {
         refreshChangedLines()
@@ -24,7 +24,7 @@ extension FileViewerPaneContent {
         }
     }
 
-    // MARK: - Blame gutter + file history (ROADMAP Phase 17)
+    // MARK: - Blame gutter + file history
 
     // View ▸ Toggle Blame / ⌃⌘B / palette. Flips the gutter column; the first
     // reveal loads blame for the current file.
@@ -59,7 +59,7 @@ extension FileViewerPaneContent {
         pane?.openCommitDiff(forFile: filePath, sha: sha)
     }
 
-    // MARK: - Bookmarks (ROADMAP Phase 22)
+    // MARK: - Bookmarks
 
     @objc func bookmarksChanged(_ note: Notification) {
         refreshBookmarks()

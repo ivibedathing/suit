@@ -1,8 +1,8 @@
 import Cocoa
 
-// Read-only file viewing inside the pane tree (ROADMAP Phase 1): line numbers,
+// Read-only file viewing inside the pane tree: line numbers,
 // go-to-line, jump-to-line from the fuzzy opener / terminal links, syntax
-// highlighting and a minimap (Phase 3). Deliberately not an editor — selection
+// highlighting and a minimap. Deliberately not an editor — selection
 // and copy only.
 //
 // The gutter (LineNumberRulerView), the text view (ViewerTextView), and the
@@ -24,7 +24,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     var syntaxSpans: [SyntaxSpan] = []
     var baseTextColor: NSColor = .textColor
 
-    // MARK: - Editing (ROADMAP Phase 37)
+    // MARK: - Editing
 
     // Saved-vs-buffer tracking; the pure decisions live in FileEdit.swift.
     var editState = FileEditState()
@@ -56,7 +56,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
 
     override init() {
         textView = ViewerTextView(frame: .zero)
-        // Read-only until a real text file loads (Phase 37 — load() flips this
+        // Read-only until a real text file loads (load() flips this
         // on for editable content, off for binary/too-large/error placeholders).
         textView.isEditable = false
         textView.isSelectable = true
@@ -88,7 +88,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         textView.delegate = self
         container = ViewerContainerView(scrollView: scrollView, minimap: minimap)
 
-        // Gutter click toggles the bookmark on that line (ROADMAP Phase 22).
+        // Gutter click toggles the bookmark on that line.
         ruler.onToggleLine = { [weak self] line in
             self?.toggleBookmark(atLine: line)
         }
@@ -97,7 +97,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
             self?.scroll(toFraction: fraction)
         }
 
-        // Chaining (ROADMAP Phase 17): clicking a blame line's sha opens that
+        // Chaining: clicking a blame line's sha opens that
         // commit's per-file diff.
         ruler.onBlameClick = { [weak self] blame in
             self?.openCommitDiff(sha: blame.sha)
@@ -121,7 +121,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
             self, selector: #selector(bookmarksChanged),
             name: BookmarksStore.didUpdate, object: nil
         )
-        // Editable viewer (Phase 37): when the app regains focus, check whether
+        // Editable viewer: when the app regains focus, check whether
         // the open file was rewritten underneath us (Claude / $EDITOR) and
         // reconcile — a clean buffer reloads, a dirty one prompts.
         NotificationCenter.default.addObserver(
@@ -130,20 +130,20 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         )
     }
 
-    // MARK: - Changed regions (ROADMAP Phase 5)
+    // MARK: - Changed regions
 
     var changedLines = IndexSet()
     var jumpMarkerLine: Int?
 
-    // MARK: - Blame gutter + file history (ROADMAP Phase 17)
+    // MARK: - Blame gutter + file history
 
     var blameVisible = false
 
-    // MARK: - Bookmarks (ROADMAP Phase 22)
+    // MARK: - Bookmarks
 
     var bookmarkedLines = IndexSet()
 
-    // MARK: - Time-travel scrubber (ROADMAP Phase 40)
+    // MARK: - Time-travel scrubber
 
     // Non-nil while scrubbing a file's history: the timeline of revisions, the
     // current slider position, and the scrubber bar. Leaving the mode
@@ -182,7 +182,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
             text = "\(standardized)\n\nCould not read file."
         }
 
-        // Editing state (Phase 37): the loaded text becomes the clean baseline;
+        // Editing state: the loaded text becomes the clean baseline;
         // record the file's mtime so an outside rewrite is detectable.
         isEditableFile = editable
         textView.isEditable = editable
@@ -313,7 +313,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         jump(toLine: line)
     }
 
-    // ROADMAP Phase 18 — hand the current selection to AppDelegate as a Claude
+    // Hand the current selection to AppDelegate as a Claude
     // goal, tagged with this file and the selection's line span so provenance
     // (when enabled) reads `From <file>:<start>-<end>:`.
     func setSelectionAsGoal() {

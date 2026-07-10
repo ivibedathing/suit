@@ -1,7 +1,7 @@
 import Foundation
 
 // Claude Code integration installer — the producer side of the Sessions
-// sidebar (ROADMAP Phase 4). build.sh bundles scripts/claude/*.sh into
+// sidebar. build.sh bundles scripts/claude/*.sh into
 // Contents/Resources/claude/; "Install Claude Code Integration…" (app menu /
 // palette) copies them to ~/.suit/scripts/ — a stable path that survives
 // the app being moved or rebuilt — and wires them into ~/.claude/settings.json:

@@ -1,6 +1,6 @@
 import Cocoa
 
-// The AppKit acting side of Phase 42's cost budget guardrails: assembles the
+// The AppKit acting side of the cost budget guardrails: assembles the
 // live BudgetCaps from settings, handles a trip (notify · opt-in interrupt ·
 // log to the activity feed), and the per-session "Set Budget…" override that
 // the fleet dashboard and palette drive.
@@ -39,7 +39,7 @@ extension AppDelegate {
             title: title, body: body, identifier: trip.id, sessionId: trip.sessionId
         )
 
-        // Activity feed (ROADMAP Phase 38): every trip is a row, deduped on the
+        // Activity feed: every trip is a row, deduped on the
         // trip id so a re-cross after a cap raise is genuinely new.
         activityRecorder.record(ActivityEvent(
             id: trip.id,
@@ -55,7 +55,7 @@ extension AppDelegate {
         ))
     }
 
-    // "Set Budget…" (ROADMAP Phase 42): a per-session dollar override, surfaced
+    // "Set Budget…": a per-session dollar override, surfaced
     // on a fleet row and in the palette. An empty / 0 entry clears it (falls
     // back to the default session cap). Persists like the other defaults, and
     // clears the guard's mark so lowering a cap below current spend re-trips.

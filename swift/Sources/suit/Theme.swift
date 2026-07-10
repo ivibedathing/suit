@@ -1,6 +1,6 @@
 import Cocoa
 
-// The visual design system (ROADMAP Phase 11): every color, metric, and type
+// The visual design system: every color, metric, and type
 // decision from the approved design artifact, in one namespace. Components
 // never state their own hex or magic padding — they read tokens from here.
 // The app is committed dark (the window pins .darkAqua); these are not

@@ -53,7 +53,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     // final wrap widths (scrolling first would land on the wrong line).
     var pendingDividerFractions: [(NSSplitView, Double)] = []
     // Deferred scroll/zoom restores, run after the window reaches its real size
-    // (viewer line, markdown fraction, image zoom, PDF page — ROADMAP Phase 19).
+    // (viewer line, markdown fraction, image zoom, PDF page).
     var pendingScrollRestores: [() -> Void] = []
 
     // The pane the user last worked in, so tab actions still mean "the tab I
@@ -65,7 +65,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     private var firstResponderObservation: NSKeyValueObservation?
 
     // The explicitly picked Files-tab root, or nil while the sidebar follows
-    // the focused pane's project (the pre-Phase-9 behavior).
+    // the focused pane's project (the default follow-the-pane behavior).
     var pinnedSidebarRoot: String?
 
     init(appDelegate: AppDelegate, startDirectory: String, restoring saved: SavedWindow? = nil, adopting adopted: Tab? = nil) {
@@ -95,7 +95,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         store.delegate = self
         window.delegate = self
 
-        // Phase 12: focus is derived, never pushed. AppKit doesn't call
+        // Focus is derived, never pushed. AppKit doesn't call
         // resignFirstResponder on a view that's simply removed from the
         // hierarchy (tree surgery, Pane.display content swaps), so any scheme
         // that pushes border state from responder overrides leaves stale
@@ -214,15 +214,15 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.gitView.onShowFullDiff = { [weak self] root in
             self?.openGitDiff(root: root)
         }
-        // Commit graph pane for the shown repo (ROADMAP Phase 34).
+        // Commit graph pane for the shown repo.
         sidebar.gitView.onShowCommitGraph = { [weak self] root in
             self?.openCommitGraph(root: root)
         }
-        // File History row → that commit's per-file diff (ROADMAP Phase 17).
+        // File History row → that commit's per-file diff.
         sidebar.gitView.onOpenCommitDiff = { [weak self] path, sha in
             self?.paneRequestedOpenCommitDiff(forFile: path, sha: sha)
         }
-        // Away markers (ROADMAP Phase 24): drop a checkpoint / review the
+        // Away markers: drop a checkpoint / review the
         // aggregate catch-up diff since it.
         sidebar.gitView.onMarkNow = { [weak self] root in
             self?.markAwayPoint(root: root)
@@ -240,14 +240,14 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
             self?.pinSidebar(toDirectory: mainRoot, showFiles: false)
         }
         // Feedback inbox row → route the event into its session, or start a
-        // dedicated review pass in its worktree (ROADMAP Phase 29).
+        // dedicated review pass in its worktree.
         sidebar.gitView.onRouteFeedback = { event in
             (NSApp.delegate as? AppDelegate)?.routeFeedback(event)
         }
         sidebar.gitView.onStartReviewPass = { [weak self] event in
             self?.startReviewPass(for: event)
         }
-        // PR review inbox row → open that PR's diff for review (ROADMAP Phase 39).
+        // PR review inbox row → open that PR's diff for review.
         sidebar.gitView.onOpenPR = { [weak self] pr in
             self?.openPRDiff(pr)
         }
@@ -277,7 +277,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.usageFooter.onOpenSettings = { [weak self] in
             self?.appDelegate.installClaudeIntegration(nil)
         }
-        // The Autopilot status row (ROADMAP Phase 32): running → the run tab,
+        // The Autopilot status row: running → the run tab,
         // idle/blocked → the log (a regular viewer tab).
         sidebar.usageFooter.onAutopilotFocusRunTab = { [weak self] in
             self?.appDelegate.focusAutopilotRunTab()

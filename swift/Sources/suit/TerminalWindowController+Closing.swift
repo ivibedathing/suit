@@ -38,7 +38,7 @@ extension TerminalWindowController {
     // them mid-loop) and must not re-close — the count==1 branch would take
     // the whole window with it.
     // An editable viewer autosaves on a 1 s debounce; flush any edit still in
-    // that window before the tab (and its timer) go away (Phase 37).
+    // that window before the tab (and its timer) go away.
     func flushDirtyViewer(_ tab: Tab) {
         (tab.content as? FileViewerPaneContent)?.flushIfDirty()
     }
