@@ -126,6 +126,27 @@ extension SettingsWindowController {
         appDelegate?.bellDockBounceChanged(sender.state == .on)
     }
 
+    @objc func taskDoneSoundEnabledChanged(_ sender: NSButton) {
+        appDelegate?.taskDoneSoundEnabledChanged(sender.state == .on)
+    }
+
+    @objc func needsInputSoundEnabledChanged(_ sender: NSButton) {
+        appDelegate?.needsInputSoundEnabledChanged(sender.state == .on)
+    }
+
+    // Picking a sound previews it once so the choice is audible.
+    @objc func taskDoneSoundChanged(_ sender: NSPopUpButton) {
+        guard let name = sender.titleOfSelectedItem else { return }
+        appDelegate?.taskDoneSoundNameChanged(name)
+        NSSound(named: name)?.play()
+    }
+
+    @objc func needsInputSoundChanged(_ sender: NSPopUpButton) {
+        guard let name = sender.titleOfSelectedItem else { return }
+        appDelegate?.needsInputSoundNameChanged(name)
+        NSSound(named: name)?.play()
+    }
+
     @objc func wordWrapChanged(_ sender: NSButton) {
         appDelegate?.wordWrapChanged(sender.state == .on)
     }
