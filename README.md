@@ -431,7 +431,8 @@ working.
   text color, default pane background, opacity (⌘] / ⌘[), blur (⇧⌘B)), **Terminal** (the shell
   new tabs run, cursor shape and blinking, bell responses — pane flash, Dock bounce),
   **File Viewer** (word wrap), **Claude** (session arguments, "Set as Goal" provenance, and the
-  rtk tool-output compression toggle — see below), **Autopilot**, **Budget**, and a read-only
+  rtk tool-output compression toggle — see below), **Themes** (swap the whole color palette — see below),
+  **Autopilot**, **Budget**, and a read-only
   **Shortcuts** reference. Everything persists across launches.
 - **Per-pane looks** — right-click a pane for background presets or a custom color, per-pane
   font size (⌘= / ⌘-), and a decorative ASCII screensaver overlay (waves/stars) with its own
@@ -439,6 +440,43 @@ working.
   default terminal background, giving shell output its own deeper layer, while "Slate" keeps the
   one-surface chrome ground (#17191D) available per pane. Dracula, Nord, Solarized Dark and more
   round out the presets.
+
+### Themes
+
+- **What a theme is** — a full set of Suit's color tokens: chrome, text, accent, and the
+  session/semantic status colors. Metrics (padding, sizes, corner radii) and fonts stay fixed, so a
+  shared theme can recolor the app but never break its layout. A theme can be dark, light, or
+  high-contrast — the window chrome is drawn from whichever palette is active.
+- **Switching** — pick a theme from **Settings (⌘,) ▸ Themes**; clicking one applies it live and
+  instantly, no relaunch. For quick cycling without opening Settings, run **Switch Theme…** from the
+  command palette (⌘K). Three themes ship built in: **Suit Dark** (the default — the exact look
+  you've always had), **Midnight**, and **Suit Light**. The selection persists across launches, so
+  the app opens already themed.
+- **Creating & editing** — built-in themes are read-only. **Duplicate** turns one into an editable
+  user theme, then **Edit** exposes a color well for each of the ~15 tokens with a live preview
+  strip; changes apply as you pick. `focusBorder` and `selection` aren't editable — they derive from
+  the accent color automatically.
+- **Import / export** — **Import** takes a `.suittheme` file (via the file picker or by dropping it
+  onto the Themes list), copying it in as a new user theme. **Export** writes the selected theme's
+  `.suittheme` file to a location you choose. **Delete** removes a user theme (built-ins can't be
+  deleted).
+- **Sharing** — user themes live one file per theme under `~/.suit/themes/`, so sharing a theme is
+  literally copying its `.suittheme` file — paste it into chat or a gist and the other person
+  imports it. The format is plain JSON:
+
+  ```jsonc
+  {
+    "name": "Nord",
+    "author": "someone",
+    "schema": 1,
+    "colors": { "bg": "#2E3440", "accent": "#88C0D0", "textPrimary": "#ECEFF4" }
+  }
+  ```
+
+  Colors are `"#RRGGBB"` hex strings (a leading `#` is optional and case doesn't matter). Every
+  color is optional: any token a file omits — or spells wrong — falls back to the built-in default,
+  and unknown keys are ignored, so partial themes and themes authored against an older or newer Suit
+  still load cleanly.
 
 ### Safety
 

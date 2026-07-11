@@ -250,6 +250,12 @@ final class ReferencesPaneContent: NSObject, PaneContent, NSOutlineViewDataSourc
         container.layer?.backgroundColor = color.cgColor
     }
 
+    // Live theme switch: re-tint the header and note labels (baked once).
+    func reapplyTheme() {
+        headerLabel.textColor = Theme.textPrimary
+        noteLabel.textColor = Theme.textFaint
+    }
+
     func teardown() {
         searcher.cancel()
     }

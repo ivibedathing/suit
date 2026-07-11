@@ -186,6 +186,15 @@ final class DiffPaneContent: NSObject, PaneContent {
         }
     }
 
+    // Live theme switch: re-tint the status label and re-render so the inline
+    // comment accent picks up the new palette (background/text are re-pushed by
+    // the pane via applyBackground/applyTextColor; the +/- line colors are fixed
+    // constants, not Theme tokens, so they're intentionally unaffected).
+    func reapplyTheme() {
+        statusLabel.textColor = Theme.textFaint
+        render()
+    }
+
     func teardown() {
         NotificationCenter.default.removeObserver(self)
     }

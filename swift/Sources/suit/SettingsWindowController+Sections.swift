@@ -18,8 +18,16 @@ extension SettingsWindowController {
             wrap(claudePane()),
             wrap(autopilotPane()),
             wrap(budgetPane()),
+            wrap(themesPane()),
             buildDocsView(),
         ]
+
+        // Refresh the theme list/editor whenever the catalog or selection
+        // changes anywhere (palette "Switch Theme", delete fallback, another
+        // action), so the window never shows a stale active theme.
+        themeObserverToken = NotificationCenter.default.addObserver(
+            forName: ThemeStore.didUpdate, object: nil, queue: .main
+        ) { [weak self] _ in self?.reloadThemes() }
 
         let sidebar = buildSidebar()
 
@@ -104,13 +112,16 @@ extension SettingsWindowController {
 
     // MARK: - NSTableView data source / delegate (sidebar)
 
-    func numberOfRows(in tableView: NSTableView) -> Int { Self.categories.count }
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        tableView === themeTable ? themeRows.count : Self.categories.count
+    }
 
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         ThemedTableRowView()
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        if tableView === themeTable { return themeCell(row: row) }
         let (title, symbol) = Self.categories[row]
         let id = NSUserInterfaceItemIdentifier("categoryCell")
         let cell = (tableView.makeView(withIdentifier: id, owner: self) as? NSTableCellView) ?? {
@@ -148,6 +159,10 @@ extension SettingsWindowController {
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
+        if (notification.object as? NSTableView) === themeTable {
+            themeSelectionChanged()
+            return
+        }
         let row = sidebarTable.selectedRow
         if row >= 0 { showPanel(row) }
     }
@@ -402,6 +417,157 @@ extension SettingsWindowController {
         ])
     }
 
+    // Themes: a catalog list (built-ins + user themes, active one checked) with
+    // Apply / Duplicate / Edit / Import / Export / Delete, and — for the selected
+    // user theme — a color well per palette token above a live preview strip.
+    // Built-ins are read-only; Edit duplicates them into an editable copy. Every
+    // action drives ThemeStore, so Apply / token edits live-apply via Theme.didChange.
+    private func themesPane() -> NSStackView {
+        themeTable.headerView = nil
+        themeTable.backgroundColor = Theme.barChrome
+        themeTable.rowHeight = 24
+        themeTable.intercellSpacing = NSSize(width: 0, height: 2)
+        themeTable.selectionHighlightStyle = .regular
+        themeTable.style = .sourceList
+        themeTable.dataSource = self
+        themeTable.delegate = self
+        themeTable.focusRingType = .none
+        themeTable.addTableColumn(NSTableColumn(identifier: NSUserInterfaceItemIdentifier("theme")))
+
+        let listScroll = NSScrollView()
+        listScroll.documentView = themeTable
+        listScroll.hasVerticalScroller = true
+        listScroll.drawsBackground = true
+        listScroll.backgroundColor = Theme.barChrome
+        listScroll.borderType = .lineBorder
+        listScroll.translatesAutoresizingMaskIntoConstraints = false
+        listScroll.heightAnchor.constraint(equalToConstant: 148).isActive = true
+        listScroll.widthAnchor.constraint(equalToConstant: 240).isActive = true
+
+        // A drop target so a shared ".suittheme" dragged in imports like the
+        // Import… picker; it wraps the list so the whole area accepts the drop.
+        let dropView = ThemeDropView()
+        dropView.translatesAutoresizingMaskIntoConstraints = false
+        dropView.addSubview(listScroll)
+        NSLayoutConstraint.activate([
+            listScroll.topAnchor.constraint(equalTo: dropView.topAnchor),
+            listScroll.leadingAnchor.constraint(equalTo: dropView.leadingAnchor),
+            listScroll.trailingAnchor.constraint(equalTo: dropView.trailingAnchor),
+            listScroll.bottomAnchor.constraint(equalTo: dropView.bottomAnchor),
+        ])
+        dropView.onDrop = { urls in
+            for url in urls { ThemeStore.shared.importTheme(from: url) }
+        }
+        let listRow = row(label: "Themes:", controls: [dropView])
+
+        for (button, sel) in [
+            (themeApplyButton,     #selector(themeApply)),
+            (themeDuplicateButton, #selector(themeDuplicate)),
+            (themeEditButton,      #selector(themeEdit)),
+            (themeImportButton,    #selector(themeImport)),
+            (themeExportButton,    #selector(themeExport)),
+            (themeDeleteButton,    #selector(themeDelete)),
+        ] {
+            button.target = self
+            button.action = sel
+        }
+        let buttonRow = row(label: "", controls: [
+            themeApplyButton, themeDuplicateButton, themeEditButton,
+            themeImportButton, themeExportButton, themeDeleteButton,
+        ])
+
+        let stack = NSStackView(views: [
+            paneTitle("Themes"),
+            listRow, buttonRow,
+        ])
+
+        // Editable colors for the selected user theme. Built once (one well per
+        // token, index-aligned with editableTokens); themeSelectionChanged()
+        // repopulates and enables/disables them per selection.
+        stack.addArrangedSubview(sectionHeader("Colors"))
+        themeEditHint.font = .systemFont(ofSize: 10)
+        themeEditHint.textColor = Theme.textDim
+        stack.addArrangedSubview(row(label: "", controls: [themeEditHint]))
+
+        themeColorWells = []
+        // Lay the ~15 token wells out in two columns so the pane stays compact.
+        let tokens = Theme.Palette.editableTokens
+        var i = 0
+        while i < tokens.count {
+            let left = tokenWellControl(label: tokens[i].label)
+            var controls: [NSView] = left
+            if i + 1 < tokens.count {
+                controls += tokenWellControl(label: tokens[i + 1].label)
+            }
+            stack.addArrangedSubview(row(label: "", controls: controls))
+            i += 2
+        }
+
+        themePreviewStrip.translatesAutoresizingMaskIntoConstraints = false
+        themePreviewStrip.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        themePreviewStrip.widthAnchor.constraint(equalToConstant: 300).isActive = true
+        stack.addArrangedSubview(row(label: "Preview:", controls: [themePreviewStrip]))
+        return stack
+    }
+
+    // One labeled color well for a palette token, registered so themeTokenChanged
+    // can map it back to its editableTokens index (via themeColorWells order).
+    private func tokenWellControl(label: String) -> [NSView] {
+        let well = NSColorWell(frame: NSRect(x: 0, y: 0, width: 44, height: 24))
+        well.target = self
+        well.action = #selector(themeTokenChanged)
+        themeColorWells.append(well)
+        let caption = NSTextField(labelWithString: label + ":")
+        caption.font = .systemFont(ofSize: 11)
+        caption.textColor = Theme.textDim
+        caption.alignment = .right
+        caption.translatesAutoresizingMaskIntoConstraints = false
+        caption.widthAnchor.constraint(equalToConstant: 92).isActive = true
+        return [caption, well]
+    }
+
+    // One catalog row: the theme name, a "· built-in / author" subtitle, and a
+    // trailing checkmark on the active theme.
+    private func themeCell(row: Int) -> NSView {
+        let info = themeRows[row]
+        let cell = NSTableCellView()
+
+        let label = NSTextField(labelWithString: info.palette.name)
+        label.font = .systemFont(ofSize: 13)
+        label.textColor = Theme.textPrimary
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.lineBreakMode = .byTruncatingTail
+
+        let subtitle = info.isBuiltIn ? "built-in" : (info.author.isEmpty ? "custom" : info.author)
+        let sub = NSTextField(labelWithString: subtitle)
+        sub.font = .systemFont(ofSize: 10)
+        sub.textColor = Theme.textFaint
+        sub.translatesAutoresizingMaskIntoConstraints = false
+        sub.setContentHuggingPriority(.required, for: .horizontal)
+        sub.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        let check = NSImageView()
+        check.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: "Active")
+        check.contentTintColor = Theme.accent
+        check.translatesAutoresizingMaskIntoConstraints = false
+        check.isHidden = info.id != ThemeStore.shared.selected.id
+
+        cell.addSubview(label)
+        cell.addSubview(sub)
+        cell.addSubview(check)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 12),
+            label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            sub.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 8),
+            sub.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            check.leadingAnchor.constraint(equalTo: sub.trailingAnchor, constant: 8),
+            check.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -10),
+            check.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            check.widthAnchor.constraint(equalToConstant: 12),
+        ])
+        return cell
+    }
+
     var autopilotSteppers: [LabeledStepper] {
         [autopilotNightStartStepper, autopilotNightEndStepper, autopilotFiveHourStepper,
          autopilotWeeklyStepper, autopilotHardStopStepper, autopilotPaceStepper,
@@ -512,5 +678,52 @@ extension SettingsWindowController {
         stack.alignment = .centerY
         stack.spacing = 8
         return stack
+    }
+}
+
+// A live preview of a whole palette: its editable tokens drawn as equal-width
+// bars in editableTokens order, so an edit shows the theme's full colour set at
+// a glance. `palette` is set from the selected/edited theme; setting it redraws.
+final class ThemePreviewStrip: NSView {
+    var palette: Theme.Palette? { didSet { needsDisplay = true } }
+
+    override func draw(_ dirtyRect: NSRect) {
+        Theme.raised.setFill()
+        bounds.fill()
+        guard let colors = palette?.orderedTokenColors, !colors.isEmpty else { return }
+        let width = bounds.width / CGFloat(colors.count)
+        for (i, color) in colors.enumerated() {
+            color.setFill()
+            NSRect(x: CGFloat(i) * width, y: 0, width: width.rounded(.up), height: bounds.height).fill()
+        }
+    }
+}
+
+// A drop target that imports ".suittheme" files dragged onto the theme list,
+// handing their URLs to `onDrop`. Kept as its own view (rather than draggging
+// methods on the shared table delegate) so the two tables stay independent.
+final class ThemeDropView: NSView {
+    var onDrop: (([URL]) -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([.fileURL])
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func themeURLs(_ sender: NSDraggingInfo) -> [URL] {
+        (sender.draggingPasteboard.readObjects(forClasses: [NSURL.self]) as? [URL] ?? [])
+            .filter { $0.pathExtension == "suittheme" }
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        themeURLs(sender).isEmpty ? [] : .copy
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let urls = themeURLs(sender)
+        guard !urls.isEmpty else { return false }
+        onDrop?(urls)
+        return true
     }
 }

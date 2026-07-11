@@ -130,6 +130,14 @@ final class SidebarView: NSView {
         updateTabContent()
     }
 
+    // Live theme switch: re-set the flat rail ground baked in at init and
+    // re-tint each rail icon; the rest of the sidebar's draw-based chrome is
+    // repainted by the controller's recursive needsDisplay sweep.
+    func reapplyTheme() {
+        layer?.backgroundColor = Theme.barChrome.cgColor
+        for icon in railIcons { icon.reapplyTheme() }
+    }
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }

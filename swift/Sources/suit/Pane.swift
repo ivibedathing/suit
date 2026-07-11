@@ -70,9 +70,11 @@ protocol PaneHost: AnyObject {
 // content-agnostic chrome — focus border, header, drag & drop, background
 // color, screensaver.
 final class Pane: NSObject {
-    // 1pt amber at 70% when focused, hairline otherwise.
-    private static let focusedBorder = Theme.focusBorder.cgColor
-    private static let unfocusedBorder = Theme.hairline.cgColor
+    // 1pt amber at 70% when focused, hairline otherwise. Computed (not cached)
+    // so a live theme switch is seen the next time setFocused repaints — a
+    // `static let` would freeze the old palette's colors for the app's life.
+    private static var focusedBorder: CGColor { Theme.focusBorder.cgColor }
+    private static var unfocusedBorder: CGColor { Theme.hairline.cgColor }
 
     // Shared with Pane+BackgroundColor and Pane+Screensaver.
     static let presetColors: [(String, NSColor)] = [
@@ -237,6 +239,21 @@ final class Pane: NSObject {
     func refreshTabBar() {
         let owned = host?.ownedTabs(for: self) ?? [tab]
         container.setTabBar(tabs: owned, active: tab)
+    }
+
+    // Re-reads the Theme tokens this pane's chrome baked in once (the container
+    // ground, its header and tab-bar cached colors) after a live theme switch.
+    // Non-terminal panes also re-ground on the new theme background (a viewer /
+    // markdown / diff pane defaults to Theme.bg); terminals keep their color,
+    // which is a separate user setting (defaultTerminalBackground). The focus
+    // border is repainted by the controller's setFocused pass afterward.
+    func reapplyTheme() {
+        container.layer?.backgroundColor = Theme.bg.cgColor
+        container.reapplyTheme()
+        if terminalContent == nil {
+            setBackgroundColor(content.initialBackgroundColor)
+        }
+        refreshChrome()
     }
 
     // MARK: - Drag & drop rearrangement (forwarded to the host, which owns the tree)

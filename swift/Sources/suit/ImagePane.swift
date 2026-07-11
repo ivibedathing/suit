@@ -192,6 +192,14 @@ final class ImagePaneContent: NSObject, FileBackedPaneContent {
         scrollView.backgroundColor = color
     }
 
+    // Live theme switch: re-ground the container layer and re-tint the
+    // dimensions label (baked-once colors); the letterbox scroll background is
+    // re-pushed separately via applyBackground.
+    func reapplyTheme() {
+        containerView.layer?.backgroundColor = Theme.bg.cgColor
+        dimsLabel.textColor = Theme.textDim
+    }
+
     func teardown() {
         NotificationCenter.default.removeObserver(self)
     }

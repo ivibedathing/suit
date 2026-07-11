@@ -47,6 +47,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         ("Claude", "sparkles"),
         ("Autopilot", "airplane"),
         ("Budget", "dollarsign.circle"),
+        ("Themes", "swatchpalette"),
         ("Shortcuts", "keyboard"),
     ]
 
@@ -94,6 +95,31 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let budgetSessionCapField = NSTextField(string: "")
     let budgetTaskCapField = NSTextField(string: "")
     let budgetAutoInterruptCheckbox = NSButton(checkboxWithTitle: "Interrupt the run (Esc) when a cap is crossed", target: nil, action: nil)
+
+    // Themes: a selectable catalog (built-ins + user themes, active one checked)
+    // driving ThemeStore, plus a color-well editor for the selected user theme.
+    // `themeRows` is the snapshot the table renders (stable across a selection
+    // cycle); `themeColorWells` is index-aligned with Theme.Palette.editableTokens
+    // and `themeEditingPalette` is the working copy edits mutate before ThemeStore
+    // persists them. `themeObserverToken` refreshes the list on ThemeStore.didUpdate.
+    let themeTable = NSTableView()
+    var themeRows: [ThemeStore.ThemeInfo] = []
+    var themeColorWells: [NSColorWell] = []
+    let themePreviewStrip = ThemePreviewStrip()
+    var themeEditingPalette: Theme.Palette?
+    var themeObserverToken: NSObjectProtocol?
+    // Coalesces continuous NSColorWell fires: a drag scrubs through dozens of
+    // colors per second, but the working palette is only persisted (disk write +
+    // catalog reload + app-wide re-skin) on the trailing edge so one hue drag is
+    // one write, not a hundred. The preview strip updates live meanwhile.
+    var themeCommitWork: DispatchWorkItem?
+    let themeApplyButton     = NSButton(title: "Apply",     target: nil, action: nil)
+    let themeDuplicateButton = NSButton(title: "Duplicate", target: nil, action: nil)
+    let themeEditButton      = NSButton(title: "Edit",      target: nil, action: nil)
+    let themeImportButton    = NSButton(title: "Import…",   target: nil, action: nil)
+    let themeExportButton    = NSButton(title: "Export…",   target: nil, action: nil)
+    let themeDeleteButton    = NSButton(title: "Delete",    target: nil, action: nil)
+    let themeEditHint = NSTextField(labelWithString: "")
 
     convenience init(appDelegate: AppDelegate) {
         let window = NSWindow(
@@ -154,6 +180,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             budgetAutoInterruptCheckbox.state = appDelegate.budgetAutoInterrupt ? .on : .off
             updateAutopilotNightEnabled()
         }
+        reloadThemes()
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }

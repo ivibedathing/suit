@@ -102,6 +102,13 @@ final class PaneTabChipView: NSView, NSDraggingSource {
         needsLayout = true
     }
 
+    // Live theme switch: re-run configure with the current tab/active state so
+    // every cached color (icon/label tints, the session dot) re-reads its token.
+    func reapplyTheme() {
+        guard let tab else { return }
+        configure(tab: tab, active: isActive)
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         let body = bounds.insetBy(dx: 1, dy: 2)
         if isActive {
@@ -287,6 +294,14 @@ final class PaneTabBarView: NSView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    // Live theme switch: re-set the flat bar ground baked in at init and
+    // re-theme every chip; the bottom hairline redraws from the token live.
+    func reapplyTheme() {
+        layer?.backgroundColor = Theme.barChrome.cgColor
+        for chip in chips.values { chip.reapplyTheme() }
+        needsDisplay = true
     }
 
     // Whether the bar should take vertical space (only with 2+ tabs).

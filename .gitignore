@@ -27,3 +27,6 @@
 
 # Claude task worktrees
 /.claude/worktrees/
+
+# Superpowers brainstorming/spec docs — local only, never commit
+docs/superpowers/

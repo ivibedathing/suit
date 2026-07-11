@@ -170,6 +170,27 @@ extension AppDelegate {
         }
     }
 
+    // Palette: switch the app's color theme. Lists all themes (built-ins + user,
+    // active one ticked) and applies the chosen one through ThemeStore — the same
+    // live-apply path as the Settings Themes list, no relaunch needed.
+    @objc func switchTheme(_ sender: Any?) {
+        guard let controller = activeWindowController() else { NSSound.beep(); return }
+        let store = ThemeStore.shared
+        let activeId = store.selected.id
+        paletteFileIndex = nil
+        commandPalette.show(
+            relativeTo: controller.window,
+            commands: store.allThemes.map { info in
+                let tag = info.isBuiltIn ? " · built-in" : ""
+                let tick = info.id == activeId ? "  ✓" : ""
+                return PaletteCommand(title: "\(info.palette.name)\(tag)\(tick)", shortcut: nil) {
+                    ThemeStore.shared.apply(id: info.id)
+                }
+            },
+            placeholder: "Switch theme…"
+        )
+    }
+
     // Palette / View menu: the cross-transcript search panel.
     @objc func searchTranscripts(_ sender: Any?) {
         transcriptSearch.show(relativeTo: activeWindowController()?.window)
@@ -336,6 +357,7 @@ extension AppDelegate {
             PaletteCommand(title: "Decrease Opacity", shortcut: "⌘[") { [weak self] in self?.decreaseOpacity(nil) },
             PaletteCommand(title: "Toggle Background Blur", shortcut: "⇧⌘B") { [weak self] in self?.toggleBlur(nil) },
             PaletteCommand(title: "Toggle Word Wrap", shortcut: nil) { [weak self] in self?.toggleWordWrap(nil) },
+            PaletteCommand(title: "Switch Theme…", shortcut: nil) { [weak self] in self?.switchTheme(nil) },
             PaletteCommand(title: "Settings…", shortcut: "⌘,") { [weak self] in self?.showSettings(nil) },
             PaletteCommand(title: "Install Claude Code Integration…", shortcut: nil) { [weak self] in self?.installClaudeIntegration(nil) },
         ] + autopilotPaletteCommands() + sshHostCommands() + recipeCommands() + promptLibraryCommands()

@@ -114,6 +114,21 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         }
     }
 
+    // Live theme switch: re-set the colors baked in at init (the label / icon
+    // tints, the flat bar ground, the dirty dot) and re-derive the ones that
+    // track a value (the context meter's fuel-gauge color, the status dot).
+    func reapplyTheme() {
+        layer?.backgroundColor = Theme.barChrome.cgColor
+        iconView.contentTintColor = Theme.textDim
+        label.textColor = Theme.textDim
+        dirtyDot.layer?.backgroundColor = Theme.accent.cgColor
+        if let pct = contextPct {
+            contextLabel.textColor = Theme.contextLevelColor(pct)
+        }
+        updateStatusDot()
+        needsDisplay = true
+    }
+
     private func updateStatusDot() {
         statusDot.layer?.removeAnimation(forKey: "suit.pulse")
         if let exitStatus {

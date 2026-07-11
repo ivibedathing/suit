@@ -53,6 +53,16 @@ final class PaneContainerView: NSView {
         layoutInterior()
     }
 
+    // Live theme switch: re-set the layer colors baked in at init (the drop
+    // preview) and forward to the header and tab-bar chrome. Called by Pane.
+    func reapplyTheme() {
+        dropIndicator.layer?.backgroundColor = Theme.accent.withAlphaComponent(0.25).cgColor
+        dropIndicator.layer?.borderColor = Theme.accent.cgColor
+        titleBar.reapplyTheme()
+        tabBar.reapplyTheme()
+        needsDisplay = true
+    }
+
     private func layoutInterior() {
         let insetRect = bounds.insetBy(dx: Self.inset, dy: Self.inset)
         titleBar.frame = NSRect(x: insetRect.minX, y: insetRect.maxY - Self.titleBarHeight, width: insetRect.width, height: Self.titleBarHeight)

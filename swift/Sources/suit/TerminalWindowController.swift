@@ -64,6 +64,11 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
 
     private var firstResponderObservation: NSKeyValueObservation?
 
+    // Repaints this window's whole chrome + pane tree on a live theme switch
+    // (Theme.didChange), the same centralized-observer spirit as the derived
+    // focus above. Removed on close so a torn-down window stops repainting.
+    var themeObserver: NSObjectProtocol?
+
     // The explicitly picked Files-tab root, or nil while the sidebar follows
     // the focused pane's project (the default follow-the-pane behavior).
     var pinnedSidebarRoot: String?
@@ -366,5 +371,6 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
 
         reloadStrip()
         updateUsageLabel()
+        startObservingTheme()
     }
 }

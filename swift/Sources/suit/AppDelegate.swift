@@ -162,6 +162,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // app-wide appearance keeps every system control — menus, alerts,
         // scrollers, panels — consistent with the Theme chrome.
         NSApp.appearance = NSAppearance(named: .darkAqua)
+        // Load the persisted theme selection into Theme.current before any
+        // window is built, so the app opens already skinned (no flash of the
+        // default palette). Safe to run this early — ThemeStore depends only on
+        // Theme.swift and the filesystem.
+        ThemeStore.shared.applySelectedThemeAtLaunch()
         NotificationCenter.default.addObserver(
             self, selector: #selector(fileIndexUpdated(_:)),
             name: FileIndex.didUpdate, object: nil

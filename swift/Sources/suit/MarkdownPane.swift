@@ -187,6 +187,19 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
         textView.backgroundColor = color
     }
 
+    // Live theme switch: re-ground the header strip, re-tint links, and
+    // re-render so the rendered/raw attributed string picks up the new tokens
+    // (the pane re-pushes the background separately via applyBackground).
+    func reapplyTheme() {
+        containerView.layer?.backgroundColor = Theme.bg.cgColor
+        textView.linkTextAttributes = [
+            .foregroundColor: Theme.accent,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .cursor: NSCursor.pointingHand,
+        ]
+        rerender()
+    }
+
     func teardown() {
         NotificationCenter.default.removeObserver(self)
     }

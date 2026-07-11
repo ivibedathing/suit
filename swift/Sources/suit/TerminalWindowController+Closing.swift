@@ -178,6 +178,10 @@ extension TerminalWindowController {
     }
 
     func windowWillClose(_ notification: Notification) {
+        if let themeObserver {
+            NotificationCenter.default.removeObserver(themeObserver)
+            self.themeObserver = nil
+        }
         appDelegate.windowControllerDidClose(self)
     }
 }

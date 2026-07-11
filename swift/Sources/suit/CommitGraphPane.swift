@@ -93,6 +93,13 @@ final class CommitGraphPaneContent: NSObject, PaneContent {
         graphView.needsDisplay = true
     }
 
+    // Live theme switch: re-tint the status label (baked once) and repaint the
+    // graph, which reads its node/text tokens live at draw time.
+    func reapplyTheme() {
+        statusLabel.textColor = Theme.textFaint
+        graphView.needsDisplay = true
+    }
+
     func teardown() {
         NotificationCenter.default.removeObserver(self)
     }

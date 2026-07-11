@@ -236,4 +236,13 @@ final class PlanApprovalPaneContent: NSObject, PaneContent {
     private func rerender() {
         if let plan { render(plan: plan) } else { render(placeholder: textView.string) }
     }
+
+    // Live theme switch: re-ground the footer band and status label (baked-once
+    // layer/label colors) and re-render the plan/placeholder so its attributed
+    // accent/dim text picks up the new palette.
+    func reapplyTheme() {
+        footer.layer?.backgroundColor = Theme.barChrome.cgColor
+        statusLabel.textColor = Theme.textDim
+        rerender()
+    }
 }
