@@ -101,6 +101,11 @@ final class PDFPaneContent: NSObject, FileBackedPaneContent {
         pdfView.backgroundColor = color
     }
 
+    // Live theme switch: re-tint the status label (baked once).
+    func reapplyTheme() {
+        statusLabel.textColor = Theme.textDim
+    }
+
     func teardown() {
         NotificationCenter.default.removeObserver(self)
     }

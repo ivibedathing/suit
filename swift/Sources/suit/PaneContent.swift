@@ -40,6 +40,12 @@ protocol PaneContent: AnyObject {
     // The color already carries the global translucency alpha.
     func applyBackground(_ color: NSColor)
 
+    // A live theme switch happened: re-read any Theme tokens the content baked
+    // into a layer color, a label, or an attributed string once. The pane
+    // background/font/text color are re-pushed separately (via the apply hooks
+    // above); this is for the content's own internal chrome. Default no-op.
+    func reapplyTheme()
+
     // The pane is going away: stop processes/timers. Must be safe to call twice.
     func teardown()
 }
@@ -81,6 +87,7 @@ extension PaneContent {
     func applyFont(_ font: NSFont) {}
     func applyTextColor(_ color: NSColor) {}
     func applyBackground(_ color: NSColor) {}
+    func reapplyTheme() {}
     func teardown() {}
 }
 

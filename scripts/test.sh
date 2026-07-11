@@ -35,6 +35,7 @@ HARNESSES=(
   "command-history|scripts/command-history-test.sh|fast"
   "rtk|scripts/rtk-test.sh|fast"
   "dictation|scripts/dictation-test.sh|fast"
+  "themes|scripts/test-themes.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 

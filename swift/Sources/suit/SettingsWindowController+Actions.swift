@@ -1,4 +1,5 @@
 import Cocoa
+import UniformTypeIdentifiers
 
 // The settings window's control-action handlers: cursor-style mapping, the
 // @objc targets every control fires, the NSTextFieldDelegate commit logic, and
@@ -246,5 +247,151 @@ extension SettingsWindowController {
             return current
         }
         return value
+    }
+
+    // MARK: - Themes
+
+    // A dynamic UTI for ".suittheme" (falling back to JSON), used to filter the
+    // import/export panels — the format is JSON with a distinct extension.
+    private static var suitThemeType: UTType? { UTType(filenameExtension: "suittheme") }
+
+    // Rebuild the theme list from ThemeStore, preserving the current selection by
+    // id (falling back to the active theme, then the first row), then sync the
+    // editor. Runs from show(), and from the ThemeStore.didUpdate observer so a
+    // switch/duplicate/delete/import anywhere keeps the list and checkmark fresh.
+    func reloadThemes() {
+        let previous = selectedThemeId()
+        themeRows = ThemeStore.shared.allThemes
+        themeTable.reloadData()
+        selectThemeRow(id: previous ?? ThemeStore.shared.selected.id)
+        themeSelectionChanged()
+    }
+
+    // Select the row for theme `id` (or row 0 if it's gone), without extending.
+    func selectThemeRow(id: String) {
+        if let row = themeRows.firstIndex(where: { $0.id == id }) {
+            themeTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        } else if !themeRows.isEmpty {
+            themeTable.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+        }
+    }
+
+    // The id of the theme selected in the list, or nil if none.
+    func selectedThemeId() -> String? {
+        let row = themeTable.selectedRow
+        return themeRows.indices.contains(row) ? themeRows[row].id : nil
+    }
+
+    // Sync the editor to the selected theme: load its colors into the wells and
+    // preview, enable the wells only for a user theme (built-ins are read-only),
+    // and enable Delete/Edit accordingly. Edit turns a built-in into an editable
+    // copy; user themes are edited inline through the wells.
+    func themeSelectionChanged() {
+        guard let id = selectedThemeId(), let info = ThemeStore.shared.theme(id: id) else {
+            themeEditingPalette = nil
+            themePreviewStrip.palette = nil
+            for well in themeColorWells { well.isEnabled = false }
+            for button in [themeApplyButton, themeDuplicateButton, themeEditButton,
+                           themeExportButton, themeDeleteButton] { button.isEnabled = false }
+            themeEditHint.stringValue = ""
+            return
+        }
+        themeEditingPalette = info.palette
+        themePreviewStrip.palette = info.palette
+        let tokens = Theme.Palette.editableTokens
+        for (i, well) in themeColorWells.enumerated() where tokens.indices.contains(i) {
+            well.color = info.palette[keyPath: tokens[i].keyPath]
+            well.isEnabled = !info.isBuiltIn
+        }
+        themeApplyButton.isEnabled = true
+        themeDuplicateButton.isEnabled = true
+        themeExportButton.isEnabled = true
+        themeEditButton.isEnabled = info.isBuiltIn
+        themeDeleteButton.isEnabled = !info.isBuiltIn
+        themeEditHint.stringValue = info.isBuiltIn
+            ? "Built-in theme — Duplicate (or Edit) to make an editable copy."
+            : "Edit the colors below; changes apply live."
+    }
+
+    // Apply the selected theme live (ThemeStore posts Theme.didChange, which the
+    // window controllers observe to re-skin every window).
+    @objc func themeApply(_ sender: Any?) {
+        guard let id = selectedThemeId() else { return }
+        ThemeStore.shared.apply(id: id)
+    }
+
+    // Duplicate the selection into a new editable user theme and select it.
+    @objc func themeDuplicate(_ sender: Any?) {
+        guard let id = selectedThemeId(), let new = ThemeStore.shared.duplicate(id: id) else { return }
+        selectThemeRow(id: new.id)
+        themeSelectionChanged()
+    }
+
+    // Edit a built-in: since built-ins are immutable, this duplicates it into an
+    // editable copy and selects that (user themes are edited inline via the wells).
+    @objc func themeEdit(_ sender: Any?) {
+        guard let id = selectedThemeId(), let info = ThemeStore.shared.theme(id: id),
+              info.isBuiltIn, let new = ThemeStore.shared.duplicate(id: id) else { return }
+        selectThemeRow(id: new.id)
+        themeSelectionChanged()
+    }
+
+    // Import one or more shared ".suittheme" files as new user themes.
+    @objc func themeImport(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        var types: [UTType] = [.json]
+        if let t = Self.suitThemeType { types.insert(t, at: 0) }
+        panel.allowedContentTypes = types
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls { ThemeStore.shared.importTheme(from: url) }
+    }
+
+    // Export the selected theme's ".suittheme" file to a chosen location.
+    @objc func themeExport(_ sender: Any?) {
+        guard let id = selectedThemeId(), let info = ThemeStore.shared.theme(id: id) else { return }
+        let panel = NSSavePanel()
+        if let t = Self.suitThemeType { panel.allowedContentTypes = [t] }
+        panel.nameFieldStringValue = ThemeStore.slug(info.palette.name) + ".suittheme"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if !ThemeStore.shared.exportTheme(id: id, to: url) { NSSound.beep() }
+    }
+
+    // Delete the selected user theme (built-ins are ignored), after confirming.
+    @objc func themeDelete(_ sender: Any?) {
+        guard let id = selectedThemeId(), let info = ThemeStore.shared.theme(id: id), !info.isBuiltIn else { return }
+        let alert = NSAlert()
+        alert.messageText = "Delete “\(info.palette.name)”?"
+        alert.informativeText = "This removes the theme file from ~/.suit/themes. This can’t be undone."
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        ThemeStore.shared.delete(id: id)
+    }
+
+    // Commit one token's color edit to the selected user theme: mutate the
+    // working palette and refresh the preview live, but debounce the persist
+    // through ThemeStore. NSColorWell fires continuously while the color panel
+    // is dragged; without coalescing, every frame would write the theme file,
+    // re-decode the whole catalog, and re-skin every window — dozens of times a
+    // second. We persist once the drag settles (trailing edge).
+    @objc func themeTokenChanged(_ sender: NSColorWell) {
+        let tokens = Theme.Palette.editableTokens
+        guard let index = themeColorWells.firstIndex(where: { $0 === sender }),
+              tokens.indices.contains(index),
+              let id = selectedThemeId(),
+              var info = ThemeStore.shared.theme(id: id), !info.isBuiltIn else { return }
+        var palette = themeEditingPalette ?? info.palette
+        palette[keyPath: tokens[index].keyPath] = sender.color
+        themeEditingPalette = palette
+        themePreviewStrip.palette = palette
+        info.palette = palette
+
+        themeCommitWork?.cancel()
+        let work = DispatchWorkItem { ThemeStore.shared.update(info) }
+        themeCommitWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
     }
 }

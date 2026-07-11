@@ -41,6 +41,13 @@ final class RailIconView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // Live theme switch: re-set the icon tint baked in at init (selection state
+    // is preserved); the hover/selection fill in draw() re-reads its token live.
+    func reapplyTheme() {
+        iconView.contentTintColor = isSelected ? Theme.accent : Theme.textDim
+        needsDisplay = true
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         guard isSelected || isHovered else { return }
         let path = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)

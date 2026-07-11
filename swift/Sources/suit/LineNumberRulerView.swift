@@ -11,6 +11,13 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
     // cheaper than re-walking the string on every draw.
     var lineStarts: [Int] = [0]
 
+    // Live theme switch: re-set the gutter text color baked in at init; the
+    // inline hairline / change-bar / blame fills in draw() re-read live.
+    func reapplyTheme() {
+        textColor = Theme.textFaint
+        needsDisplay = true
+    }
+
     // Lines changed vs HEAD, drawn as an orange bar along
     // the gutter's right edge.
     var changedLines = IndexSet() {
