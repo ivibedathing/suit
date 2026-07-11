@@ -72,6 +72,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let taskDoneSoundPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     let needsInputSoundCheckbox = NSButton(checkboxWithTitle: "Play a sound when Claude has a question", target: nil, action: nil)
     let needsInputSoundPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let soundPreviewPlayer = NotificationSoundPlayer()
     let taskIsolateCheckbox = NSButton(checkboxWithTitle: "Isolate new tasks in a worktree by default", target: nil, action: nil)
     let goalProvenanceCheckbox = NSButton(checkboxWithTitle: "Prepend source location to goals (From file:lines:)", target: nil, action: nil)
     let rtkCompressionCheckbox = NSButton(checkboxWithTitle: "Compress tool output with rtk", target: nil, action: nil)

@@ -138,13 +138,13 @@ extension SettingsWindowController {
     @objc func taskDoneSoundChanged(_ sender: NSPopUpButton) {
         guard let name = sender.titleOfSelectedItem else { return }
         appDelegate?.taskDoneSoundNameChanged(name)
-        NSSound(named: name)?.play()
+        soundPreviewPlayer.play(named: name)
     }
 
     @objc func needsInputSoundChanged(_ sender: NSPopUpButton) {
         guard let name = sender.titleOfSelectedItem else { return }
         appDelegate?.needsInputSoundNameChanged(name)
-        NSSound(named: name)?.play()
+        soundPreviewPlayer.play(named: name)
     }
 
     @objc func wordWrapChanged(_ sender: NSButton) {
