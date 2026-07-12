@@ -20,7 +20,6 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     let tabSwitcher = TabSwitcherController()
 
     private var rootContainer: WindowRootView!
-    var effectView: NSVisualEffectView!
 
     // Left rail (Files / Notes) and the split that puts it
     // beside the pane tree. The pane tree lives in its own filling container
@@ -112,13 +111,6 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         }
 
         rootContainer = WindowRootView(frame: frame)
-
-        effectView = NSVisualEffectView(frame: frame)
-        effectView.blendingMode = .behindWindow
-        effectView.material = .underWindowBackground
-        effectView.state = .active
-        effectView.isHidden = true
-        rootContainer.addSubview(effectView)
 
         strip = TabStripView(frame: NSRect(x: 0, y: 0, width: frame.width, height: TabStripView.height))
         wireStrip()
@@ -314,7 +306,6 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         // constructed and wired so its harmless no-op methods keep compiling,
         // but it is never added to the view hierarchy.
         rootContainer.body = sidebarSplit
-        rootContainer.background = effectView
         rootContainer.layoutParts()
         layoutSidebarSplit()
 

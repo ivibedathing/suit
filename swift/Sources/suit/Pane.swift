@@ -130,6 +130,11 @@ final class Pane: NSObject {
     // Read by Pane+BackgroundColor's color-panel action.
     var backgroundRGB: NSColor
     private var backgroundAlpha: CGFloat = 1
+    // The app-wide glass settings this pane last saw, replayed when the pane
+    // swaps to another tab so a terminal tab keeps its frost (and a viewer tab
+    // stays solid — setBlur re-gates on the current content).
+    private var blurEnabled = false
+    private var blurMaterial: NSVisualEffectView.Material = .underWindowBackground
     // Managed by Pane+Screensaver; torn down here in teardown().
     var screensaverView: PaneScreensaverView?
 
@@ -219,6 +224,9 @@ final class Pane: NSObject {
         if let appliedTextColor { newTab.content.applyTextColor(appliedTextColor) }
         newTab.content.applyBackground(backgroundRGB.withAlphaComponent(backgroundAlpha))
         container.setContentView(newTab.content.view)
+        // Re-gate the frost for the newly shown content (terminal → glass,
+        // viewer → solid).
+        container.setBlur(active: blurEnabled && terminalContent != nil, material: blurMaterial)
         refreshChrome()
         host?.paneTitleChanged(self)
     }
@@ -398,6 +406,16 @@ final class Pane: NSObject {
     func setBackgroundAlpha(_ alpha: CGFloat) {
         backgroundAlpha = alpha
         applyBackgroundColor()
+    }
+
+    // The behind-window frost. Only terminal panes get glass — a viewer, diff,
+    // or markdown pane stays solid for legibility even while terminals go
+    // translucent. The gate lives here (not in the window controller) so a tab
+    // swap between a terminal and a viewer in the same pane re-evaluates it.
+    func setBlur(enabled: Bool, material: NSVisualEffectView.Material) {
+        blurEnabled = enabled
+        blurMaterial = material
+        container.setBlur(active: enabled && terminalContent != nil, material: material)
     }
 
     private func applyBackgroundColor() {

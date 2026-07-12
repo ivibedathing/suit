@@ -450,6 +450,20 @@ working.
   one-surface chrome ground (#17191D) available per pane. Dracula, Nord, Solarized Dark and more
   round out the presets.
 
+### Glassmorphism (transparency & blur)
+
+Like the native macOS Terminal, only the **terminal panes** go translucent — the window's title
+bar stays solid, and file/diff/markdown viewers stay opaque for legibility.
+
+- **Real transparency** — the **Transparency** slider in **Settings ▸ Appearance** (or ⌘] / ⌘[)
+  lowers each terminal's background alpha so the desktop shows *through* the terminal, while the text
+  itself stays fully opaque and crisp. The live percentage is shown next to the slider.
+- **Background blur** — the **Background Blur** checkbox (⇧⌘B) puts a behind-window frost directly
+  behind each translucent terminal, so it reads as a pane of frosted glass rather than a plain
+  see-through hole. The frost sits *under* the terminal only, so the title bar and chrome keep their
+  solid backing. Blur only becomes visible once transparency is below 100% — there's nothing to see
+  through an opaque pane.
+
 ### Themes
 
 - **What a theme is** — a full set of Suit's color tokens: chrome, text, accent, and the

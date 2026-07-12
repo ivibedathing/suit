@@ -11,6 +11,10 @@ extension TerminalWindowController {
         panes.append(pane)
         updateBorderVisibility()
         pane.setBackgroundAlpha(appDelegate.backgroundAlpha)
+        pane.setBlur(
+            enabled: appDelegate.backgroundAlpha < 1 && appDelegate.blurEnabled,
+            material: Self.glassMaterial
+        )
         pane.setFont(appDelegate.currentFont)
         pane.setTextColor(appDelegate.currentTextColor)
         (tab.content as? FileViewerPaneContent)?.setWordWrap(appDelegate.wordWrapEnabled)
@@ -234,18 +238,26 @@ extension TerminalWindowController {
         }
     }
 
-    // MARK: - Opacity, blur & appearance
+    // MARK: - Opacity, blur & appearance (terminal glass)
 
-    // window.backgroundColor only paints pixels no subview covers. Keep it
-    // opaque so the title-bar row (traffic lights) never goes see-through;
-    // panes handle their own translucency via setBackgroundAlpha regardless.
+    // The behind-window frost material for translucent terminals — a dark
+    // vibrant glass matching the native Terminal look.
+    static let glassMaterial: NSVisualEffectView.Material = .underWindowBackground
+
+    // Native-Terminal transparency: each terminal pane goes translucent (alpha <
+    // 1) over a behind-window frost sized to its own content, so the blurred
+    // desktop shows through the terminal while text stays fully opaque. The
+    // window fill stays Theme.bg — never `.clear` — so the titled title bar keeps
+    // its solid backing (dropping the fill to clear is what made the title bar
+    // see-through before). isOpaque=false is all the window needs for the
+    // per-pane frost to sample the desktop behind it.
     func applyTransparency(alpha: CGFloat, blurEnabled: Bool) {
         let transparent = alpha < 1
         window.isOpaque = !transparent
         window.backgroundColor = Theme.bg
-        effectView.isHidden = !blurEnabled
         for pane in panes {
             pane.setBackgroundAlpha(alpha)
+            pane.setBlur(enabled: transparent && blurEnabled, material: Self.glassMaterial)
         }
     }
 
