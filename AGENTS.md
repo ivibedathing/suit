@@ -10,7 +10,8 @@ architecture, and the rationale live there. Read this first, then reach for
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app: a native
 AppKit app bundle whose windows host split trees of terminal panes, growing into
 a Claude-Code-first cockpit for monorepo work. Swift/AppKit is the whole product
-layer. See `README.md` for shipped behavior.
+layer. See `README.md` for the overview and `docs/features.md` for the full
+shipped-behavior reference.
 
 ## The rules that bite (read before touching anything)
 
@@ -21,8 +22,10 @@ layer. See `README.md` for shipped behavior.
    CLAUDE.md "Why no SwiftPM"). Build with `./build.sh` or direct `swiftc`.
    Don't run `xcode-select --install` or create a `.xcodeproj`. Vendor new deps
    as source under `swift/Vendor/` like SwiftTerm.
-3. **Document what you ship.** After implementing a feature, update `README.md`
-   with the user-facing behavior/shortcuts/settings as part of the same task.
+3. **Document what you ship.** After implementing a feature, update
+   `docs/features.md` with the user-facing behavior/shortcuts/settings as part of
+   the same task. Keep `README.md` lean — touch it only for Highlights or the
+   shortcuts table.
 
 ## Build, run, test
 

@@ -150,8 +150,10 @@ the source of truth for details.
 - **Always work on a new branch in its own git worktree** (`EnterWorktree`) — never directly in
   the main checkout. Concurrent sessions have clobbered each other here before. Exit with
   `keep` to persist, `remove` once merged/abandoned.
-- **After implementing a feature, document it in `README.md`** (user-facing behavior, shortcuts,
-  settings) as part of the same task.
+- **After implementing a feature, document it in `docs/features.md`** (user-facing behavior,
+  shortcuts, settings) as part of the same task — that's the full feature reference. Keep
+  `README.md` lean: it carries only the Highlights summary and a pointer into `docs/features.md`,
+  so touch the README only when a change belongs in Highlights or the shortcuts table.
 - **`/goal` tasks follow the full loop** without asking: worktree → implement → `gh pr create`
   against `main` → `gh pr merge`, resolving any conflicts (rebase on `main`, re-push) until
   merged. Stop only when merged or genuinely blocked.
