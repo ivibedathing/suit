@@ -23,13 +23,14 @@ final class SidebarView: NSView {
         case sessions
 
         // The rail's left-to-right icon order, independent of rawValue.
-        // Sessions leads: it's the replacement for the removed top tab strip.
+        // Files leads (the primary surface), then Sessions (the open-tabs list,
+        // the replacement for the removed top tab strip), SSH, Notes, Bookmarks.
         // Git is intentionally absent — its changes/worktrees no longer get a
         // dedicated rail tab; the branch/worktree switcher lives on the Files
         // footer, and the diff / file-history / feedback / PR-inbox surfaces
         // are reached on demand through the palette (which still shows the
         // GitView via showGit()).
-        static let railOrder: [Tab] = [.sessions, .files, .bookmarks, .ssh, .notes]
+        static let railOrder: [Tab] = [.files, .sessions, .ssh, .notes, .bookmarks]
 
         // Tooltip / accessibility label; the rail shows only the icon.
         var label: String {
@@ -46,9 +47,9 @@ final class SidebarView: NSView {
         var symbolName: String {
             switch self {
             case .files: return "folder"
-            case .notes: return "note.text"
+            case .notes: return "square.and.pencil"
             case .git: return "arrow.triangle.branch"
-            case .ssh: return "network"
+            case .ssh: return "server.rack"
             case .bookmarks: return "bookmark"
             case .sessions: return "rectangle.stack"
             }

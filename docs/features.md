@@ -24,8 +24,8 @@ app does.
   ⌘1–9 jump (⌘9 = last), ⌃Tab is a most-recently-used switcher (hold ⌃ to pick, quick tap to
   toggle the last two). Opening a file, diff, or transcript adds a tab to the focused pane's
   group.
-- **Sessions sidebar** — the sidebar's Sessions tab (the leftmost rail icon) lists every open
-  tab in the window, grouped by the pane (screen) that owns it — the cross-pane overview that
+- **Sessions sidebar** — the sidebar's Sessions tab (second in the rail, after Files) lists every
+  open tab in the window, grouped by the pane (screen) that owns it — the cross-pane overview that
   replaces the old strip. Click a row to bring that tab forward in its pane; its close box
   shuts it. Session dots (busy / pulsing needs-input / done) and red failure dots show right
   in the list.
@@ -56,7 +56,7 @@ app does.
 
 ## Files, search & navigation
 
-- **Sidebar** (⌘B) — an icon rail with Sessions, Files, Bookmarks, SSH Hosts and Notes. The
+- **Sidebar** (⌘B) — an icon rail with Files, Sessions, SSH Hosts, Notes and Bookmarks. The
   Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
   search / choose-folder / unpin actions, and, inside a repo, a branch-switcher row with the
   repo's branch/worktree counts — and gives the rest of the tab to the tree. The tree is
