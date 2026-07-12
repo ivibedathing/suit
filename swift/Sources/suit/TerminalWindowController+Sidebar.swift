@@ -144,6 +144,45 @@ extension TerminalWindowController {
         sidebar.recentFolders.currentRoot = path
     }
 
+    // Picking a worktree from either switcher (Files-tab footer, Git-tab
+    // header): repoint the sidebar there, and — the point of this method over a
+    // bare pinSidebar — walk the window's terminals over to the new worktree so
+    // the shells the user is looking at actually land on the new branch.
+    func switchWorktree(toDirectory path: String, showFiles: Bool = true) {
+        pinSidebar(toDirectory: path, showFiles: showFiles)
+        followWorktreeInTerminals(newRoot: path)
+    }
+
+    // Switching worktrees repoints the sidebar; the terminals should follow so
+    // the active shell reflects the new branch. For each visible terminal
+    // sitting idle at a prompt whose cwd belongs to this repo's worktree family,
+    // `cd` it to the matching spot under the new worktree — preserving the
+    // relative subpath when it exists there, otherwise landing at the root.
+    // Terminals running a foreground job (claude, vim, a build) are skipped: a
+    // cd would just be swallowed by that program's stdin.
+    func followWorktreeInTerminals(newRoot: String) {
+        // Every worktree of this repo, including the main checkout — the set a
+        // shell must currently sit inside to be considered "following" the repo.
+        let siblings = WorktreeSwitcher.worktrees(root: newRoot).map { $0.path }
+        guard !siblings.isEmpty else { return }
+        for pane in panes {
+            guard let terminal = pane.terminalContent else { continue }
+            // SSH shells run on a remote host — a local worktree path is
+            // meaningless there.
+            if terminal is SSHPaneContent { continue }
+            guard pane.runningProcessName == nil else { continue }
+            guard let cwd = terminal.workingDirectory,
+                  let base = siblings.first(where: { cwd == $0 || cwd.hasPrefix($0 + "/") }),
+                  base != newRoot else { continue }
+            let relative = cwd == base ? "" : String(cwd.dropFirst(base.count + 1))
+            var target = relative.isEmpty ? newRoot : newRoot + "/" + relative
+            if !FileManager.default.fileExists(atPath: target) {
+                target = newRoot
+            }
+            SessionControl.send(text: "cd " + shellQuote(target), to: terminal, submit: true)
+        }
+    }
+
     // Check out a local branch in the shown repo, from the Files-tab footer's
     // worktree/branch switcher. Off-thread git; failures alerted; the status
     // monitor refresh repaints the footer and file badges.
