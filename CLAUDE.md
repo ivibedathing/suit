@@ -150,6 +150,16 @@ the source of truth for details.
 - **Always work on a new branch in its own git worktree** (`EnterWorktree`) — never directly in
   the main checkout. Concurrent sessions have clobbered each other here before. Exit with
   `keep` to persist, `remove` once merged/abandoned.
+  - **Worktree FIRST, always** — the very first action for *any* task, including a "trivial"
+    one-liner or "just merge this branch", is to create the worktree. Never run merges, edits,
+    builds, or `git checkout`/`git add`/`git commit` in the shared main checkout: other live
+    sessions switch branches and commit under you mid-operation and will silently wipe your
+    in-progress merge or index. This has happened repeatedly.
+  - **To land on `main`**, do the work in a worktree whose branch *is* `main`
+    (`git worktree add <path> main`) so the merge commit advances `main` without touching the
+    shared checkout — which also stops a concurrent session from grabbing `main` while you work.
+    If you ever catch yourself dirtying the shared checkout, back up the diff, restore it clean,
+    and restart in a worktree.
 - **After implementing a feature, document it in `docs/features.md`** (user-facing behavior,
   shortcuts, settings) as part of the same task — that's the full feature reference. Keep
   `README.md` lean: it carries only the Highlights summary and a pointer into `docs/features.md`,
