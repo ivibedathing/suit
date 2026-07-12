@@ -94,6 +94,35 @@ check(contexts.first?.oldLine == 1 && contexts.first?.newLine == 1,
 check(contexts.last?.oldLine == 50 && contexts.last?.newLine == 60,
       "second hunk header resets counters to 50/60")
 
+// MARK: - parse: content lines that look like file headers
+
+print("== UnifiedDiffParser.parse — -- / ++ content is not meta ==")
+// Inside a hunk, a deleted line whose content begins with "--" produces the raw
+// diff line "---x", and an added line beginning with "++" produces "+++y". These
+// must classify as deletion/addition (content), NOT as --- / +++ file-header
+// meta, or the line counters desync for the rest of the hunk.
+let tricky = """
+@@ -5,3 +5,3 @@
+ keep
+---x
++++y
+ tail
+"""
+let tk = UnifiedDiffParser.parse(tricky)
+let tkDel = tk.filter { $0.kind == .deletion }
+let tkAdd = tk.filter { $0.kind == .addition }
+check(tk.filter { $0.kind == .meta }.isEmpty,
+      "no content line inside a hunk is misread as meta")
+check(tkDel.count == 1 && tkDel.first?.text == "--x",
+      "a deleted line whose content starts with -- is a deletion (text '--x')")
+check(tkAdd.count == 1 && tkAdd.first?.text == "++y",
+      "an added line whose content starts with ++ is an addition (text '++y')")
+check(tkDel.first?.oldLine == 6,
+      "the -- deletion advances the old-line counter (old 6)")
+let tkTail = tk.last { $0.kind == .context }
+check(tkTail?.oldLine == 7 && tkTail?.newLine == 7,
+      "line numbers stay in sync after -- / ++ content lines (tail 7/7)")
+
 // MARK: - parse: empty input
 
 print("== UnifiedDiffParser.parse — empty ==")

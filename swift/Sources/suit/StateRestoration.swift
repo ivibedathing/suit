@@ -66,14 +66,18 @@ struct SavedAppState: Codable {
     func save() {
         guard let data = try? JSONEncoder().encode(self) else { return }
         UserDefaults.standard.set(data, forKey: Self.defaultsKey)
-        // The old-format snapshot is superseded the first time this runs.
-        UserDefaults.standard.removeObject(forKey: Self.legacyDefaultsKey)
+        // Note: the legacy snapshot is intentionally NOT removed here. It's the
+        // migration fallback, and dropping it on the first V2 *write* would leave
+        // nothing to fall back to if that V2 blob later fails to decode. It's
+        // cleared instead the first time a V2 blob decodes successfully in load().
     }
 
     static func load() -> SavedAppState? {
         if let data = UserDefaults.standard.data(forKey: defaultsKey),
            let state = try? JSONDecoder().decode(SavedAppState.self, from: data),
            !state.windows.isEmpty {
+            // A V2 blob decoded — the legacy fallback has served its purpose.
+            UserDefaults.standard.removeObject(forKey: legacyDefaultsKey)
             return state
         }
         // First launch after the browser-tab rebuild: migrate the per-pane
@@ -83,6 +87,31 @@ struct SavedAppState: Codable {
               !legacy.windows.isEmpty else { return nil }
         let migrated = SavedAppState(windows: legacy.windows.map { $0.migrated() })
         return migrated.windows.isEmpty ? nil : migrated
+    }
+}
+
+// Decode windows one at a time so a single corrupt or forward-incompatible
+// window (a truncated blob, a renamed non-optional field in a future build) is
+// dropped rather than throwing and discarding the *entire* saved session —
+// best-effort restore instead of all-or-nothing. Defined in an extension so the
+// memberwise `init(windows:)` used by the migration path is preserved, and the
+// synthesized `encode(to:)` is kept.
+extension SavedAppState {
+    private enum CodingKeys: String, CodingKey { case windows }
+
+    // A window slot that never throws: a window that fails to decode becomes nil
+    // and is compacted out, while the array decode still advances past it.
+    private struct LenientWindow: Decodable {
+        let window: SavedWindow?
+        init(from decoder: Decoder) throws {
+            window = try? SavedWindow(from: decoder)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let slots = try container.decodeIfPresent([LenientWindow].self, forKey: .windows) ?? []
+        self.windows = slots.compactMap { $0.window }
     }
 }
 

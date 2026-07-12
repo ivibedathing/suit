@@ -216,7 +216,12 @@ func runProcess(_ executable: String, _ arguments: [String]) -> String? {
     process.arguments = arguments
     let stdout = Pipe()
     process.standardOutput = stdout
-    process.standardError = Pipe()
+    // stderr is discarded (we only return stdout), but it must be drained or the
+    // child blocks once it writes past the ~64 KB pipe buffer — with stderr's
+    // pipe never read, that stalls the child, which never closes stdout, so the
+    // readDataToEndOfFile below would hang forever. Route it to /dev/null so a
+    // chatty git command (a flood of warnings, advice, CRLF notices) can't wedge us.
+    process.standardError = FileHandle.nullDevice
     do {
         try process.run()
     } catch {

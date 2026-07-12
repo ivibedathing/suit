@@ -30,6 +30,7 @@ HARNESSES=(
   "activity|scripts/activity-test.sh|fast"
   "pr-review|scripts/pr-review-test.sh|fast"
   "diffparser|scripts/diffparser-test.sh|fast"
+  "storefile|scripts/storefile-test.sh|fast"
   "layouts|scripts/layouts-test.sh|fast"
   "file-time-travel|scripts/file-time-travel-test.sh|fast"
   "budget|scripts/budget-test.sh|fast"

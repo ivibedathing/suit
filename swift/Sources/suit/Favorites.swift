@@ -63,8 +63,7 @@ final class FavoritesStore {
     }
 
     private func load() {
-        guard let data = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode(Model.self, from: data) else { return }
+        guard let decoded = StoreFile.load(Model.self, from: fileURL.path) else { return }
         model = decoded
         // Paths can vanish between launches (deleted files, removed
         // worktrees); drop them on load rather than showing dead rows.

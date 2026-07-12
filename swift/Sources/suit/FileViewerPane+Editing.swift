@@ -78,6 +78,35 @@ extension FileViewerPaneContent: NSTextViewDelegate {
     private func performSave() -> Bool {
         guard let filePath else { return false }
         let text = textView.string
+
+        // Don't clobber an outside change. If the file moved on disk since we
+        // last loaded/saved it, reconcile before overwriting instead of blindly
+        // winning: an unchanged mtime is the common fast path; a changed mtime
+        // whose content still equals our buffer is our own write echoing back
+        // (safe to proceed); a changed mtime that diverges from our dirty buffer
+        // is a real conflict — hand it to the user rather than silently lose
+        // whatever rewrote the file (e.g. a Claude edit to the open file).
+        if let saved = savedModificationDate,
+           let currentMod = modificationDate(ofPath: filePath),
+           saved != currentMod {
+            let disk = readableDiskText(atPath: filePath)
+            // If disk is unreadable (binary/too-large/non-UTF-8), fall back to
+            // treating it as "matches" so an inspectable-only file still saves.
+            switch editState.resolveExternalChange(diskText: disk ?? text, bufferText: text) {
+            case .ignore:
+                break                                   // disk == buffer — proceed to write
+            case .reload:
+                autosaveTimer?.invalidate(); autosaveTimer = nil
+                if let disk { adoptDiskContent(disk) }  // no local edits — adopt disk, don't overwrite
+                savedModificationDate = currentMod
+                return true
+            case .warn:
+                autosaveTimer?.invalidate(); autosaveTimer = nil
+                presentExternalChangeConflict(diskText: disk ?? "", modDate: currentMod)
+                return false                            // let the user decide; don't overwrite
+            }
+        }
+
         autosaveTimer?.invalidate(); autosaveTimer = nil
         do {
             try FileEditWriter.write(text, toPath: filePath)
@@ -127,9 +156,7 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         let currentMod = modificationDate(ofPath: filePath)
         // Unchanged mtime → nothing moved.
         if let saved = savedModificationDate, let currentMod, saved == currentMod { return }
-        guard let data = FileManager.default.contents(atPath: filePath),
-              data.count <= 8 * 1024 * 1024, !data.prefix(8192).contains(0) else { return }
-        let diskText = String(decoding: data, as: UTF8.self)
+        guard let diskText = readableDiskText(atPath: filePath) else { return }
 
         switch editState.resolveExternalChange(diskText: diskText, bufferText: textView.string) {
         case .ignore:
@@ -193,5 +220,16 @@ extension FileViewerPaneContent: NSTextViewDelegate {
 
     func modificationDate(ofPath path: String) -> Date? {
         (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+    }
+
+    // Read the file as an editable text buffer, applying the same guards as
+    // load(): nil for missing, too-large, binary (NUL in the first 8 KB), or
+    // non-UTF-8 content — none of which we ever treat as an editable buffer, and
+    // so none of which a save may overwrite from a UTF-8 text buffer.
+    private func readableDiskText(atPath path: String) -> String? {
+        guard let data = FileManager.default.contents(atPath: path),
+              data.count <= 8 * 1024 * 1024, !data.prefix(8192).contains(0),
+              let text = String(bytes: data, encoding: .utf8) else { return nil }
+        return text
     }
 }

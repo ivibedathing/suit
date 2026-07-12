@@ -53,8 +53,7 @@ final class NotesStore {
     static var legacyPath: String { suitDirectory + "/notes.txt" }
 
     init() {
-        if let data = try? Data(contentsOf: URL(fileURLWithPath: Self.path)),
-           let decoded = try? JSONDecoder().decode([Note].self, from: data) {
+        if let decoded = StoreFile.load([Note].self, from: Self.path) {
             notes = decoded
         } else if let legacy = try? String(contentsOfFile: Self.legacyPath, encoding: .utf8),
                   !legacy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

@@ -54,8 +54,7 @@ final class SSHHostsStore {
     }
 
     private init() {
-        if let data = try? Data(contentsOf: fileURL),
-           let decoded = try? JSONDecoder().decode(Model.self, from: data) {
+        if let decoded = StoreFile.load(Model.self, from: fileURL.path) {
             hosts = decoded.hosts ?? []
         }
     }
