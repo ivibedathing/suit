@@ -9,6 +9,7 @@ import UserNotifications
 // and clicking the notification is the user's own focus grab, not the app's.
 final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
     private var previousStates: [String: ClaudeSessionState] = [:]
+    private let soundPlayer = NotificationSoundPlayer()
     private var authorizationRequested = false
     private let onFocusSession: (String) -> Void
 
@@ -75,6 +76,31 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
             }
         }
 
+        // Notification sounds: on the transition into done / needs-input while
+        // the app is inactive, play the user's chosen system sound. Independent
+        // of notificationsAvailable so it also works in the bare swiftc dev run.
+        // The pure core (notificationSoundEvents) decides which events fire.
+        if !NSApp.isActive {
+            let appDelegate = NSApp.delegate as? AppDelegate
+            let settings = NotificationSoundSettings(
+                taskDoneEnabled: appDelegate?.taskDoneSoundEnabled ?? true,
+                needsInputEnabled: appDelegate?.needsInputSoundEnabled ?? true
+            )
+            let events = notificationSoundEvents(
+                previousStates: previousStates.mapValues(Self.soundState),
+                currentStates: sessions.map { ($0.id, Self.soundState($0.state)) },
+                settings: settings
+            )
+            for event in events {
+                switch event {
+                case .taskDone:
+                    soundPlayer.play(named: appDelegate?.taskDoneSoundName ?? "Glass")
+                case .needsInput:
+                    soundPlayer.play(named: appDelegate?.needsInputSoundName ?? "Ping")
+                }
+            }
+        }
+
         previousStates = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0.state) })
     }
 
@@ -91,7 +117,6 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
             body += " · \((cwd as NSString).lastPathComponent)"
         }
         content.body = body
-        content.sound = .default
         center.add(UNNotificationRequest(identifier: session.id, content: content, trigger: nil))
     }
 
@@ -171,6 +196,16 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
             completionHandler([.banner, .sound])
         } else {
             completionHandler([])
+        }
+    }
+
+    // Bridge ClaudeSessionState (AppKit-dependent) to the Foundation-only
+    // core's state enum, so the sound decision stays in NotificationSoundCore.
+    private static func soundState(_ state: ClaudeSessionState) -> NotificationSoundState {
+        switch state {
+        case .working: return .working
+        case .needsInput: return .needsInput
+        case .done: return .done
         }
     }
 }
