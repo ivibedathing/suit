@@ -66,8 +66,7 @@ final class MarkerStore {
     }
 
     private func load() {
-        guard let data = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode(Model.self, from: data) else { return }
+        guard let decoded = StoreFile.load(Model.self, from: fileURL.path) else { return }
         model = decoded
     }
 

@@ -40,8 +40,7 @@ final class BookmarksStore {
     static var path: String { suitDirectory + "/bookmarks.json" }
 
     init() {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: Self.path)),
-              let decoded = try? JSONDecoder().decode([Bookmark].self, from: data) else {
+        guard let decoded = StoreFile.load([Bookmark].self, from: Self.path) else {
             bookmarks = []
             return
         }

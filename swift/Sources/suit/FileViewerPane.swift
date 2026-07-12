@@ -174,9 +174,17 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
                 text = "\(standardized)\n\nFile is too large for the viewer (\(data.count / (1024 * 1024)) MB)."
             } else if data.prefix(8192).contains(0) {
                 text = "\(standardized)\n\nBinary file (\(data.count) bytes)."
-            } else {
-                text = String(decoding: data, as: UTF8.self)
+            } else if let utf8 = String(bytes: data, encoding: .utf8) {
+                text = utf8
                 editable = true
+            } else {
+                // Not valid UTF-8 (e.g. Latin-1 / Windows-1252, no NUL bytes so
+                // the binary guard above misses it). Show a best-effort lossy
+                // decode but keep it READ-ONLY: our writer emits UTF-8, so saving
+                // would rewrite every non-UTF-8 byte as U+FFFD and corrupt bytes
+                // the user never touched.
+                text = String(decoding: data, as: UTF8.self)
+                editable = false
             }
         } else {
             text = "\(standardized)\n\nCould not read file."

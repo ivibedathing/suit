@@ -15,10 +15,11 @@ wrong-merge/gate-skip bug was found. The real risks cluster in two themes:
 **(A) silent data loss on write/decode paths**, and **(B) synchronous work on the
 main thread**.
 
-Two low-risk, high-confidence fixes are applied in this branch (see
-[§ Fixed here](#fixed-in-this-branch)). The data-loss items are left documented
-rather than patched blind, because their fixes touch the save/restore paths and
-warrant runtime verification (see [§ Recommended follow-ups](#recommended-follow-ups)).
+Five fixes are applied in this branch (see [§ Fixed here](#fixed-in-this-branch)):
+the two parser/infra bugs plus all three data-loss bugs (autosave clobber, UTF-8
+corruption, and the systemic store/state decode-wipe). The remaining findings —
+mostly main-thread blocking and lower-severity correctness — are documented as
+prioritized follow-ups (see [§ Recommended follow-ups](#recommended-follow-ups)).
 
 ---
 
@@ -28,9 +29,9 @@ warrant runtime verification (see [§ Recommended follow-ups](#recommended-follo
 |---|----------|------|-----|--------|
 | 1 | HIGH | Git/review | DiffParser mis-tags `--`/`++` **content** as a file header → line numbers desync | ✅ fixed |
 | 2 | HIGH | Infra (git) | `runProcess` never drains stderr → >64 KB stderr **deadlocks** any git call | ✅ fixed |
-| 3 | HIGH | Viewer | Autosave overwrites a file **changed on disk** (no mtime re-check) → Claude's edit lost | 📋 follow-up |
-| 4 | HIGH | Viewer | Lossy UTF-8 decode marks non-UTF-8 files editable → **whole-file corruption** on save | 📋 follow-up |
-| 5 | MEDIUM | Persistence | Decode failure **wipes the store** on next write (all `~/.suit` stores + state restoration) | 📋 follow-up |
+| 3 | HIGH | Viewer | Autosave overwrites a file **changed on disk** (no mtime re-check) → Claude's edit lost | ✅ fixed |
+| 4 | HIGH | Viewer | Lossy UTF-8 decode marks non-UTF-8 files editable → **whole-file corruption** on save | ✅ fixed |
+| 5 | MEDIUM | Persistence | Decode failure **wipes the store** on next write (all `~/.suit` stores + state restoration) | ✅ fixed |
 | 6 | MEDIUM | Claude | statusline/hook **RMW race** on `sessions/<sid>.json` reverts `done → working` | 📋 follow-up |
 | 7 | MEDIUM | Claude | Plan transcript read + JSON-parsed in full **on the main thread** | 📋 follow-up |
 | 8 | MEDIUM | Multiple | Synchronous git on the main thread (worktree finish, "What Changed", session monitor) | 📋 follow-up |
@@ -89,45 +90,49 @@ the reader.
 > *before* stderr, so a >64 KB stderr with unread stdout can wedge them the same
 > way. Draining both concurrently (or nulling the unused one) is the durable fix.
 
+### 3 — Autosave clobbers an externally-modified file
+`swift/Sources/suit/FileViewerPane+Editing.swift`
+
+`performSave` wrote unconditionally; reconciliation only ran on `appBecameActive`.
+If Suit stayed frontmost while Claude (or `$EDITOR`) rewrote the open file, the 1 s
+autosave overwrote that content with the stale buffer — silent loss on the app's
+*central* workflow. **Fix:** before writing, re-stat the file; if its mtime moved
+since load/last-save, run the existing pure `resolveExternalChange` decision on the
+disk-vs-buffer content — `ignore` proceeds, `reload` adopts the disk version, and a
+divergent dirty buffer (`warn`) routes to the conflict sheet instead of overwriting.
+
+### 4 — Lossy UTF-8 decode → whole-file corruption
+`swift/Sources/suit/FileViewerPane.swift`
+
+Load used `String(decoding: data, as: UTF8.self)` (which never fails — invalid bytes
+become U+FFFD) and unconditionally set `editable = true`; the NUL-byte binary guard
+misses single-byte encodings. A Latin-1/Windows-1252 file opened editable with every
+non-ASCII byte already a replacement char, and the first autosave rewrote the whole
+file. **Fix:** decode with `String(bytes:encoding:.utf8)` — nil for invalid UTF-8 —
+and only mark the file editable when it's valid; otherwise show a best-effort lossy
+view **read-only** so a save can never corrupt it.
+
+### 5 — Decode failure wipes the store (systemic)
+`swift/Sources/suit/StoreFile.swift` (new) + `Notes` / `Bookmarks` / `Favorites` /
+`SSHHosts` / `Markers` / `StateRestoration.swift`
+
+Every `~/.suit` store loaded with `try?` and, on any failure, started from an empty
+model — the next mutation then atomically overwrote the good-but-unreadable file, so
+one malformed `notes.json` erased every note. `StateRestoration` was all-or-nothing
+per launch: one bad field wiped every window/tab/layout, and `save()` dropped the
+legacy fallback on the first V2 *write*. **Fix:** a shared `StoreFile.load` helper
+distinguishes "absent" (start empty — safe) from "present but unreadable" (quarantine
+to `<name>.corrupt-<epoch>` before returning nil, so the bytes survive); all five
+stores route through it. `StateRestoration` now decodes windows one at a time (a
+corrupt window is dropped, not the whole session) and clears the legacy key only
+after a V2 blob decodes. Covered by a new standalone harness
+(`scripts/storefile-test.sh`, wired into `scripts/test.sh`).
+
 ---
 
 ## Recommended follow-ups
 
-Ordered by impact. The data-loss items (3–5) are the highest priority.
-
-### Theme A — silent data loss
-
-**3 · Autosave clobbers an externally-modified file** —
-`FileViewerPane+Editing.swift` (`performSave`), reconciliation only on
-`appBecameActive` (`FileViewerPane.swift`). If Suit stays frontmost while Claude
-rewrites the open file on disk, the 1 s autosave overwrites Claude's content with
-the stale buffer. This is the app's *central* workflow (Claude edits files you're
-viewing), so it will happen in practice. **Fix:** re-stat the file and compare to
-`savedModificationDate` immediately before writing; on mismatch route through the
-conflict sheet. Ideally watch the open file (kqueue/FSEvents) instead of relying on
-app activation.
-
-**4 · Lossy UTF-8 decode → whole-file corruption** —
-`FileViewerPane.swift` load (`String(decoding: data, as: UTF8.self)`) never fails —
-invalid bytes become U+FFFD — yet sets `editable = true`; the NUL-byte binary guard
-doesn't catch single-byte encodings. A Latin-1/Windows-1252 file opens editable,
-every non-ASCII byte is already a replacement char, and the first autosave rewrites
-the **entire** file, permanently replacing bytes the user never touched. **Fix:**
-decode with `usedEncoding:`, or verify `Data(text.utf8) == data` and fall back to
-read-only when it isn't valid UTF-8.
-
-**5 · Decode failure wipes the store (systemic)** —
-`Notes`, `Bookmarks`, `Favorites`, `SSHHosts`, `Markers`, and `StateRestoration`
-all load with `try?` and, on any decode failure, leave the in-memory model
-**empty** — not distinguishing "file absent" from "file present but unreadable."
-The next mutation atomically overwrites the good-but-unreadable file with the empty
-model. A single malformed `notes.json` (disk glitch, truncation, or a future
-non-optional schema field) → type one character → every prior note is gone.
-`StateRestoration` is all-or-nothing per launch: one bad field wipes every window,
-tab, and layout. **Fix:** on decode failure of a *non-empty* file, rename it to
-`<name>.corrupt-<timestamp>` before the first write (or load a read-only degraded
-mode); decode `StateRestoration` per-window and with `decodeIfPresent` for fields
-that may be absent, keeping the legacy fallback until a V2 decode has succeeded.
+The data-loss items are fixed above; these remain, ordered by impact.
 
 ### Theme B — main-thread blocking
 
