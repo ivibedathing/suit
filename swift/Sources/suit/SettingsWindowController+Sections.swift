@@ -215,36 +215,19 @@ extension SettingsWindowController {
         let resetBackgroundButton = NSButton(title: "Reset", target: self, action: #selector(resetBackgroundColor))
         let backgroundRow = row(label: "Background:", controls: [backgroundColorWell, resetBackgroundButton])
 
-        // Transparency: the slider drives every pane's background alpha live
-        // (isContinuous), and the percent label tracks it as you drag.
         opacitySlider.target = self
         opacitySlider.action = #selector(opacityChanged)
-        opacitySlider.isContinuous = true
         opacitySlider.translatesAutoresizingMaskIntoConstraints = false
         opacitySlider.widthAnchor.constraint(equalToConstant: 160).isActive = true
-        opacityValueLabel.font = .systemFont(ofSize: 12)
-        opacityValueLabel.textColor = Theme.textDim
-        opacityValueLabel.translatesAutoresizingMaskIntoConstraints = false
-        opacityValueLabel.widthAnchor.constraint(equalToConstant: 40).isActive = true
-        let opacityRow = row(label: "Transparency:", controls: [opacitySlider, opacityValueLabel])
-        let opacityHint = hintRow("Lower to let the desktop show through the terminal background.")
+        let opacityRow = row(label: "Opacity:", controls: [opacitySlider])
 
         blurCheckbox.target = self
         blurCheckbox.action = #selector(blurChanged)
         let blurRow = row(label: "", controls: [blurCheckbox])
 
-        // Glassmorphism 2.0: frost strength behind translucent panes.
-        blurIntensityPopup.target = self
-        blurIntensityPopup.action = #selector(blurIntensityChanged)
-        blurIntensityPopup.removeAllItems()
-        blurIntensityPopup.addItems(withTitles: ["Subtle", "Regular", "Strong"])
-        let blurIntensityRow = row(label: "Frost:", controls: [blurIntensityPopup])
-        let blurHint = hintRow("Blur frosts whatever is behind the window; visible once transparency is below 100%.")
-
         return NSStackView(views: [
             paneTitle("Appearance"),
-            fontRow, fontSizeRow, textColorRow, backgroundRow,
-            opacityRow, opacityHint, blurRow, blurIntensityRow, blurHint,
+            fontRow, fontSizeRow, textColorRow, backgroundRow, opacityRow, blurRow,
         ])
     }
 

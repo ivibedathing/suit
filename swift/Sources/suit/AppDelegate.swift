@@ -13,9 +13,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     var backgroundAlpha: CGFloat = 1
     let opacityStep: CGFloat = 0.05
     let minOpacity: CGFloat = 0.3
-    // Glassmorphism 2.0 frost strength: 0 Subtle, 1 Regular, 2 Strong. Selects
-    // the behind-window NSVisualEffectView material behind translucent panes.
-    var blurIntensity = 1
 
     // Same bounds as the settings window's font-size stepper.
     let minFontSize: CGFloat = 8
