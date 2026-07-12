@@ -319,11 +319,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         layoutSidebarSplit()
 
         window.contentView = rootContainer
-        applyTransparency(
-            alpha: appDelegate.backgroundAlpha,
-            blurEnabled: appDelegate.blurEnabled,
-            blurIntensity: appDelegate.blurIntensity
-        )
+        applyTransparency(alpha: appDelegate.backgroundAlpha, blurEnabled: appDelegate.blurEnabled)
 
         if let fallbackPane {
             window.title = fallbackPane.displayTitle

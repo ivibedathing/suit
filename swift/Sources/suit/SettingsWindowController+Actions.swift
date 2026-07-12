@@ -51,18 +51,11 @@ extension SettingsWindowController {
     }
 
     @objc func opacityChanged(_ sender: NSSlider) {
-        opacityValueLabel.stringValue = "\(Int((sender.doubleValue * 100).rounded()))%"
         appDelegate?.opacityChanged(CGFloat(sender.doubleValue))
     }
 
     @objc func blurChanged(_ sender: NSButton) {
-        let enabled = sender.state == .on
-        blurIntensityPopup.isEnabled = enabled
-        appDelegate?.blurChanged(enabled)
-    }
-
-    @objc func blurIntensityChanged(_ sender: NSPopUpButton) {
-        appDelegate?.blurIntensityChanged(sender.indexOfSelectedItem)
+        appDelegate?.blurChanged(sender.state == .on)
     }
 
     // Commit on Enter or focus loss. The shell path is validated (an invalid
