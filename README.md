@@ -433,7 +433,8 @@ working.
 
 - **Settings** (⌘,) — a category sidebar (macOS System-Settings style) with one pane per topic,
   so only the settings you're changing are on screen: **Appearance** (font and default size,
-  text color, default pane background, opacity (⌘] / ⌘[), blur (⇧⌘B)), **Terminal** (the shell
+  text color, default pane background, transparency (⌘] / ⌘[), blur + frost strength (⇧⌘B) —
+  see **Glassmorphism** below), **Terminal** (the shell
   new tabs run, cursor shape and blinking, bell responses — pane flash, Dock bounce),
   **File Viewer** (word wrap), **Claude** (session arguments, "Set as Goal" provenance, and the
   rtk tool-output compression toggle — see below), **Themes** (swap the whole color palette — see below),
@@ -445,6 +446,20 @@ working.
   default terminal background, giving shell output its own deeper layer, while "Slate" keeps the
   one-surface chrome ground (#17191D) available per pane. Dracula, Nord, Solarized Dark and more
   round out the presets.
+
+### Glassmorphism (transparency & blur)
+
+- **Real transparency** — the **Transparency** slider in **Settings ▸ Appearance** (or ⌘] / ⌘[)
+  lowers every pane's background alpha so the desktop shows *through* the terminal, while the text
+  itself stays fully opaque and crisp. Below 100% the window drops its opaque fill entirely — this
+  is the fix for the old behavior where lowering opacity only revealed a flat theme color instead of
+  what's actually behind the window. The live percentage is shown next to the slider.
+- **Background blur** — the **Background Blur** checkbox (⇧⌘B) frosts whatever is behind the window,
+  so the terminal reads as a pane of frosted glass rather than a plain see-through hole. Blur only
+  becomes visible once transparency is below 100% — there's nothing to see through an opaque pane.
+- **Frost strength** — the **Frost** popup picks the glass material: **Subtle**, **Regular**, or
+  **Strong** (light → heavy frost). **Cycle Glass Frost** in the command palette (⌘K) steps through
+  the three without opening Settings. All three settings persist across launches.
 
 ### Themes
 
@@ -580,7 +595,7 @@ Comment verdict via `gh pr review`.
 | --- | --- |
 | ⌘= / ⌘- | Increase / decrease font size |
 | ⇧⌘= / ⇧⌘- | Increase / decrease font size (all panes) |
-| ⌘] / ⌘[ | Increase / decrease opacity |
+| ⌘] / ⌘[ | Increase / decrease transparency |
 | ⇧⌘B | Toggle background blur |
 
 ### App & windows

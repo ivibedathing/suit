@@ -234,18 +234,36 @@ extension TerminalWindowController {
         }
     }
 
-    // MARK: - Opacity, blur & appearance
+    // MARK: - Opacity, blur & appearance (glassmorphism 2.0)
 
-    // window.backgroundColor only paints pixels no subview covers. Keep it
-    // opaque so the title-bar row (traffic lights) never goes see-through;
-    // panes handle their own translucency via setBackgroundAlpha regardless.
-    func applyTransparency(alpha: CGFloat, blurEnabled: Bool) {
+    // Real transparency: when panes go translucent (alpha < 1) the opaque
+    // Theme.bg window fill is dropped to `.clear` so the desktop — and the
+    // frosted blur backing, when on — shows through instead of a flat colour.
+    // The titled title-bar chrome draws itself, so it stays put either way.
+    // Blur is a behind-window NSVisualEffectView whose material sets the frost
+    // strength (glassmorphism 2.0).
+    func applyTransparency(alpha: CGFloat, blurEnabled: Bool, blurIntensity: Int = 1) {
         let transparent = alpha < 1
         window.isOpaque = !transparent
-        window.backgroundColor = Theme.bg
+        window.backgroundColor = transparent ? .clear : Theme.bg
+
         effectView.isHidden = !blurEnabled
+        if blurEnabled {
+            effectView.material = Self.glassMaterial(for: blurIntensity)
+        }
+
         for pane in panes {
             pane.setBackgroundAlpha(alpha)
+        }
+    }
+
+    // Frost strength → behind-window material. Ordered light→heavy so the
+    // Settings "Subtle / Regular / Strong" popup maps by index.
+    static func glassMaterial(for intensity: Int) -> NSVisualEffectView.Material {
+        switch intensity {
+        case ..<1: return .popover            // Subtle — light frost
+        case 1: return .underWindowBackground // Regular — the classic glass
+        default: return .fullScreenUI         // Strong — heavy frost
         }
     }
 

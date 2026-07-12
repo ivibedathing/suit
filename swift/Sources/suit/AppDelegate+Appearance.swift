@@ -15,20 +15,34 @@ extension AppDelegate {
         blurChanged(!blurEnabled)
     }
 
+    @objc func cycleFrostIntensity(_ sender: Any?) {
+        blurIntensityChanged((blurIntensity + 1) % 3)
+    }
+
     func opacityChanged(_ value: CGFloat) {
         backgroundAlpha = value
-        for controller in windowControllers {
-            controller.applyTransparency(alpha: backgroundAlpha, blurEnabled: blurEnabled)
-        }
+        applyAppearanceToAllWindows()
         saveSettings()
     }
 
     func blurChanged(_ enabled: Bool) {
         blurEnabled = enabled
-        for controller in windowControllers {
-            controller.applyTransparency(alpha: backgroundAlpha, blurEnabled: blurEnabled)
-        }
+        applyAppearanceToAllWindows()
         saveSettings()
+    }
+
+    func blurIntensityChanged(_ level: Int) {
+        blurIntensity = max(0, min(2, level))
+        applyAppearanceToAllWindows()
+        saveSettings()
+    }
+
+    private func applyAppearanceToAllWindows() {
+        for controller in windowControllers {
+            controller.applyTransparency(
+                alpha: backgroundAlpha, blurEnabled: blurEnabled, blurIntensity: blurIntensity
+            )
+        }
     }
 
     // MARK: - Word wrap (file viewers)
@@ -254,6 +268,9 @@ extension AppDelegate {
             backgroundAlpha = CGFloat(defaults.double(forKey: "backgroundAlpha"))
         }
         blurEnabled = defaults.bool(forKey: "blurEnabled")
+        if defaults.object(forKey: "blurIntensity") != nil {
+            blurIntensity = max(0, min(2, defaults.integer(forKey: "blurIntensity")))
+        }
         if defaults.object(forKey: "wordWrapEnabled") != nil {
             wordWrapEnabled = defaults.bool(forKey: "wordWrapEnabled")
         }
@@ -369,6 +386,7 @@ extension AppDelegate {
         defaults.set(Double(color.alphaComponent), forKey: "textColorA")
         defaults.set(Double(backgroundAlpha), forKey: "backgroundAlpha")
         defaults.set(blurEnabled, forKey: "blurEnabled")
+        defaults.set(blurIntensity, forKey: "blurIntensity")
         defaults.set(wordWrapEnabled, forKey: "wordWrapEnabled")
         let background = defaultTerminalBackground.usingColorSpace(.deviceRGB) ?? defaultTerminalBackground
         defaults.set(Double(background.redComponent), forKey: "defaultBgR")
