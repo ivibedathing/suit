@@ -36,6 +36,7 @@ HARNESSES=(
   "rtk|scripts/rtk-test.sh|fast"
   "dictation|scripts/dictation-test.sh|fast"
   "themes|scripts/test-themes.sh|fast"
+  "notification-sound|scripts/notification-sound-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 
