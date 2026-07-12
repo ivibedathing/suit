@@ -158,69 +158,16 @@ extension Theme {
         var sessionDone: NSColor
         var failed: NSColor
 
-        init(
-            name: String,
-            bg: NSColor,
-            terminalBg: NSColor,
-            barChrome: NSColor,
-            raised: NSColor,
-            hover: NSColor,
-            hairline: NSColor,
-            overlay: NSColor,
-            textPrimary: NSColor,
-            textDim: NSColor,
-            textFaint: NSColor,
-            accent: NSColor,
-            sessionBusy: NSColor,
-            sessionNeedsInput: NSColor,
-            sessionDone: NSColor,
-            failed: NSColor
-        ) {
-            self.name = name
-            self.bg = bg
-            self.terminalBg = terminalBg
-            self.barChrome = barChrome
-            self.raised = raised
-            self.hover = hover
-            self.hairline = hairline
-            self.overlay = overlay
-            self.textPrimary = textPrimary
-            self.textDim = textDim
-            self.textFaint = textFaint
-            self.accent = accent
-            self.sessionBusy = sessionBusy
-            self.sessionNeedsInput = sessionNeedsInput
-            self.sessionDone = sessionDone
-            self.failed = failed
-        }
-
         // MARK: Codable ("#RRGGBB" strings, per-token fallback to suitDark)
+        //
+        // `init(from:)` lives in an extension below so the struct body declares
+        // no initializer and Swift keeps synthesizing the memberwise
+        // `init(name:bg:…)` the built-ins are constructed with.
 
-        private enum CodingKeys: String, CodingKey {
+        fileprivate enum CodingKeys: String, CodingKey {
             case name, bg, terminalBg, barChrome, raised, hover, hairline, overlay
             case textPrimary, textDim, textFaint
             case accent, sessionBusy, sessionNeedsInput, sessionDone, failed
-        }
-
-        init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            let d = Palette.suitDark
-            name = (try? c.decode(String.self, forKey: .name)) ?? d.name
-            bg = Palette.color(c, .bg, d.bg)
-            terminalBg = Palette.color(c, .terminalBg, d.terminalBg)
-            barChrome = Palette.color(c, .barChrome, d.barChrome)
-            raised = Palette.color(c, .raised, d.raised)
-            hover = Palette.color(c, .hover, d.hover)
-            hairline = Palette.color(c, .hairline, d.hairline)
-            overlay = Palette.color(c, .overlay, d.overlay)
-            textPrimary = Palette.color(c, .textPrimary, d.textPrimary)
-            textDim = Palette.color(c, .textDim, d.textDim)
-            textFaint = Palette.color(c, .textFaint, d.textFaint)
-            accent = Palette.color(c, .accent, d.accent)
-            sessionBusy = Palette.color(c, .sessionBusy, d.sessionBusy)
-            sessionNeedsInput = Palette.color(c, .sessionNeedsInput, d.sessionNeedsInput)
-            sessionDone = Palette.color(c, .sessionDone, d.sessionDone)
-            failed = Palette.color(c, .failed, d.failed)
         }
 
         func encode(to encoder: Encoder) throws {
@@ -277,6 +224,31 @@ extension Theme {
     }
 }
 
+// MARK: - Decodable (per-token fallback to suitDark)
+
+extension Theme.Palette {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Self.suitDark
+        name = (try? c.decode(String.self, forKey: .name)) ?? d.name
+        bg = Self.color(c, .bg, d.bg)
+        terminalBg = Self.color(c, .terminalBg, d.terminalBg)
+        barChrome = Self.color(c, .barChrome, d.barChrome)
+        raised = Self.color(c, .raised, d.raised)
+        hover = Self.color(c, .hover, d.hover)
+        hairline = Self.color(c, .hairline, d.hairline)
+        overlay = Self.color(c, .overlay, d.overlay)
+        textPrimary = Self.color(c, .textPrimary, d.textPrimary)
+        textDim = Self.color(c, .textDim, d.textDim)
+        textFaint = Self.color(c, .textFaint, d.textFaint)
+        accent = Self.color(c, .accent, d.accent)
+        sessionBusy = Self.color(c, .sessionBusy, d.sessionBusy)
+        sessionNeedsInput = Self.color(c, .sessionNeedsInput, d.sessionNeedsInput)
+        sessionDone = Self.color(c, .sessionDone, d.sessionDone)
+        failed = Self.color(c, .failed, d.failed)
+    }
+}
+
 // MARK: - Editable token map
 
 extension Theme.Palette {
@@ -286,25 +258,23 @@ extension Theme.Palette {
     /// a token to the palette is the only change needed to expose it in the UI.
     /// `name` and derived colors (focusBorder / selection) are intentionally
     /// absent — the former is metadata, the latter derive from `accent`.
-    static var editableTokens: [(label: String, keyPath: WritableKeyPath<Theme.Palette, NSColor>)] {
-        [
-            ("Background", \.bg),
-            ("Terminal", \.terminalBg),
-            ("Bar Chrome", \.barChrome),
-            ("Raised", \.raised),
-            ("Hover", \.hover),
-            ("Hairline", \.hairline),
-            ("Overlay", \.overlay),
-            ("Text", \.textPrimary),
-            ("Text Dim", \.textDim),
-            ("Text Faint", \.textFaint),
-            ("Accent", \.accent),
-            ("Session Busy", \.sessionBusy),
-            ("Needs Input", \.sessionNeedsInput),
-            ("Session Done", \.sessionDone),
-            ("Failed", \.failed),
-        ]
-    }
+    static let editableTokens: [(label: String, keyPath: WritableKeyPath<Theme.Palette, NSColor>)] = [
+        ("Background", \.bg),
+        ("Terminal", \.terminalBg),
+        ("Bar Chrome", \.barChrome),
+        ("Raised", \.raised),
+        ("Hover", \.hover),
+        ("Hairline", \.hairline),
+        ("Overlay", \.overlay),
+        ("Text", \.textPrimary),
+        ("Text Dim", \.textDim),
+        ("Text Faint", \.textFaint),
+        ("Accent", \.accent),
+        ("Session Busy", \.sessionBusy),
+        ("Needs Input", \.sessionNeedsInput),
+        ("Session Done", \.sessionDone),
+        ("Failed", \.failed),
+    ]
 
     /// The tokens in `editableTokens` order, for the preview swatch strip.
     var orderedTokenColors: [NSColor] {
