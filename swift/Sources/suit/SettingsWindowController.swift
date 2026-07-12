@@ -57,7 +57,9 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let textColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 44, height: 24))
     let backgroundColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 44, height: 24))
     let opacitySlider = NSSlider(value: 1, minValue: 0.3, maxValue: 1, target: nil, action: nil)
+    let opacityValueLabel = NSTextField(labelWithString: "100%")
     let blurCheckbox = NSButton(checkboxWithTitle: "Background Blur", target: nil, action: nil)
+    let blurIntensityPopup = NSPopUpButton(frame: .zero, pullsDown: false)
 
     let shellField = NSTextField(string: "")
     let cursorShapePopup = NSPopUpButton(frame: .zero, pullsDown: false)
@@ -147,7 +149,10 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             textColorWell.color = appDelegate.currentTextColor
             backgroundColorWell.color = appDelegate.defaultTerminalBackground
             opacitySlider.doubleValue = Double(appDelegate.backgroundAlpha)
+            opacityValueLabel.stringValue = "\(Int((appDelegate.backgroundAlpha * 100).rounded()))%"
             blurCheckbox.state = appDelegate.blurEnabled ? .on : .off
+            blurIntensityPopup.selectItem(at: appDelegate.blurIntensity)
+            blurIntensityPopup.isEnabled = appDelegate.blurEnabled
             shellField.stringValue = appDelegate.shellPath
             let (shape, blinking) = Self.components(of: appDelegate.cursorStyle)
             cursorShapePopup.selectItem(at: shape)
