@@ -1,5 +1,9 @@
-# This workflow will build a Swift project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
+# Builds Suit and runs its logic harnesses.
+#
+# Suit has no SwiftPM/Xcode project (see CLAUDE.md "Why no SwiftPM"): sources are
+# compiled directly with swiftc via ./build.sh, and UI-free logic is verified by
+# standalone harnesses via scripts/test.sh. So this workflow drives those, not
+# `swift build` / `swift test`.
 
 name: Swift
 
@@ -17,6 +21,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build
-      run: swift build -v
+      run: ./build.sh
     - name: Run tests
-      run: swift test -v
+      run: scripts/test.sh
