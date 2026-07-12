@@ -186,6 +186,26 @@ extension AppDelegate {
         saveSettings()
     }
 
+    func taskDoneSoundEnabledChanged(_ enabled: Bool) {
+        taskDoneSoundEnabled = enabled
+        saveSettings()
+    }
+
+    func needsInputSoundEnabledChanged(_ enabled: Bool) {
+        needsInputSoundEnabled = enabled
+        saveSettings()
+    }
+
+    func taskDoneSoundNameChanged(_ name: String) {
+        taskDoneSoundName = name
+        saveSettings()
+    }
+
+    func needsInputSoundNameChanged(_ name: String) {
+        needsInputSoundName = name
+        saveSettings()
+    }
+
     func goalProvenanceChanged(_ enabled: Bool) {
         goalPrependProvenanceEnabled = enabled
         saveSettings()
@@ -258,6 +278,18 @@ extension AppDelegate {
         }
         if defaults.object(forKey: "bellDockBounceEnabled") != nil {
             bellDockBounceEnabled = defaults.bool(forKey: "bellDockBounceEnabled")
+        }
+        if defaults.object(forKey: "taskDoneSoundEnabled") != nil {
+            taskDoneSoundEnabled = defaults.bool(forKey: "taskDoneSoundEnabled")
+        }
+        if defaults.object(forKey: "needsInputSoundEnabled") != nil {
+            needsInputSoundEnabled = defaults.bool(forKey: "needsInputSoundEnabled")
+        }
+        if let name = defaults.string(forKey: "taskDoneSoundName") {
+            taskDoneSoundName = name
+        }
+        if let name = defaults.string(forKey: "needsInputSoundName") {
+            needsInputSoundName = name
         }
         if defaults.object(forKey: "goalPrependProvenanceEnabled") != nil {
             goalPrependProvenanceEnabled = defaults.bool(forKey: "goalPrependProvenanceEnabled")
@@ -346,6 +378,10 @@ extension AppDelegate {
         defaults.set(shellPath, forKey: "shellPath")
         defaults.set(bellFlashEnabled, forKey: "bellFlashEnabled")
         defaults.set(bellDockBounceEnabled, forKey: "bellDockBounceEnabled")
+        defaults.set(taskDoneSoundEnabled, forKey: "taskDoneSoundEnabled")
+        defaults.set(needsInputSoundEnabled, forKey: "needsInputSoundEnabled")
+        defaults.set(taskDoneSoundName, forKey: "taskDoneSoundName")
+        defaults.set(needsInputSoundName, forKey: "needsInputSoundName")
         defaults.set(goalPrependProvenanceEnabled, forKey: "goalPrependProvenanceEnabled")
         defaults.set(rtkCompressionEnabled, forKey: "rtkCompressionEnabled")
         defaults.set(claudeSessionArgs, forKey: "claudeSessionArgs")
