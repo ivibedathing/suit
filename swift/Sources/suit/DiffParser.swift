@@ -23,9 +23,18 @@ enum UnifiedDiffParser {
         var lines: [DiffLine] = []
         var oldLine = 0
         var newLine = 0
+        // Whether we're inside a hunk body (after an @@ header, before the next
+        // file). File-header/metadata prefixes like `---`/`+++` only occur
+        // *outside* a hunk; inside one, every line is content (+, -, or space),
+        // so a deleted line beginning with "--" (raw "---…") or an added line
+        // beginning with "++" (raw "+++…") must be classified as content, not
+        // mistaken for a --- / +++ file header — otherwise its counter isn't
+        // advanced and every following line in the hunk is numbered wrong.
+        var inHunk = false
 
         diff.enumerateLines { raw, _ in
             if raw.hasPrefix("diff --git ") {
+                inHunk = false
                 lines.append(DiffLine(kind: .fileHeader, text: raw, oldLine: nil, newLine: nil))
                 return
             }
@@ -38,14 +47,23 @@ enum UnifiedDiffParser {
                     oldLine = old
                     newLine = new
                 }
+                inHunk = true
                 lines.append(DiffLine(kind: .hunkHeader, text: raw, oldLine: nil, newLine: nil))
                 return
             }
-            if raw.hasPrefix("+++") || raw.hasPrefix("---") || raw.hasPrefix("index ")
+            // "\ No newline at end of file" can appear inside a hunk, but a real
+            // content line never starts with a bare backslash (context lines are
+            // space-prefixed; +/- lines start with +/-), so it's unambiguous.
+            if raw.hasPrefix("\\ No newline") {
+                lines.append(DiffLine(kind: .meta, text: raw, oldLine: nil, newLine: nil))
+                return
+            }
+            if !inHunk,
+               raw.hasPrefix("+++") || raw.hasPrefix("---") || raw.hasPrefix("index ")
                 || raw.hasPrefix("new file") || raw.hasPrefix("deleted file")
                 || raw.hasPrefix("old mode") || raw.hasPrefix("new mode")
                 || raw.hasPrefix("similarity") || raw.hasPrefix("rename")
-                || raw.hasPrefix("Binary files") || raw.hasPrefix("\\ No newline") {
+                || raw.hasPrefix("Binary files") {
                 lines.append(DiffLine(kind: .meta, text: raw, oldLine: nil, newLine: nil))
                 return
             }
