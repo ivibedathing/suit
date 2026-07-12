@@ -200,7 +200,11 @@ working.
 - **Branch / worktree switcher** — the Files tab header's branch row shows the checked-out branch
   with a branch/worktree count; click the branch name to drop a switcher menu of the repo's
   **worktrees** (pick one to repoint the whole sidebar there) and **local branches** (pick one to
-  check it out).
+  check it out). Picking a worktree also **walks the open terminals over** to it: every visible
+  shell sitting idle at a prompt inside the repo's worktree tree gets `cd`'d to the matching spot
+  under the new worktree (same relative subpath when it exists there, otherwise the worktree root),
+  so the terminal you're looking at actually lands on the new branch. Terminals mid-job (running
+  `claude`, a build, `vim`) are left alone.
 - **Git surface** — the git review surface no longer has its own sidebar rail tab; reach it with
   **Show Git** in the command palette. It shows staged / changed files (click to open the scoped
   diff) and, below them, a **Branches** list: every local branch with its ahead/behind vs
