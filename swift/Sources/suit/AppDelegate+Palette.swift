@@ -356,7 +356,6 @@ extension AppDelegate {
             PaletteCommand(title: "Increase Opacity", shortcut: "⌘]") { [weak self] in self?.increaseOpacity(nil) },
             PaletteCommand(title: "Decrease Opacity", shortcut: "⌘[") { [weak self] in self?.decreaseOpacity(nil) },
             PaletteCommand(title: "Toggle Background Blur", shortcut: "⇧⌘B") { [weak self] in self?.toggleBlur(nil) },
-            PaletteCommand(title: "Cycle Glass Frost", shortcut: "") { [weak self] in self?.cycleFrostIntensity(nil) },
             PaletteCommand(title: "Toggle Word Wrap", shortcut: nil) { [weak self] in self?.toggleWordWrap(nil) },
             PaletteCommand(title: "Switch Theme…", shortcut: nil) { [weak self] in self?.switchTheme(nil) },
             PaletteCommand(title: "Settings…", shortcut: "⌘,") { [weak self] in self?.showSettings(nil) },

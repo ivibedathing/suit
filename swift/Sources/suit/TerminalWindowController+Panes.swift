@@ -13,7 +13,7 @@ extension TerminalWindowController {
         pane.setBackgroundAlpha(appDelegate.backgroundAlpha)
         pane.setBlur(
             enabled: appDelegate.backgroundAlpha < 1 && appDelegate.blurEnabled,
-            material: Self.glassMaterial(for: appDelegate.blurIntensity)
+            material: Self.glassMaterial
         )
         pane.setFont(appDelegate.currentFont)
         pane.setTextColor(appDelegate.currentTextColor)
@@ -240,6 +240,10 @@ extension TerminalWindowController {
 
     // MARK: - Opacity, blur & appearance (terminal glass)
 
+    // The behind-window frost material for translucent terminals — a dark
+    // vibrant glass matching the native Terminal look.
+    static let glassMaterial: NSVisualEffectView.Material = .underWindowBackground
+
     // Native-Terminal transparency: each terminal pane goes translucent (alpha <
     // 1) over a behind-window frost sized to its own content, so the blurred
     // desktop shows through the terminal while text stays fully opaque. The
@@ -247,25 +251,13 @@ extension TerminalWindowController {
     // its solid backing (dropping the fill to clear is what made the title bar
     // see-through before). isOpaque=false is all the window needs for the
     // per-pane frost to sample the desktop behind it.
-    func applyTransparency(alpha: CGFloat, blurEnabled: Bool, blurIntensity: Int = 1) {
+    func applyTransparency(alpha: CGFloat, blurEnabled: Bool) {
         let transparent = alpha < 1
         window.isOpaque = !transparent
         window.backgroundColor = Theme.bg
-
-        let material = Self.glassMaterial(for: blurIntensity)
         for pane in panes {
             pane.setBackgroundAlpha(alpha)
-            pane.setBlur(enabled: transparent && blurEnabled, material: material)
-        }
-    }
-
-    // Frost strength → behind-window material. Ordered light→heavy so the
-    // Settings "Subtle / Regular / Strong" popup maps by index.
-    static func glassMaterial(for intensity: Int) -> NSVisualEffectView.Material {
-        switch intensity {
-        case ..<1: return .popover            // Subtle — light frost
-        case 1: return .underWindowBackground // Regular — the classic glass
-        default: return .fullScreenUI         // Strong — heavy frost
+            pane.setBlur(enabled: transparent && blurEnabled, material: Self.glassMaterial)
         }
     }
 

@@ -197,7 +197,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         // pick a worktree to repoint the sidebar there, or a branch to check
         // out in the shown repo.
         sidebar.fileBrowser.onSwitchWorktree = { [weak self] path in
-            self?.pinSidebar(toDirectory: path)
+            self?.switchWorktree(toDirectory: path)
         }
         sidebar.fileBrowser.onCheckoutBranch = { [weak self] root, branch in
             self?.checkoutBranch(root: root, branch: branch)
@@ -231,7 +231,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         // git) repoints there, but stays on the Git tab — the user is
         // mid-review, not mid-browse.
         sidebar.gitView.onSwitchWorktree = { [weak self] path in
-            self?.pinSidebar(toDirectory: path, showFiles: false)
+            self?.switchWorktree(toDirectory: path, showFiles: false)
         }
         sidebar.gitView.onTaskFinished = { [weak self] mainRoot in
             self?.pinSidebar(toDirectory: mainRoot, showFiles: false)
@@ -310,11 +310,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         layoutSidebarSplit()
 
         window.contentView = rootContainer
-        applyTransparency(
-            alpha: appDelegate.backgroundAlpha,
-            blurEnabled: appDelegate.blurEnabled,
-            blurIntensity: appDelegate.blurIntensity
-        )
+        applyTransparency(alpha: appDelegate.backgroundAlpha, blurEnabled: appDelegate.blurEnabled)
 
         if let fallbackPane {
             window.title = fallbackPane.displayTitle

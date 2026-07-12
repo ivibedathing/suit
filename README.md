@@ -200,7 +200,11 @@ working.
 - **Branch / worktree switcher** — the Files tab header's branch row shows the checked-out branch
   with a branch/worktree count; click the branch name to drop a switcher menu of the repo's
   **worktrees** (pick one to repoint the whole sidebar there) and **local branches** (pick one to
-  check it out).
+  check it out). Picking a worktree also **walks the open terminals over** to it: every visible
+  shell sitting idle at a prompt inside the repo's worktree tree gets `cd`'d to the matching spot
+  under the new worktree (same relative subpath when it exists there, otherwise the worktree root),
+  so the terminal you're looking at actually lands on the new branch. Terminals mid-job (running
+  `claude`, a build, `vim`) are left alone.
 - **Git surface** — the git review surface no longer has its own sidebar rail tab; reach it with
   **Show Git** in the command palette. It shows staged / changed files (click to open the scoped
   diff) and, below them, a **Branches** list: every local branch with its ahead/behind vs
@@ -433,8 +437,7 @@ working.
 
 - **Settings** (⌘,) — a category sidebar (macOS System-Settings style) with one pane per topic,
   so only the settings you're changing are on screen: **Appearance** (font and default size,
-  text color, default pane background, transparency (⌘] / ⌘[), blur + frost strength (⇧⌘B) —
-  see **Glassmorphism** below), **Terminal** (the shell
+  text color, default pane background, opacity (⌘] / ⌘[), blur (⇧⌘B)), **Terminal** (the shell
   new tabs run, cursor shape and blinking, bell responses — pane flash, Dock bounce),
   **File Viewer** (word wrap), **Claude** (session arguments, "Set as Goal" provenance, and the
   rtk tool-output compression toggle — see below), **Themes** (swap the whole color palette — see below),
@@ -460,9 +463,6 @@ bar stays solid, and file/diff/markdown viewers stay opaque for legibility.
   see-through hole. The frost sits *under* the terminal only, so the title bar and chrome keep their
   solid backing. Blur only becomes visible once transparency is below 100% — there's nothing to see
   through an opaque pane.
-- **Frost strength** — the **Frost** popup picks the glass material: **Subtle**, **Regular**, or
-  **Strong** (light → heavy frost). **Cycle Glass Frost** in the command palette (⌘K) steps through
-  the three without opening Settings. All three settings persist across launches.
 
 ### Themes
 
@@ -598,7 +598,7 @@ Comment verdict via `gh pr review`.
 | --- | --- |
 | ⌘= / ⌘- | Increase / decrease font size |
 | ⇧⌘= / ⇧⌘- | Increase / decrease font size (all panes) |
-| ⌘] / ⌘[ | Increase / decrease transparency |
+| ⌘] / ⌘[ | Increase / decrease opacity |
 | ⇧⌘B | Toggle background blur |
 
 ### App & windows
