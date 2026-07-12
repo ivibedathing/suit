@@ -47,6 +47,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // Dock-icon bounce while the app is inactive.
     var bellFlashEnabled = true
     var bellDockBounceEnabled = true
+    // Claude notification sounds (ClaudeAttentionCenter): play a system sound
+    // on the done / needs-input transition while the app is inactive. Each
+    // event has its own on/off and chosen NSSound name (see NotificationSounds).
+    var taskDoneSoundEnabled = true
+    var needsInputSoundEnabled = true
+    var taskDoneSoundName = "Glass"
+    var needsInputSoundName = "Ping"
     // Set as Goal: prepend a `From <file>:<lines>:` line so
     // the goal carries where the selection came from. Off by default — the
     // selection alone is usually the directive.

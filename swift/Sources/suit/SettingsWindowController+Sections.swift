@@ -322,13 +322,36 @@ extension SettingsWindowController {
             width: 340
         )
 
+        // Notification sounds: play a system sound when a session finishes a
+        // task or asks a question while Suit is in the background. Each event
+        // has its own on/off and sound choice; picking a sound previews it.
+        let soundTitles = availableSystemSounds()
+
+        taskDoneSoundCheckbox.target = self
+        taskDoneSoundCheckbox.action = #selector(taskDoneSoundEnabledChanged)
+        taskDoneSoundPopup.removeAllItems()
+        taskDoneSoundPopup.addItems(withTitles: soundTitles)
+        taskDoneSoundPopup.target = self
+        taskDoneSoundPopup.action = #selector(taskDoneSoundChanged)
+        let taskDoneSoundRow = row(label: "Sounds:", controls: [taskDoneSoundCheckbox, taskDoneSoundPopup])
+
+        needsInputSoundCheckbox.target = self
+        needsInputSoundCheckbox.action = #selector(needsInputSoundEnabledChanged)
+        needsInputSoundPopup.removeAllItems()
+        needsInputSoundPopup.addItems(withTitles: soundTitles)
+        needsInputSoundPopup.target = self
+        needsInputSoundPopup.action = #selector(needsInputSoundChanged)
+        let needsInputSoundRow = row(label: "", controls: [needsInputSoundCheckbox, needsInputSoundPopup])
+
         let stack = NSStackView(views: [
             paneTitle("Claude"),
             claudeArgsRow, claudeHintRow, taskIsolateRow, goalProvenanceRow,
             rtkCompressionRow, rtkHintRow,
+            taskDoneSoundRow, needsInputSoundRow,
         ])
         stack.setCustomSpacing(4, after: claudeArgsRow)
         stack.setCustomSpacing(4, after: rtkCompressionRow)
+        stack.setCustomSpacing(4, after: taskDoneSoundRow)
         return stack
     }
 

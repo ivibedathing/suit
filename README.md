@@ -251,7 +251,12 @@ working.
   dot (busy / pulsing needs-input / done) and a context-fill %, the sidebar footer shows global
   5h/7d usage, and the Sessions sidebar tab lists every open tab with its live session dot.
 - **Attention** — a session that needs input while Suit is inactive posts a notification
-  (click to jump to its pane) and badges the Dock with the needs-input count.
+  (click to jump to its pane) and badges the Dock with the needs-input count. Additionally,
+  Suit plays a macOS system sound when a Claude session finishes a task and a different one
+  when it needs input / asks a question; sounds play only while Suit is in the background
+  (no sound when it's the active app). Each event has its own on/off toggle and its own
+  sound picker in Settings ▸ Claude; defaults are Glass (finished) and Ping (question), both on,
+  and picking a sound previews it.
 - **Dictation (speech to text)** — hold the **🌐 (Globe / Fn)** key to talk; release and the
   transcribed text drops into the focused pane's prompt (it is *not* auto-submitted, so you can
   review and edit before Enter). A small "Listening…" HUD shows the live transcription. Recognition
