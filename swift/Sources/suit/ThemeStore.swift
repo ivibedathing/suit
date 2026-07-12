@@ -32,6 +32,14 @@ final class ThemeStore {
     private var userThemes: [ThemeInfo] = []
     private(set) var selectedId: String?
 
+    /// The shipped palettes as catalog entries, built once (built-ins are a
+    /// `static let`, so their infos and reserved ids never change).
+    private static let builtInInfos: [ThemeInfo] = Theme.Palette.builtIns.map {
+        ThemeInfo(id: slug($0.name), palette: $0, author: "Suit", isBuiltIn: true)
+    }
+    /// Built-in ids are reserved — a user file can't shadow a built-in.
+    private static let builtInIds: Set<String> = Set(builtInInfos.map { $0.id })
+
     private init() {
         loadUserThemes()
         selectedId = loadSelection()
@@ -56,13 +64,10 @@ final class ThemeStore {
     /// by display name (case-insensitive). Rebuilt from `Theme.Palette.builtIns`
     /// each call so it always reflects the shipped set.
     var allThemes: [ThemeInfo] {
-        let builtIns = Theme.Palette.builtIns.map {
-            ThemeInfo(id: Self.slug($0.name), palette: $0, author: "Suit", isBuiltIn: true)
-        }
         let users = userThemes.sorted {
             $0.palette.name.localizedCaseInsensitiveCompare($1.palette.name) == .orderedAscending
         }
-        return builtIns + users
+        return Self.builtInInfos + users
     }
 
     func theme(id: String) -> ThemeInfo? { allThemes.first { $0.id == id } }
@@ -71,10 +76,7 @@ final class ThemeStore {
     /// built-in (Suit Dark).
     var selected: ThemeInfo {
         if let id = selectedId, let t = theme(id: id) { return t }
-        return allThemes.first ?? ThemeInfo(
-            id: Self.slug(Theme.Palette.suitDark.name),
-            palette: .suitDark, author: "Suit", isBuiltIn: true
-        )
+        return Self.builtInInfos[0]  // Suit Dark; built-ins are never empty
     }
 
     // MARK: - Launch
@@ -83,8 +85,8 @@ final class ThemeStore {
     /// built. No `didChange` is posted — nothing has drawn yet, so there is
     /// nothing to repaint; windows read the palette fresh on first draw.
     func applySelectedThemeAtLaunch() {
-        loadUserThemes()
-        selectedId = loadSelection()
+        // `init` (first `shared` access) already loaded the user themes and the
+        // persisted selection; just push the resolved palette live.
         Theme.current = selected.palette
     }
 
@@ -145,8 +147,7 @@ final class ThemeStore {
         try? FileManager.default.removeItem(at: fileURL(forUserId: id))
         loadUserThemes()
         if selectedId == id {
-            let fallback = allThemes.first?.id ?? Self.slug(Theme.Palette.suitDark.name)
-            apply(id: fallback)
+            apply(id: Self.builtInInfos[0].id)  // fall back to Suit Dark
         } else {
             NotificationCenter.default.post(name: Self.didUpdate, object: self)
         }
@@ -184,14 +185,12 @@ final class ThemeStore {
 
     private func loadUserThemes() {
         var loaded: [ThemeInfo] = []
-        let builtInIds = Set(Theme.Palette.builtIns.map { Self.slug($0.name) })
         let files = (try? FileManager.default.contentsOfDirectory(
             at: themesDir, includingPropertiesForKeys: nil
         )) ?? []
         for url in files where url.pathExtension == "suittheme" {
             let id = url.deletingPathExtension().lastPathComponent
-            // Built-in ids are reserved — a user file can't shadow a built-in.
-            guard !builtInIds.contains(id) else { continue }
+            guard !Self.builtInIds.contains(id) else { continue }
             guard let data = try? Data(contentsOf: url),
                   let file = try? JSONDecoder().decode(ThemeFile.self, from: data) else { continue }
             loaded.append(ThemeInfo(
@@ -257,7 +256,7 @@ final class ThemeStore {
     /// A slug unique across built-ins and existing user themes (appends -2, -3…).
     private func uniqueSlug(for name: String) -> String {
         let base = Self.slug(name)
-        var taken = Set(Theme.Palette.builtIns.map { Self.slug($0.name) })
+        var taken = Self.builtInIds
         taken.formUnion(userThemes.map(\.id))
         if !taken.contains(base) { return base }
         var n = 2
