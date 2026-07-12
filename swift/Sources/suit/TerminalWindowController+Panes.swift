@@ -11,6 +11,10 @@ extension TerminalWindowController {
         panes.append(pane)
         updateBorderVisibility()
         pane.setBackgroundAlpha(appDelegate.backgroundAlpha)
+        pane.setBlur(
+            enabled: appDelegate.backgroundAlpha < 1 && appDelegate.blurEnabled,
+            material: Self.glassMaterial(for: appDelegate.blurIntensity)
+        )
         pane.setFont(appDelegate.currentFont)
         pane.setTextColor(appDelegate.currentTextColor)
         (tab.content as? FileViewerPaneContent)?.setWordWrap(appDelegate.wordWrapEnabled)
@@ -234,26 +238,24 @@ extension TerminalWindowController {
         }
     }
 
-    // MARK: - Opacity, blur & appearance (glassmorphism 2.0)
+    // MARK: - Opacity, blur & appearance (terminal glass)
 
-    // Real transparency: when panes go translucent (alpha < 1) the opaque
-    // Theme.bg window fill is dropped to `.clear` so the desktop — and the
-    // frosted blur backing, when on — shows through instead of a flat colour.
-    // The titled title-bar chrome draws itself, so it stays put either way.
-    // Blur is a behind-window NSVisualEffectView whose material sets the frost
-    // strength (glassmorphism 2.0).
+    // Native-Terminal transparency: each terminal pane goes translucent (alpha <
+    // 1) over a behind-window frost sized to its own content, so the blurred
+    // desktop shows through the terminal while text stays fully opaque. The
+    // window fill stays Theme.bg — never `.clear` — so the titled title bar keeps
+    // its solid backing (dropping the fill to clear is what made the title bar
+    // see-through before). isOpaque=false is all the window needs for the
+    // per-pane frost to sample the desktop behind it.
     func applyTransparency(alpha: CGFloat, blurEnabled: Bool, blurIntensity: Int = 1) {
         let transparent = alpha < 1
         window.isOpaque = !transparent
-        window.backgroundColor = transparent ? .clear : Theme.bg
+        window.backgroundColor = Theme.bg
 
-        effectView.isHidden = !blurEnabled
-        if blurEnabled {
-            effectView.material = Self.glassMaterial(for: blurIntensity)
-        }
-
+        let material = Self.glassMaterial(for: blurIntensity)
         for pane in panes {
             pane.setBackgroundAlpha(alpha)
+            pane.setBlur(enabled: transparent && blurEnabled, material: material)
         }
     }
 
