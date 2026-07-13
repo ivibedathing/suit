@@ -67,6 +67,11 @@ extension SettingsWindowController {
             claudeArgsField.stringValue = appDelegate.claudeSessionArgs
             return
         }
+        // Auto-/compact focus instructions: free-form, empty = plain /compact.
+        if (notification.object as? NSTextField) === autoCompactInstructionsField {
+            appDelegate.autoCompactInstructionsChanged(autoCompactInstructionsField.stringValue)
+            return
+        }
         // Autopilot fields: the project path is validated like the shell path
         // (git repo with a ROADMAP.md — invalid beeps and snaps back), the
         // extra args and review model are free-form (args get newline-stripped).
@@ -191,6 +196,16 @@ extension SettingsWindowController {
 
     @objc func rtkCompressionChanged(_ sender: NSButton) {
         appDelegate?.rtkCompressionChanged(sender.state == .on)
+    }
+
+    @objc func autoCompactEnabledChanged(_ sender: NSButton) {
+        appDelegate?.autoCompactEnabledChanged(sender.state == .on)
+        autoCompactThresholdStepper.isEnabled = sender.state == .on
+    }
+
+    @objc func autoCompactThresholdChanged(_ sender: NSStepper) {
+        autoCompactThresholdStepper.refreshLabel()
+        appDelegate?.autoCompactThresholdChanged(autoCompactThresholdStepper.intValue)
     }
 
     // MARK: - Claude API actions

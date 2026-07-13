@@ -306,6 +306,26 @@ extension SettingsWindowController {
             width: 340
         )
 
+        // Auto-/compact guardrails: threshold stepper + focus instructions.
+        autoCompactCheckbox.target = self
+        autoCompactCheckbox.action = #selector(autoCompactEnabledChanged)
+        let autoCompactRow = row(
+            label: "Compact:",
+            controls: [autoCompactCheckbox] + autoCompactThresholdStepper.views
+        )
+        autoCompactThresholdStepper.stepper.target = self
+        autoCompactThresholdStepper.stepper.action = #selector(autoCompactThresholdChanged)
+        autoCompactInstructionsField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        autoCompactInstructionsField.placeholderString = "focus instructions — empty = plain /compact"
+        autoCompactInstructionsField.delegate = self
+        autoCompactInstructionsField.translatesAutoresizingMaskIntoConstraints = false
+        autoCompactInstructionsField.widthAnchor.constraint(equalToConstant: 340).isActive = true
+        let autoCompactInstructionsRow = row(label: "", controls: [autoCompactInstructionsField])
+        let autoCompactHintRow = hintRow(
+            "Types /compact with these instructions into a session that idles past the threshold — earlier and more focused than Claude Code's own auto-compact. Fires only at an idle prompt, once per crossing.",
+            width: 340
+        )
+
         // Notification sounds: play a system sound when a session finishes a
         // task or asks a question while Suit is in the background. Each event
         // has its own on/off and sound choice; picking a sound previews it.
@@ -331,10 +351,13 @@ extension SettingsWindowController {
             paneTitle("Claude"),
             claudeArgsRow, claudeHintRow, taskIsolateRow, goalProvenanceRow,
             rtkCompressionRow, rtkHintRow,
+            autoCompactRow, autoCompactInstructionsRow, autoCompactHintRow,
             taskDoneSoundRow, needsInputSoundRow,
         ])
         stack.setCustomSpacing(4, after: claudeArgsRow)
         stack.setCustomSpacing(4, after: rtkCompressionRow)
+        stack.setCustomSpacing(4, after: autoCompactRow)
+        stack.setCustomSpacing(4, after: autoCompactInstructionsRow)
         stack.setCustomSpacing(4, after: taskDoneSoundRow)
         return stack
     }

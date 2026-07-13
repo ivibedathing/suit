@@ -281,6 +281,18 @@ app does.
   when you need full, unfiltered output for one command, opt it out without flipping the toggle
   — prefix it with `NO_RTK=1` or add a `# nortk` marker and it runs unchanged. rtk ships in the
   bundle when present at build time, otherwise the hook falls back to `rtk` on your `PATH`.
+- **Auto-/compact threshold** — a **Settings ▸ Claude** toggle ("Send /compact when an idle
+  session crosses"), **off by default**, with a threshold stepper (50–90%, default **70%**) and
+  an editable focus-instructions field. When a live session's context meter crosses the
+  threshold, Suit types `/compact <your instructions>` into its pty — earlier and more focused
+  than Claude Code's own late, generic auto-compact, so the summary keeps what you care about
+  (default: "Preserve the current task, recent decisions, exact file paths, and next steps.";
+  empty = plain `/compact`). It only fires at an **idle prompt** — never mid-response, never
+  while Claude is waiting on a question or permission prompt, never into a session no pane
+  hosts — and only **once per crossing**: the guard re-arms after the pct falls 5 points below
+  the threshold, with a 10-minute per-session cooldown so a compact that doesn't lower the
+  meter can't retype itself. Each fire posts a quiet notification (banner only while Suit is in
+  the background; click focuses the session) and an activity-feed row ("Auto-compacted").
 - **Claude API tuning** — a **Settings ▸ Claude API** pane (⌘,) exposing the Anthropic
   cost/behavior knobs as per-launch environment overrides: main **Model** and **Subagents**
   model, reasoning **Effort** (`low`–`max`, Claude Code's `CLAUDE_CODE_EFFORT_LEVEL`),

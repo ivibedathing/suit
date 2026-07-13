@@ -96,6 +96,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         autoInterrupt: { [weak self] in self?.budgetAutoInterrupt ?? false },
         onTrip: { [weak self] trip in self?.handleBudgetTrip(trip) }
     )
+    // Auto-/compact guardrails: when a session idles past the
+    // context threshold, type `/compact <instructions>` into it — reclaim
+    // context on the user's terms before Claude Code's own late, generic
+    // auto-compact has to. Off by default (it types into the pty, so opt-in);
+    // the instructions replace Claude Code's default summarization focus.
+    var autoCompactEnabled = false
+    var autoCompactThreshold = 70             // %, context_pct that trips
+    var autoCompactInstructions =
+        "Preserve the current task, recent decisions, exact file paths, and next steps."
+    lazy var compactGuard: CompactGuard = CompactGuard(
+        enabled: { [weak self] in self?.autoCompactEnabled ?? false },
+        threshold: { [weak self] in self?.autoCompactThreshold ?? 70 },
+        hosted: { [weak self] id in self?.terminalContent(forSessionId: id) != nil },
+        onTrip: { [weak self] trip in self?.handleCompactTrip(trip) }
+    )
     lazy var settingsWindowController = SettingsWindowController(appDelegate: self)
     lazy var commandPalette = CommandPaletteController { [weak self] in
         self?.paletteCommands() ?? []
@@ -240,6 +255,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             // session's cost against its cap and trip (warn / interrupt) once
             // on a crossing.
             self.budgetGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
+            // Auto-/compact guardrails: /compact a session that
+            // idles past the context threshold, once per crossing.
+            self.compactGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
         }
         attentionCenter = ClaudeAttentionCenter { [weak self] sessionId in
             self?.focusSession(withId: sessionId)

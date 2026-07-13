@@ -34,6 +34,7 @@ HARNESSES=(
   "layouts|scripts/layouts-test.sh|fast"
   "file-time-travel|scripts/file-time-travel-test.sh|fast"
   "budget|scripts/budget-test.sh|fast"
+  "compact-guard|scripts/compact-guard-test.sh|fast"
   "command-history|scripts/command-history-test.sh|fast"
   "rtk|scripts/rtk-test.sh|fast"
   "dictation|scripts/dictation-test.sh|fast"

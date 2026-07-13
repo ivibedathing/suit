@@ -77,6 +77,11 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let taskIsolateCheckbox = NSButton(checkboxWithTitle: "Isolate new tasks in a worktree by default", target: nil, action: nil)
     let goalProvenanceCheckbox = NSButton(checkboxWithTitle: "Prepend source location to goals (From file:lines:)", target: nil, action: nil)
     let rtkCompressionCheckbox = NSButton(checkboxWithTitle: "Compress tool output with rtk", target: nil, action: nil)
+    // Auto-/compact guardrails: threshold stepper disabled while
+    // the toggle is off; the instructions field commits on Enter/focus-loss.
+    let autoCompactCheckbox = NSButton(checkboxWithTitle: "Send /compact when an idle session crosses", target: nil, action: nil)
+    let autoCompactThresholdStepper = LabeledStepper(min: 50, max: 90, suffix: "%")
+    let autoCompactInstructionsField = NSTextField(string: "")
 
     // Claude API pane: per-launch Anthropic env overrides (ClaudeAPISettings).
     // Text fields commit through controlTextDidEndEditing; the popup/checkbox
@@ -182,6 +187,10 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             taskIsolateCheckbox.state = appDelegate.taskIsolateByDefault ? .on : .off
             goalProvenanceCheckbox.state = appDelegate.goalPrependProvenanceEnabled ? .on : .off
             rtkCompressionCheckbox.state = appDelegate.rtkCompressionEnabled ? .on : .off
+            autoCompactCheckbox.state = appDelegate.autoCompactEnabled ? .on : .off
+            autoCompactThresholdStepper.intValue = appDelegate.autoCompactThreshold
+            autoCompactThresholdStepper.isEnabled = appDelegate.autoCompactEnabled
+            autoCompactInstructionsField.stringValue = appDelegate.autoCompactInstructions
             reloadClaudeAPIControls()
             autopilotEnabledCheckbox.state = appDelegate.autopilotEnabled ? .on : .off
             autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot

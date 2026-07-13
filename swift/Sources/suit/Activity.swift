@@ -32,6 +32,9 @@ enum ActivityKind: String, Codable, CaseIterable {
     // Cost budget guardrails: a session/task crossed its
     // configured spend cap (warned, or auto-interrupted).
     case budgetTripped = "budget_tripped"
+    // Auto-/compact guardrails: a session idled past the context
+    // threshold and Suit typed /compact into it.
+    case autoCompacted = "auto_compacted"
 
     // Human label for the filter menu and row subtitles.
     var label: String {
@@ -45,6 +48,7 @@ enum ActivityKind: String, Codable, CaseIterable {
         case .autopilotMerged: return "Autopilot merged"
         case .autopilotBlocked: return "Autopilot blocked"
         case .budgetTripped: return "Budget tripped"
+        case .autoCompacted: return "Auto-compacted"
         }
     }
 
@@ -61,6 +65,7 @@ enum ActivityKind: String, Codable, CaseIterable {
         case .autopilotMerged: return "sparkles"
         case .autopilotBlocked: return "hand.raised.fill"
         case .budgetTripped: return "dollarsign.circle.fill"
+        case .autoCompacted: return "rectangle.compress.vertical"
         }
     }
 
@@ -73,7 +78,7 @@ enum ActivityKind: String, Codable, CaseIterable {
         case .sessionDone, .prMerged, .ciPass, .autopilotMerged: return .positive
         case .ciFail, .autopilotBlocked: return .negative
         case .sessionNeedsInput, .budgetTripped: return .attention
-        case .prOpened: return .neutral
+        case .prOpened, .autoCompacted: return .neutral
         }
     }
 }

@@ -227,6 +227,23 @@ extension AppDelegate {
         saveSettings()
     }
 
+    // Auto-/compact guardrails: the guard reads these live each
+    // heartbeat, so a change applies without restarting anything.
+    func autoCompactEnabledChanged(_ enabled: Bool) {
+        autoCompactEnabled = enabled
+        saveSettings()
+    }
+
+    func autoCompactThresholdChanged(_ threshold: Int) {
+        autoCompactThreshold = threshold
+        saveSettings()
+    }
+
+    func autoCompactInstructionsChanged(_ instructions: String) {
+        autoCompactInstructions = instructions
+        saveSettings()
+    }
+
     // Toggle rtk output compression: persist the preference, then install or
     // remove the PreToolUse hook in ~/.claude/settings.json. Best-effort — the
     // preference sticks even if the settings write fails (e.g. the bundled
@@ -387,6 +404,14 @@ extension AppDelegate {
         if let raw = defaults.dictionary(forKey: "budgetPerSession") {
             budgetPerSession = raw.compactMapValues { ($0 as? NSNumber)?.doubleValue }
         }
+        // Auto-/compact guardrails.
+        autoCompactEnabled = defaults.bool(forKey: "autoCompactEnabled")
+        if defaults.object(forKey: "autoCompactThreshold") != nil {
+            autoCompactThreshold = defaults.integer(forKey: "autoCompactThreshold")
+        }
+        if let instructions = defaults.string(forKey: "autoCompactInstructions") {
+            autoCompactInstructions = instructions
+        }
     }
 
     func saveSettings() {
@@ -443,6 +468,9 @@ extension AppDelegate {
         defaults.set(budgetTaskCap, forKey: "budgetTaskCap")
         defaults.set(budgetAutoInterrupt, forKey: "budgetAutoInterrupt")
         defaults.set(budgetPerSession, forKey: "budgetPerSession")
+        defaults.set(autoCompactEnabled, forKey: "autoCompactEnabled")
+        defaults.set(autoCompactThreshold, forKey: "autoCompactThreshold")
+        defaults.set(autoCompactInstructions, forKey: "autoCompactInstructions")
     }
 }
 

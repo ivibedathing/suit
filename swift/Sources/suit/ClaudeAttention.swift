@@ -173,7 +173,9 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
                 self?.onAutopilotEvent?(identifier)
             } else if identifier.hasPrefix("activity-") {
                 self?.onActivityEvent?()
-            } else if identifier.hasPrefix("budget-") {
+            } else if identifier.hasPrefix("budget-") || identifier.hasPrefix("compact-") {
+                // Budget trips and auto-compacts both route the click to the
+                // pane hosting the session named in userInfo.
                 let sessionId = response.notification.request.content.userInfo["sessionId"] as? String
                 if let sessionId { self?.onBudgetEvent?(sessionId) }
             } else {
