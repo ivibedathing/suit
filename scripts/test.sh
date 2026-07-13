@@ -39,6 +39,7 @@ HARNESSES=(
   "dictation|scripts/dictation-test.sh|fast"
   "themes|scripts/test-themes.sh|fast"
   "notification-sound|scripts/notification-sound-test.sh|fast"
+  "claude-api-settings|scripts/claude-api-settings-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 
