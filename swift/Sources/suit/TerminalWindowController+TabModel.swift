@@ -150,7 +150,11 @@ extension TerminalWindowController {
     func newClaudeSessionTab() {
         let tab = newTerminalTab()
         let args = appDelegate.claudeSessionArgs
-        let command = args.isEmpty ? "claude" : "claude \(args)"
+        // The Claude API pane's env overrides prefix the typed command
+        // (KEY='value' claude …) so they apply to this session only.
+        let command = appDelegate.claudeAPI.launchCommand(
+            base: args.isEmpty ? "claude" : "claude \(args)"
+        )
         let content = tab.content as? TerminalPaneContent
         // The pty input queue holds this until zsh is ready to read it.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in

@@ -16,6 +16,7 @@ extension SettingsWindowController {
             wrap(terminalPane()),
             wrap(viewerPane()),
             wrap(claudePane()),
+            wrap(claudeAPIPane()),
             wrap(autopilotPane()),
             wrap(budgetPane()),
             wrap(themesPane()),
@@ -335,6 +336,94 @@ extension SettingsWindowController {
         stack.setCustomSpacing(4, after: claudeArgsRow)
         stack.setCustomSpacing(4, after: rtkCompressionRow)
         stack.setCustomSpacing(4, after: taskDoneSoundRow)
+        return stack
+    }
+
+    // Claude API: per-launch Anthropic env overrides (model, effort, thinking
+    // budget, output cap, prompt caching, custom headers, free-form env) that
+    // ClaudeAPISettings composes onto the typed `claude` command. A live
+    // preview at the bottom shows exactly what will be typed, so the pane is
+    // a playground with visible output rather than hidden state.
+    private func claudeAPIPane() -> NSStackView {
+        for field in [apiModelField, apiSubagentModelField, apiCustomHeadersField, apiExtraEnvField] {
+            field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            field.delegate = self
+            field.translatesAutoresizingMaskIntoConstraints = false
+            field.widthAnchor.constraint(equalToConstant: 260).isActive = true
+        }
+        apiModelField.placeholderString = "default — e.g. opus, sonnet, haiku"
+        apiSubagentModelField.placeholderString = "default — e.g. haiku, or inherit"
+        apiCustomHeadersField.placeholderString = "e.g. anthropic-beta: fast-mode-2026-02-01"
+        apiExtraEnvField.placeholderString = "KEY=VALUE KEY2=VALUE2"
+
+        let modelRow = row(label: "Model:", controls: [apiModelField])
+        let subagentRow = row(label: "Subagents:", controls: [apiSubagentModelField])
+
+        apiEffortPopup.removeAllItems()
+        apiEffortPopup.addItems(withTitles: ["Default"] + ClaudeAPISettings.effortLevels)
+        apiEffortPopup.target = self
+        apiEffortPopup.action = #selector(apiEffortPicked)
+        let effortRow = row(label: "Effort:", controls: [apiEffortPopup])
+        let effortHintRow = hintRow(
+            "Reasoning depth vs. token spend. low/medium suit routine work; xhigh is Claude Code's coding default; max spends the most.",
+            width: 340
+        )
+
+        for field in [apiThinkingTokensField, apiMaxOutputTokensField] {
+            field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            field.placeholderString = "default"
+            field.delegate = self
+            field.alignment = .right
+            field.translatesAutoresizingMaskIntoConstraints = false
+            field.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        }
+        let thinkingSuffix = NSTextField(labelWithString: "tokens")
+        thinkingSuffix.font = .systemFont(ofSize: 11)
+        thinkingSuffix.textColor = Theme.textDim
+        let outputSuffix = NSTextField(labelWithString: "tokens")
+        outputSuffix.font = .systemFont(ofSize: 11)
+        outputSuffix.textColor = Theme.textDim
+        let thinkingRow = row(label: "Thinking:", controls: [apiThinkingTokensField, thinkingSuffix])
+        let outputRow = row(label: "Max Output:", controls: [apiMaxOutputTokensField, outputSuffix])
+
+        apiPromptCachingCheckbox.target = self
+        apiPromptCachingCheckbox.action = #selector(apiPromptCachingChanged)
+        let cachingRow = row(label: "Caching:", controls: [apiPromptCachingCheckbox])
+        let cachingHintRow = hintRow(
+            "Prompt caching serves the repeated prompt prefix at ~10% of the input price. Leave it on outside experiments.",
+            width: 340
+        )
+
+        let headersRow = row(label: "Headers:", controls: [apiCustomHeadersField])
+        let extraEnvRow = row(label: "Extra Env:", controls: [apiExtraEnvField])
+        let extraEnvHintRow = hintRow(
+            "Space-separated KEY=VALUE pairs appended last, so they can override the knobs above or set variables this pane doesn't cover.",
+            width: 340
+        )
+
+        apiPreviewLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        apiPreviewLabel.textColor = Theme.textDim
+        apiPreviewLabel.lineBreakMode = .byWordWrapping
+        apiPreviewLabel.maximumNumberOfLines = 0
+        apiPreviewLabel.preferredMaxLayoutWidth = 340
+        let previewRow = row(label: "Launch as:", controls: [apiPreviewLabel])
+        let previewHintRow = hintRow(
+            "Applies to Claude sessions started from Suit (✦, tasks, recipes, review passes) — each variable lasts for that session only. Autopilot runs are unaffected.",
+            width: 340
+        )
+
+        let stack = NSStackView(views: [
+            paneTitle("Claude API"),
+            modelRow, subagentRow, effortRow, effortHintRow,
+            thinkingRow, outputRow,
+            cachingRow, cachingHintRow,
+            headersRow, extraEnvRow, extraEnvHintRow,
+            previewRow, previewHintRow,
+        ])
+        stack.setCustomSpacing(4, after: effortRow)
+        stack.setCustomSpacing(4, after: cachingRow)
+        stack.setCustomSpacing(4, after: extraEnvRow)
+        stack.setCustomSpacing(4, after: previewRow)
         return stack
     }
 

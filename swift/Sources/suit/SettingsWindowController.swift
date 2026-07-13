@@ -45,6 +45,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         ("Terminal", "terminal"),
         ("File Viewer", "doc.text"),
         ("Claude", "sparkles"),
+        ("Claude API", "cpu"),
         ("Autopilot", "airplane"),
         ("Budget", "dollarsign.circle"),
         ("Themes", "swatchpalette"),
@@ -76,6 +77,19 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let taskIsolateCheckbox = NSButton(checkboxWithTitle: "Isolate new tasks in a worktree by default", target: nil, action: nil)
     let goalProvenanceCheckbox = NSButton(checkboxWithTitle: "Prepend source location to goals (From file:lines:)", target: nil, action: nil)
     let rtkCompressionCheckbox = NSButton(checkboxWithTitle: "Compress tool output with rtk", target: nil, action: nil)
+
+    // Claude API pane: per-launch Anthropic env overrides (ClaudeAPISettings).
+    // Text fields commit through controlTextDidEndEditing; the popup/checkbox
+    // fire immediately. All write through appDelegate.claudeAPIChanged(...).
+    let apiModelField = NSTextField(string: "")
+    let apiSubagentModelField = NSTextField(string: "")
+    let apiEffortPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    let apiThinkingTokensField = NSTextField(string: "")
+    let apiMaxOutputTokensField = NSTextField(string: "")
+    let apiPromptCachingCheckbox = NSButton(checkboxWithTitle: "Use prompt caching (uncheck to A/B full-price tokens)", target: nil, action: nil)
+    let apiCustomHeadersField = NSTextField(string: "")
+    let apiExtraEnvField = NSTextField(string: "")
+    let apiPreviewLabel = NSTextField(labelWithString: "")
 
     // Autopilot: every control writes through
     // appDelegate.autopilotXChanged(...) and is re-read in show().
@@ -168,6 +182,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             taskIsolateCheckbox.state = appDelegate.taskIsolateByDefault ? .on : .off
             goalProvenanceCheckbox.state = appDelegate.goalPrependProvenanceEnabled ? .on : .off
             rtkCompressionCheckbox.state = appDelegate.rtkCompressionEnabled ? .on : .off
+            reloadClaudeAPIControls()
             autopilotEnabledCheckbox.state = appDelegate.autopilotEnabled ? .on : .off
             autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot
             if let index = AutopilotBudgetMode.allCases.firstIndex(of: appDelegate.autopilotMode) {
