@@ -101,6 +101,72 @@ hcheck "$([ $? -eq 0 ] && echo 1 || echo 0)" "hook exits 0"
 PATH=/nonexistent /bin/bash "$HOOK" --compress <"$SCRATCH/payload.json" >/dev/null 2>&1
 hcheck "$([ $? -eq 0 ] && echo 1 || echo 0)" "hook exits 0 even without jq"
 
+# --- Read-dedup assertions (scratch HOME so the cache is sandboxed) -----------
+echo "==> Running read-dedup assertions"
+DHOME="$SCRATCH/home"
+mkdir -p "$DHOME"
+TARGET="$SCRATCH/target.swift"
+printf 'line one\nline two\nline three\n' >"$TARGET"
+CACHEFILE="$DHOME/.suit/read-cache/sdedup.json"
+
+# read_payload [tool_input-extras-json]
+read_payload() {
+  local extra="${1:-}"
+  printf '{"session_id":"sdedup","hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"%s"%s},"tool_response":{"type":"text","file":{"filePath":"%s","content":"line one\\nline two\\nline three"}}}' \
+    "$TARGET" "$extra" "$TARGET"
+}
+dedup_hook() { HOME="$DHOME" bash "$HOOK" --dedup; }
+
+hcheck "$(empty "$(read_payload | dedup_hook)")" "first read passes through"
+hcheck "$([ -f "$CACHEFILE" ] && echo 1 || echo 0)" "first read records a cache entry"
+hcheck "$(HOME="$DHOME" jq -r --arg f "$TARGET" '.files[$f].stubbed' "$CACHEFILE" | grep -q false && echo 1 || echo 0)" \
+  "the fresh entry is not stubbed"
+
+out="$(read_payload | dedup_hook)"
+hcheck "$(nonempty "$out")" "a repeat read of the unchanged file is stubbed"
+hcheck "$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedToolOutput' | grep -q 'read-dedup' && echo 1 || echo 0)" \
+  "the stub names itself and the recovery path"
+hcheck "$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedToolOutput' | grep -q '3 lines' && echo 1 || echo 0)" \
+  "the stub reports the file's line count"
+hcheck "$(jq -r --arg f "$TARGET" '.files[$f].stubbed' "$CACHEFILE" | grep -q true && echo 1 || echo 0)" \
+  "the entry is marked stubbed"
+
+hcheck "$(empty "$(read_payload | dedup_hook)")" "the next read passes the full content (stub-once)"
+hcheck "$(jq -r --arg f "$TARGET" '.files[$f].stubbed' "$CACHEFILE" | grep -q false && echo 1 || echo 0)" \
+  "the loop breaker re-arms the entry"
+hcheck "$(nonempty "$(read_payload | dedup_hook)")" "a fourth read is stubbed again"
+
+# Any edit (mtime or size change) forces a real re-read.
+printf 'line one\nline two\nline three\nline four\n' >"$TARGET"
+hcheck "$(empty "$(read_payload | dedup_hook)")" "an edited file re-reads fully"
+hcheck "$(jq -r --arg f "$TARGET" '.files[$f].lines' "$CACHEFILE" | grep -q 4 && echo 1 || echo 0)" \
+  "the entry re-records the new state"
+# mtime-only change (same byte size): still a re-read.
+hcheck "$(nonempty "$(read_payload | dedup_hook)")" "(setup) unchanged again → stubbed"
+hcheck "$(empty "$(read_payload | dedup_hook)")" "(setup) stub-once passes through"
+touch -t 202601010101 "$TARGET"
+hcheck "$(empty "$(read_payload | dedup_hook)")" "an mtime-only change re-reads fully"
+
+# Range reads never participate.
+hcheck "$(nonempty "$(read_payload | dedup_hook)")" "(setup) whole file stubbed again"
+hcheck "$(empty "$(read_payload ',"offset":10,"limit":20' | dedup_hook)")" \
+  "an offset/limit read passes through even while stubbed"
+hcheck "$(jq -r --arg f "$TARGET" '.files[$f].stubbed' "$CACHEFILE" | grep -q true && echo 1 || echo 0)" \
+  "a range read leaves the cache entry untouched"
+
+# Lifecycle: PreCompact clears, SessionEnd deletes.
+printf '{"session_id":"sdedup","hook_event_name":"PreCompact"}' | HOME="$DHOME" bash "$HOOK" --clear-cache
+hcheck "$(jq -r '.files | length' "$CACHEFILE" | grep -q '^0$' && echo 1 || echo 0)" \
+  "--clear-cache empties the session's entries"
+printf '{"session_id":"sdedup","hook_event_name":"SessionEnd"}' | HOME="$DHOME" bash "$HOOK" --end-session
+hcheck "$([ ! -f "$CACHEFILE" ] && echo 1 || echo 0)" "--end-session deletes the cache file"
+
+# Dedup without the flag, or for a missing file, never touches anything.
+hcheck "$(empty "$(read_payload | HOME="$DHOME" bash "$HOOK" --compress)")" \
+  "no --dedup flag → a repeat read passes through"
+rm -f "$TARGET"
+hcheck "$(empty "$(read_payload | dedup_hook)")" "a vanished file passes through"
+
 if [ "$hook_fail" -gt 0 ]; then
   echo "$hook_fail HOOK-SCRIPT FAILURE(S)"
   exit 1

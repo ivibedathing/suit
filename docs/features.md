@@ -296,6 +296,20 @@ app does.
   open** on any error — missing `jq`, unrecognized result shape, an elision that wouldn't
   shrink — the result passes through untouched. `SUIT_POSTTOOL_DEBUG=1` tees each raw hook
   payload to `~/.suit/posttool-debug.jsonl` for inspection.
+- **Read-dedup (read-once)** — a **Settings ▸ Claude** toggle ("Skip re-reading unchanged
+  files"), **off by default**, sharing the same `PostToolUse` dispatcher hook (`--dedup`):
+  published session audits put 40–60% of Read-tool tokens on redundant re-reads of files
+  already in the conversation, so a repeat **full-file** Read of a file that hasn't changed
+  returns a one-line stub — naming the file, when it was last read, and its line/byte count —
+  instead of the whole content. Correctness guards: entries key on the file's current
+  **mtime + size**, so any edit re-reads fully; `offset`/`limit` range reads never participate
+  and never touch the cache; a **second consecutive** re-read passes the full content through
+  (re-reading twice signals the content genuinely fell out of context) and re-arms the entry;
+  entries expire after 2 h. The per-session cache lives in `~/.suit/read-cache/<session>.json`,
+  is **cleared by every compaction** (a `PreCompact` hook — manual `/compact`, Suit's
+  auto-compact, and Claude Code's own all count, since compaction evicts the content the stub
+  points back to) and deleted at `SessionEnd`, with a 48 h sweep for crashed sessions. Same
+  fail-open contract: any error means the read passes through untouched.
 - **Auto-/compact threshold** — a **Settings ▸ Claude** toggle ("Send /compact when an idle
   session crosses"), **off by default**, with a threshold stepper (50–90%, default **70%**) and
   an editable focus-instructions field. When a live session's context meter crosses the

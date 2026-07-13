@@ -315,6 +315,15 @@ extension SettingsWindowController {
             width: 340
         )
 
+        // Read-dedup: same dispatcher hook, --dedup behavior.
+        readDedupCheckbox.target = self
+        readDedupCheckbox.action = #selector(readDedupChanged)
+        let readDedupRow = row(label: "", controls: [readDedupCheckbox])
+        let readDedupHintRow = hintRow(
+            "A repeat full read of a file that hasn't changed returns a one-line stub instead of the whole file — its content is already in the conversation. Edited files always re-read fully, offset/limit reads are untouched, a second consecutive re-read forces the full file, and every compaction clears the memory.",
+            width: 340
+        )
+
         // Auto-/compact guardrails: threshold stepper + focus instructions.
         autoCompactCheckbox.target = self
         autoCompactCheckbox.action = #selector(autoCompactEnabledChanged)
@@ -361,6 +370,7 @@ extension SettingsWindowController {
             claudeArgsRow, claudeHintRow, taskIsolateRow, goalProvenanceRow,
             rtkCompressionRow, rtkHintRow,
             postToolCompressRow, postToolHintRow,
+            readDedupRow, readDedupHintRow,
             autoCompactRow, autoCompactInstructionsRow, autoCompactHintRow,
             taskDoneSoundRow, needsInputSoundRow,
         ])
