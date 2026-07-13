@@ -171,6 +171,22 @@ extension AppDelegate {
         saveSettings()
     }
 
+    // Claude API pane: the whole struct commits at once (each control hands in
+    // a mutated copy). Values are pty-safe by construction — the composition
+    // layer sanitizes again — but trim here so the fields snap back clean.
+    func claudeAPIChanged(_ settings: ClaudeAPISettings) {
+        var clean = settings
+        clean.model = ClaudeAPISettings.sanitize(settings.model)
+        clean.subagentModel = ClaudeAPISettings.sanitize(settings.subagentModel)
+        clean.effort = ClaudeAPISettings.sanitize(settings.effort)
+        clean.customHeaders = ClaudeAPISettings.sanitize(settings.customHeaders)
+        clean.extraEnv = ClaudeAPISettings.sanitize(settings.extraEnv)
+        clean.thinkingTokens = max(0, settings.thinkingTokens)
+        clean.maxOutputTokens = max(0, settings.maxOutputTokens)
+        claudeAPI = clean
+        saveSettings()
+    }
+
     func taskIsolateByDefaultChanged(_ enabled: Bool) {
         taskIsolateByDefault = enabled
         saveSettings()
@@ -300,6 +316,21 @@ extension AppDelegate {
         if let args = defaults.string(forKey: "claudeSessionArgs") {
             claudeSessionArgs = args
         }
+        // Claude API tuning: one bare camelCase key per knob, absent = default.
+        if let model = defaults.string(forKey: "claudeAPIModel") { claudeAPI.model = model }
+        if let model = defaults.string(forKey: "claudeAPISubagentModel") { claudeAPI.subagentModel = model }
+        if let effort = defaults.string(forKey: "claudeAPIEffort") { claudeAPI.effort = effort }
+        if defaults.object(forKey: "claudeAPIThinkingTokens") != nil {
+            claudeAPI.thinkingTokens = defaults.integer(forKey: "claudeAPIThinkingTokens")
+        }
+        if defaults.object(forKey: "claudeAPIMaxOutputTokens") != nil {
+            claudeAPI.maxOutputTokens = defaults.integer(forKey: "claudeAPIMaxOutputTokens")
+        }
+        if defaults.object(forKey: "claudeAPIPromptCachingEnabled") != nil {
+            claudeAPI.promptCachingEnabled = defaults.bool(forKey: "claudeAPIPromptCachingEnabled")
+        }
+        if let headers = defaults.string(forKey: "claudeAPICustomHeaders") { claudeAPI.customHeaders = headers }
+        if let env = defaults.string(forKey: "claudeAPIExtraEnv") { claudeAPI.extraEnv = env }
         if defaults.object(forKey: "taskIsolateByDefault") != nil {
             taskIsolateByDefault = defaults.bool(forKey: "taskIsolateByDefault")
         }
@@ -385,6 +416,14 @@ extension AppDelegate {
         defaults.set(goalPrependProvenanceEnabled, forKey: "goalPrependProvenanceEnabled")
         defaults.set(rtkCompressionEnabled, forKey: "rtkCompressionEnabled")
         defaults.set(claudeSessionArgs, forKey: "claudeSessionArgs")
+        defaults.set(claudeAPI.model, forKey: "claudeAPIModel")
+        defaults.set(claudeAPI.subagentModel, forKey: "claudeAPISubagentModel")
+        defaults.set(claudeAPI.effort, forKey: "claudeAPIEffort")
+        defaults.set(claudeAPI.thinkingTokens, forKey: "claudeAPIThinkingTokens")
+        defaults.set(claudeAPI.maxOutputTokens, forKey: "claudeAPIMaxOutputTokens")
+        defaults.set(claudeAPI.promptCachingEnabled, forKey: "claudeAPIPromptCachingEnabled")
+        defaults.set(claudeAPI.customHeaders, forKey: "claudeAPICustomHeaders")
+        defaults.set(claudeAPI.extraEnv, forKey: "claudeAPIExtraEnv")
         defaults.set(taskIsolateByDefault, forKey: "taskIsolateByDefault")
         defaults.set(autopilotEnabled, forKey: "autopilotEnabled")
         defaults.set(autopilotProjectRoot, forKey: "autopilotProjectRoot")

@@ -89,6 +89,36 @@ extension SettingsWindowController {
             autopilotReviewModelField.stringValue = appDelegate.autopilotReviewModel
             return
         }
+        // Claude API fields: free-form strings commit as-is (sanitized by the
+        // setter); the token counts parse like the dollar caps below.
+        if (notification.object as? NSTextField) === apiModelField {
+            commitClaudeAPI { $0.model = self.apiModelField.stringValue }
+            return
+        }
+        if (notification.object as? NSTextField) === apiSubagentModelField {
+            commitClaudeAPI { $0.subagentModel = self.apiSubagentModelField.stringValue }
+            return
+        }
+        if (notification.object as? NSTextField) === apiCustomHeadersField {
+            commitClaudeAPI { $0.customHeaders = self.apiCustomHeadersField.stringValue }
+            return
+        }
+        if (notification.object as? NSTextField) === apiExtraEnvField {
+            commitClaudeAPI { $0.extraEnv = self.apiExtraEnvField.stringValue }
+            return
+        }
+        if (notification.object as? NSTextField) === apiThinkingTokensField {
+            commitClaudeAPI {
+                $0.thinkingTokens = Self.parseTokenCount(self.apiThinkingTokensField.stringValue, current: $0.thinkingTokens)
+            }
+            return
+        }
+        if (notification.object as? NSTextField) === apiMaxOutputTokensField {
+            commitClaudeAPI {
+                $0.maxOutputTokens = Self.parseTokenCount(self.apiMaxOutputTokensField.stringValue, current: $0.maxOutputTokens)
+            }
+            return
+        }
         // Budget caps: a dollar amount, or blank/0 for off.
         // A non-numeric entry beeps and snaps back.
         if (notification.object as? NSTextField) === budgetSessionCapField {
@@ -161,6 +191,62 @@ extension SettingsWindowController {
 
     @objc func rtkCompressionChanged(_ sender: NSButton) {
         appDelegate?.rtkCompressionChanged(sender.state == .on)
+    }
+
+    // MARK: - Claude API actions
+
+    // Re-read every Claude API control from the stored struct and refresh the
+    // live launch-command preview. Runs from show() and after every commit, so
+    // the pane always reflects the value AppDelegate actually took.
+    func reloadClaudeAPIControls() {
+        guard let appDelegate else { return }
+        let api = appDelegate.claudeAPI
+        apiModelField.stringValue = api.model
+        apiSubagentModelField.stringValue = api.subagentModel
+        if let index = ClaudeAPISettings.effortLevels.firstIndex(of: api.effort) {
+            apiEffortPopup.selectItem(at: index + 1)   // 0 is "Default"
+        } else {
+            apiEffortPopup.selectItem(at: 0)
+        }
+        apiThinkingTokensField.stringValue = api.thinkingTokens > 0 ? String(api.thinkingTokens) : ""
+        apiMaxOutputTokensField.stringValue = api.maxOutputTokens > 0 ? String(api.maxOutputTokens) : ""
+        apiPromptCachingCheckbox.state = api.promptCachingEnabled ? .on : .off
+        apiCustomHeadersField.stringValue = api.customHeaders
+        apiExtraEnvField.stringValue = api.extraEnv
+        apiPreviewLabel.stringValue = api.launchCommand(base: "claude …")
+    }
+
+    // Mutate one knob on a copy of the stored struct and commit the whole
+    // thing (the struct-at-once analog of the scalar xChanged setters).
+    private func commitClaudeAPI(_ mutate: (inout ClaudeAPISettings) -> Void) {
+        guard let appDelegate else { return }
+        var api = appDelegate.claudeAPI
+        mutate(&api)
+        appDelegate.claudeAPIChanged(api)
+        reloadClaudeAPIControls()
+    }
+
+    @objc func apiEffortPicked(_ sender: Any?) {
+        let index = apiEffortPopup.indexOfSelectedItem - 1   // -1 = "Default"
+        let levels = ClaudeAPISettings.effortLevels
+        commitClaudeAPI { $0.effort = levels.indices.contains(index) ? levels[index] : "" }
+    }
+
+    @objc func apiPromptCachingChanged(_ sender: NSButton) {
+        commitClaudeAPI { $0.promptCachingEnabled = sender.state == .on }
+    }
+
+    // A token-count field: blank → 0 (default), a non-negative integer → that
+    // count, anything else → beep and keep the current value (the parseDollarCap
+    // convention, integer-shaped).
+    static func parseTokenCount(_ text: String, current: Int) -> Int {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty { return 0 }
+        guard let value = Int(trimmed), value >= 0 else {
+            NSSound.beep()
+            return current
+        }
+        return value
     }
 
     // MARK: - Autopilot actions

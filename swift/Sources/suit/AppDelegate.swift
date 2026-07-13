@@ -35,6 +35,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // (the strip's ✦ button, ⌃⌘C, the palette) — e.g. "--continue" or
     // "--model opus". A raw string handed to the shell, not validated.
     var claudeSessionArgs = ""
+    // Claude API tuning (Settings → Claude API): per-launch Anthropic env
+    // overrides (model, effort, thinking budget, caching, …) composed onto the
+    // typed `claude` command by ClaudeAPISettings.launchCommand(base:). All
+    // defaults = no change to the command line.
+    var claudeAPI = ClaudeAPISettings()
     // New Claude Task isolation default: whether the
     // "New Claude Task" prompt's "Isolate in worktree" switch starts on. On
     // reproduces the always-a-worktree behavior; off runs claude in the

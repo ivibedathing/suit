@@ -281,6 +281,18 @@ app does.
   when you need full, unfiltered output for one command, opt it out without flipping the toggle
   — prefix it with `NO_RTK=1` or add a `# nortk` marker and it runs unchanged. rtk ships in the
   bundle when present at build time, otherwise the hook falls back to `rtk` on your `PATH`.
+- **Claude API tuning** — a **Settings ▸ Claude API** pane (⌘,) exposing the Anthropic
+  cost/behavior knobs as per-launch environment overrides: main **Model** and **Subagents**
+  model, reasoning **Effort** (`low`–`max`, Claude Code's `CLAUDE_CODE_EFFORT_LEVEL`),
+  **Thinking** budget (`MAX_THINKING_TOKENS`), **Max Output** tokens, a **prompt caching**
+  toggle (off sends `DISABLE_PROMPT_CACHING=1` — full-price tokens, for cost A/B only),
+  **Headers** (`ANTHROPIC_CUSTOM_HEADERS`, e.g. an `anthropic-beta:` line), and a free-form
+  **Extra Env** field (`KEY=VALUE` pairs, appended last so they can override the knobs above).
+  Everything defaults to *unset* — the launch command is untouched until you change something.
+  The composed prefix is shown live in the pane ("Launch as: `ANTHROPIC_MODEL='opus' claude …`")
+  and is typed visibly into the session's shell, so each experiment is scoped to that session and
+  auditable in the terminal. Applies to Claude sessions started from Suit (the ✦ button / ⌃⌘C,
+  worktree tasks, recipes, review passes); Autopilot workers are deliberately unaffected.
 - **Set as Goal** — select code or prose in a file viewer, transcript, or terminal, then
   right-click ▸ "Set as Goal" (or the palette's "Set Selection as Claude Goal") to send
   `/goal <selection>` into a chosen session — turning "this is what I want done" into a
