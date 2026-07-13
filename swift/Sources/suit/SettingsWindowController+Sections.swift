@@ -324,6 +324,15 @@ extension SettingsWindowController {
             width: 340
         )
 
+        // Shell helpers: the ZDOTDIR shim + run_silent, new zsh terminals only.
+        shellExtrasCheckbox.target = self
+        shellExtrasCheckbox.action = #selector(shellExtrasChanged)
+        let shellExtrasRow = row(label: "", controls: [shellExtrasCheckbox])
+        let shellExtrasHintRow = hintRow(
+            "Defines run_silent (prints ✓ on success, full output only on failure — cheap builds/tests in Claude sessions) by launching new zsh terminals through a shim that sources your own config first. Never edits your dotfiles; see ~/.suit/scripts/SUIT-SHELL-EXTRAS.md for a CLAUDE.md snippet that tells Claude to use it.",
+            width: 340
+        )
+
         // Auto-/compact guardrails: threshold stepper + focus instructions.
         autoCompactCheckbox.target = self
         autoCompactCheckbox.action = #selector(autoCompactEnabledChanged)
@@ -371,6 +380,7 @@ extension SettingsWindowController {
             rtkCompressionRow, rtkHintRow,
             postToolCompressRow, postToolHintRow,
             readDedupRow, readDedupHintRow,
+            shellExtrasRow, shellExtrasHintRow,
             autoCompactRow, autoCompactInstructionsRow, autoCompactHintRow,
             taskDoneSoundRow, needsInputSoundRow,
         ])

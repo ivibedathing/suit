@@ -79,6 +79,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let rtkCompressionCheckbox = NSButton(checkboxWithTitle: "Compress tool output with rtk", target: nil, action: nil)
     let postToolCompressCheckbox = NSButton(checkboxWithTitle: "Compress large tool results (Read/Grep/Glob/Bash)", target: nil, action: nil)
     let readDedupCheckbox = NSButton(checkboxWithTitle: "Skip re-reading unchanged files (read-once)", target: nil, action: nil)
+    let shellExtrasCheckbox = NSButton(checkboxWithTitle: "Shell helpers (run_silent) in new terminals", target: nil, action: nil)
     // Auto-/compact guardrails: threshold stepper disabled while
     // the toggle is off; the instructions field commits on Enter/focus-loss.
     let autoCompactCheckbox = NSButton(checkboxWithTitle: "Send /compact when an idle session crosses", target: nil, action: nil)
@@ -191,6 +192,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             rtkCompressionCheckbox.state = appDelegate.rtkCompressionEnabled ? .on : .off
             postToolCompressCheckbox.state = appDelegate.postToolCompressEnabled ? .on : .off
             readDedupCheckbox.state = appDelegate.readDedupEnabled ? .on : .off
+            shellExtrasCheckbox.state = appDelegate.shellExtrasEnabled ? .on : .off
             autoCompactCheckbox.state = appDelegate.autoCompactEnabled ? .on : .off
             autoCompactThresholdStepper.intValue = appDelegate.autoCompactThreshold
             autoCompactThresholdStepper.isEnabled = appDelegate.autoCompactEnabled

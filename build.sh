@@ -89,6 +89,17 @@ fi
 mkdir -p "$CONTENTS/Resources/claude"
 cp "$ROOT"/scripts/claude/*.sh "$CONTENTS/Resources/claude/"
 chmod +x "$CONTENTS/Resources/claude/"*.sh
+# Shell helpers (run_silent): the ZDOTDIR shim dotfiles and the extras script
+# miss the *.sh glob above, and the shim files are dotfiles — copy explicitly
+# (see ShellInjection.swift).
+cp "$ROOT"/scripts/claude/*.zsh "$CONTENTS/Resources/claude/"
+cp "$ROOT"/scripts/claude/SUIT-SHELL-EXTRAS.md "$CONTENTS/Resources/claude/"
+mkdir -p "$CONTENTS/Resources/claude/suit-zdotdir"
+cp "$ROOT"/scripts/claude/suit-zdotdir/.zshenv \
+   "$ROOT"/scripts/claude/suit-zdotdir/.zprofile \
+   "$ROOT"/scripts/claude/suit-zdotdir/.zshrc \
+   "$ROOT"/scripts/claude/suit-zdotdir/.zlogin \
+   "$CONTENTS/Resources/claude/suit-zdotdir/"
 
 # Bundle the suit-bg background-task wrapper (ROADMAP Phase 30) so it ships with
 # the app; users symlink it onto their PATH to track jobs in the monitor.

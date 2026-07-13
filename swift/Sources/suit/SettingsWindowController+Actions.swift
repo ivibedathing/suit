@@ -206,6 +206,10 @@ extension SettingsWindowController {
         appDelegate?.readDedupChanged(sender.state == .on)
     }
 
+    @objc func shellExtrasChanged(_ sender: NSButton) {
+        appDelegate?.shellExtrasChanged(sender.state == .on)
+    }
+
     @objc func autoCompactEnabledChanged(_ sender: NSButton) {
         appDelegate?.autoCompactEnabledChanged(sender.state == .on)
         autoCompactThresholdStepper.isEnabled = sender.state == .on

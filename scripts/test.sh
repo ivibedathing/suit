@@ -38,6 +38,7 @@ HARNESSES=(
   "command-history|scripts/command-history-test.sh|fast"
   "rtk|scripts/rtk-test.sh|fast"
   "posttool|scripts/posttool-test.sh|fast"
+  "shell-extras|scripts/shell-extras-test.sh|fast"
   "dictation|scripts/dictation-test.sh|fast"
   "themes|scripts/test-themes.sh|fast"
   "notification-sound|scripts/notification-sound-test.sh|fast"

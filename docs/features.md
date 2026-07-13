@@ -310,6 +310,19 @@ app does.
   auto-compact, and Claude Code's own all count, since compaction evicts the content the stub
   points back to) and deleted at `SessionEnd`, with a 48 h sweep for crashed sessions. Same
   fail-open contract: any error means the read passes through untouched.
+- **Shell helpers (run_silent)** — a **Settings ▸ Claude** toggle ("Shell helpers (run_silent)
+  in new terminals"), **off by default**. New **zsh** terminals launch through a ZDOTDIR shim
+  (the VS Code shell-integration mechanism, installed under `~/.suit/zsh/` — your own dotfiles
+  are **never edited**, and other shells launch exactly as before): each shim file sources your
+  real config first (including a `.zshenv` that re-points `ZDOTDIR`, the oh-my-zsh/p10k
+  pattern), then loads `suit-shell-extras.zsh`, which defines **`run_silent <command>`** — the
+  command's output is buffered and a passing run prints only `✓ <command> (Ns)`, while a
+  failing run prints everything plus `✗ (exit N)` and propagates the code. That's the
+  token-saving shape for builds and tests in a Claude session: green runs cost one line
+  instead of hundreds. Purely additive (no prompt/option changes); fails open (no temp file →
+  the command just runs normally); applies to terminals opened after the toggle. Suit never
+  edits CLAUDE.md files — `~/.suit/scripts/SUIT-SHELL-EXTRAS.md` holds a copy-paste snippet
+  that tells Claude the helper exists.
 - **Auto-/compact threshold** — a **Settings ▸ Claude** toggle ("Send /compact when an idle
   session crosses"), **off by default**, with a threshold stepper (50–90%, default **70%**) and
   an editable focus-instructions field. When a live session's context meter crosses the

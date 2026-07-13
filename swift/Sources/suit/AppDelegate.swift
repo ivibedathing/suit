@@ -73,6 +73,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // so it's opt-in (PostToolHook / applyPostToolHook).
     var postToolCompressEnabled = false
     var readDedupEnabled = false
+    // Shell helpers (run_silent): launch zsh terminals with the
+    // ZDOTDIR shim so suit-shell-extras.zsh loads after the user's own config
+    // (ShellInjection). Off by default; applies to new terminals only.
+    var shellExtrasEnabled = false
     // Autopilot — the §2.9 config table. The engine reads
     // these live through its weak appDelegate reference; the Settings window's
     // Autopilot section writes them through autopilotXChanged(...).

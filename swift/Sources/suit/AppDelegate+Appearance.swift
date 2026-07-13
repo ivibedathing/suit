@@ -293,6 +293,21 @@ extension AppDelegate {
         }
     }
 
+    // Shell helpers (run_silent): enabling installs the ZDOTDIR shim + extras
+    // under ~/.suit/ (never the user's dotfiles); the env vars only go to
+    // terminals launched after the change. Disabling just stops setting them —
+    // the installed files are inert without the env.
+    func shellExtrasChanged(_ enabled: Bool) {
+        shellExtrasEnabled = enabled
+        saveSettings()
+        guard enabled else { return }
+        do {
+            try ShellInjection.install()
+        } catch {
+            NSLog("Suit: shell extras install failed: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Settings persistence
 
     func loadSettings() {
@@ -357,6 +372,7 @@ extension AppDelegate {
             rtkCompressionEnabled = defaults.bool(forKey: "rtkCompressionEnabled")
         }
         postToolCompressEnabled = defaults.bool(forKey: "postToolCompressEnabled")
+        shellExtrasEnabled = defaults.bool(forKey: "shellExtrasEnabled")
         readDedupEnabled = defaults.bool(forKey: "readDedupEnabled")
         if let args = defaults.string(forKey: "claudeSessionArgs") {
             claudeSessionArgs = args
@@ -469,6 +485,7 @@ extension AppDelegate {
         defaults.set(goalPrependProvenanceEnabled, forKey: "goalPrependProvenanceEnabled")
         defaults.set(rtkCompressionEnabled, forKey: "rtkCompressionEnabled")
         defaults.set(postToolCompressEnabled, forKey: "postToolCompressEnabled")
+        defaults.set(shellExtrasEnabled, forKey: "shellExtrasEnabled")
         defaults.set(readDedupEnabled, forKey: "readDedupEnabled")
         defaults.set(claudeSessionArgs, forKey: "claudeSessionArgs")
         defaults.set(claudeAPI.model, forKey: "claudeAPIModel")
