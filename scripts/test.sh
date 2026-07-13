@@ -37,6 +37,7 @@ HARNESSES=(
   "compact-guard|scripts/compact-guard-test.sh|fast"
   "command-history|scripts/command-history-test.sh|fast"
   "rtk|scripts/rtk-test.sh|fast"
+  "posttool|scripts/posttool-test.sh|fast"
   "dictation|scripts/dictation-test.sh|fast"
   "themes|scripts/test-themes.sh|fast"
   "notification-sound|scripts/notification-sound-test.sh|fast"

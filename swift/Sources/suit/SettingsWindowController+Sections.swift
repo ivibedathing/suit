@@ -306,6 +306,15 @@ extension SettingsWindowController {
             width: 340
         )
 
+        // PostToolUse output compression: install/remove the dispatcher hook.
+        postToolCompressCheckbox.target = self
+        postToolCompressCheckbox.action = #selector(postToolCompressChanged)
+        let postToolCompressRow = row(label: "", controls: [postToolCompressCheckbox])
+        let postToolHintRow = hintRow(
+            "Elides tool results over ~30k characters (head + tail + a how-to-narrow marker) before they reach the context window — the built-in tools rtk can't wrap. Requires Claude Code ≥ 2.1.133 and jq; results pass through unchanged on any error.",
+            width: 340
+        )
+
         // Auto-/compact guardrails: threshold stepper + focus instructions.
         autoCompactCheckbox.target = self
         autoCompactCheckbox.action = #selector(autoCompactEnabledChanged)
@@ -351,6 +360,7 @@ extension SettingsWindowController {
             paneTitle("Claude"),
             claudeArgsRow, claudeHintRow, taskIsolateRow, goalProvenanceRow,
             rtkCompressionRow, rtkHintRow,
+            postToolCompressRow, postToolHintRow,
             autoCompactRow, autoCompactInstructionsRow, autoCompactHintRow,
             taskDoneSoundRow, needsInputSoundRow,
         ])

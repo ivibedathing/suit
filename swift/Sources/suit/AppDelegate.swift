@@ -65,6 +65,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // before it reaches the context window. Off by default — the hook rewrites
     // the commands Claude runs, so it's opt-in (RtkHook / rtkCompressionChanged).
     var rtkCompressionEnabled = false
+    // PostToolUse output filtering: one dispatcher hook + script
+    // (suit-posttool-filter.sh) serving two toggles — compress elides giant
+    // Read/Grep/Glob/Bash results via updatedToolOutput (the side of a tool
+    // call rtk can't reach); dedup (read-once) stubs re-reads of unchanged
+    // files. Both off by default — the hook rewrites what Claude reads back,
+    // so it's opt-in (PostToolHook / applyPostToolHook).
+    var postToolCompressEnabled = false
+    var readDedupEnabled = false
     // Autopilot — the §2.9 config table. The engine reads
     // these live through its weak appDelegate reference; the Settings window's
     // Autopilot section writes them through autopilotXChanged(...).

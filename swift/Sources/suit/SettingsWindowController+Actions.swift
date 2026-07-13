@@ -198,6 +198,10 @@ extension SettingsWindowController {
         appDelegate?.rtkCompressionChanged(sender.state == .on)
     }
 
+    @objc func postToolCompressChanged(_ sender: NSButton) {
+        appDelegate?.postToolCompressChanged(sender.state == .on)
+    }
+
     @objc func autoCompactEnabledChanged(_ sender: NSButton) {
         appDelegate?.autoCompactEnabledChanged(sender.state == .on)
         autoCompactThresholdStepper.isEnabled = sender.state == .on

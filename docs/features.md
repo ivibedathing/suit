@@ -281,6 +281,21 @@ app does.
   when you need full, unfiltered output for one command, opt it out without flipping the toggle
   — prefix it with `NO_RTK=1` or add a `# nortk` marker and it runs unchanged. rtk ships in the
   bundle when present at build time, otherwise the hook falls back to `rtk` on your `PATH`.
+- **Large tool-result compression** — a **Settings ▸ Claude** toggle ("Compress large tool
+  results (Read/Grep/Glob/Bash)"), **off by default**, that installs a Claude Code
+  `PostToolUse` hook (`suit-posttool-filter.sh`) rewriting a tool's *result* before it reaches
+  the context window via `updatedToolOutput` (requires Claude Code ≥ 2.1.133) — the side of a
+  tool call rtk can't touch, covering the built-in Read/Grep/Glob tools and any Bash output
+  that escaped rtk. Deliberately conservative: results under **~30k characters (≈7.5k tokens)
+  are never modified**; larger ones keep their first 200 and last 50 lines (or a byte-based
+  head+tail for single-blob output) around a marker telling Claude how to narrow the query
+  (`head_limit`, `offset`/`limit`, a tighter pattern). A Bash result's stderr survives the cut,
+  rtk-wrapped commands are skipped (no double-processing), and the `NO_RTK=1` / `# nortk`
+  bypasses opt a command out of this filter too. Enabling merges the hook into
+  `~/.claude/settings.json` (same one-time backup, other hooks preserved); the script **fails
+  open** on any error — missing `jq`, unrecognized result shape, an elision that wouldn't
+  shrink — the result passes through untouched. `SUIT_POSTTOOL_DEBUG=1` tees each raw hook
+  payload to `~/.suit/posttool-debug.jsonl` for inspection.
 - **Auto-/compact threshold** — a **Settings ▸ Claude** toggle ("Send /compact when an idle
   session crosses"), **off by default**, with a threshold stepper (50–90%, default **70%**) and
   an editable focus-instructions field. When a live session's context meter crosses the

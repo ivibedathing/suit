@@ -267,6 +267,32 @@ extension AppDelegate {
         }
     }
 
+    // PostToolUse output filtering: both toggles reconcile through the one
+    // dispatcher hook (PostToolHook), whose command line encodes which
+    // behaviors are on. Best-effort like rtkCompressionChanged — the
+    // preference sticks even if the settings.json write fails.
+    func postToolCompressChanged(_ enabled: Bool) {
+        postToolCompressEnabled = enabled
+        saveSettings()
+        applyPostToolHook()
+    }
+
+    func readDedupChanged(_ enabled: Bool) {
+        readDedupEnabled = enabled
+        saveSettings()
+        applyPostToolHook()
+    }
+
+    func applyPostToolHook() {
+        do {
+            _ = try PostToolHook.setEnabled(
+                compress: postToolCompressEnabled, dedup: readDedupEnabled
+            )
+        } catch {
+            NSLog("Suit: post-tool filter reconcile failed: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Settings persistence
 
     func loadSettings() {
@@ -330,6 +356,8 @@ extension AppDelegate {
         if defaults.object(forKey: "rtkCompressionEnabled") != nil {
             rtkCompressionEnabled = defaults.bool(forKey: "rtkCompressionEnabled")
         }
+        postToolCompressEnabled = defaults.bool(forKey: "postToolCompressEnabled")
+        readDedupEnabled = defaults.bool(forKey: "readDedupEnabled")
         if let args = defaults.string(forKey: "claudeSessionArgs") {
             claudeSessionArgs = args
         }
@@ -440,6 +468,8 @@ extension AppDelegate {
         defaults.set(needsInputSoundName, forKey: "needsInputSoundName")
         defaults.set(goalPrependProvenanceEnabled, forKey: "goalPrependProvenanceEnabled")
         defaults.set(rtkCompressionEnabled, forKey: "rtkCompressionEnabled")
+        defaults.set(postToolCompressEnabled, forKey: "postToolCompressEnabled")
+        defaults.set(readDedupEnabled, forKey: "readDedupEnabled")
         defaults.set(claudeSessionArgs, forKey: "claudeSessionArgs")
         defaults.set(claudeAPI.model, forKey: "claudeAPIModel")
         defaults.set(claudeAPI.subagentModel, forKey: "claudeAPISubagentModel")
