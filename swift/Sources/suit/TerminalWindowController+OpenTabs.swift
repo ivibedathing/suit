@@ -438,9 +438,11 @@ extension TerminalWindowController {
         store.insert(tab)
         content.start(in: directory)
         activate(tab)
-        // The pty input queue holds this until zsh is ready to read it.
+        // The pty input queue holds this until zsh is ready to read it. The
+        // Claude API pane's env overrides prefix the command (session-scoped).
+        let command = appDelegate.claudeAPI.launchCommand(base: "claude")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
-            content?.terminalView.send(txt: "claude\r")
+            content?.terminalView.send(txt: command + "\r")
         }
     }
 
@@ -474,8 +476,9 @@ extension TerminalWindowController {
         store.insert(tab)
         content.start(in: directory)
         activate(tab)
+        let recipeCommand = appDelegate.claudeAPI.launchCommand(base: "claude")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
-            content?.terminalView.send(txt: "claude\r")
+            content?.terminalView.send(txt: recipeCommand + "\r")
         }
         let trimmed = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -521,8 +524,9 @@ extension TerminalWindowController {
         store.insert(tab)
         content.start(in: directory)
         activate(tab)
+        let reviewCommand = appDelegate.claudeAPI.launchCommand(base: "claude")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
-            content?.terminalView.send(txt: "claude\r")
+            content?.terminalView.send(txt: reviewCommand + "\r")
         }
         let prompt = FeedbackRouting.reviewPassPrompt(for: event)
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak content] in

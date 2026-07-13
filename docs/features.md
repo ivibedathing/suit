@@ -123,9 +123,15 @@ app does.
   whole-word ripgrep search with a note in the header — set `SUIT_CTAGS_PATH` or rebuild with
   universal-ctags on PATH to enable the index.
 - **Preview tabs** — the viewer routes by extension, so previewing a README or a design asset
-  never means a trip to Finder. Markdown (`.md`/`.markdown`) renders formatted — headings,
-  lists, blockquotes, fenced code (syntax-colored), and clickable links — with a Rendered ↔ Raw
-  toggle. Images (PNG/JPG/GIF/SVG/…) open over a checkerboard backing with a zoom-to-fit /
+  never means a trip to Finder. Markdown (`.md`/`.markdown`) renders as a proper document in a
+  centered reading column (capped at ~720pt, margins grow with the pane, like GitHub/Typora):
+  ATX and setext headings on a GitHub-style scale with hairline rules under H1/H2, hard-wrapped
+  source lines joined into flowing paragraphs, nested bullet/ordered lists with hanging indents,
+  task-list checkboxes (`- [ ]` / `- [x]`), fenced code as full-width padded cards
+  (syntax-colored), blockquotes with a left bar, pipe tables as real grids (header row shaded,
+  `:---:` alignments honored), full-width horizontal rules, local images inline (scaled to the
+  column), and inline bold/italic/strikethrough/code plus clickable links — with a
+  Rendered ↔ Raw toggle. Images (PNG/JPG/GIF/SVG/…) open over a checkerboard backing with a zoom-to-fit /
   actual-size toggle and the pixel dimensions in the header. PDFs open in a PDFKit view with a
   page-thumbnail rail. All three are ordinary tabs, so split, drag, path-dedupe, and state
   restoration (scroll / zoom / page) work unchanged.
@@ -275,6 +281,18 @@ app does.
   when you need full, unfiltered output for one command, opt it out without flipping the toggle
   — prefix it with `NO_RTK=1` or add a `# nortk` marker and it runs unchanged. rtk ships in the
   bundle when present at build time, otherwise the hook falls back to `rtk` on your `PATH`.
+- **Claude API tuning** — a **Settings ▸ Claude API** pane (⌘,) exposing the Anthropic
+  cost/behavior knobs as per-launch environment overrides: main **Model** and **Subagents**
+  model, reasoning **Effort** (`low`–`max`, Claude Code's `CLAUDE_CODE_EFFORT_LEVEL`),
+  **Thinking** budget (`MAX_THINKING_TOKENS`), **Max Output** tokens, a **prompt caching**
+  toggle (off sends `DISABLE_PROMPT_CACHING=1` — full-price tokens, for cost A/B only),
+  **Headers** (`ANTHROPIC_CUSTOM_HEADERS`, e.g. an `anthropic-beta:` line), and a free-form
+  **Extra Env** field (`KEY=VALUE` pairs, appended last so they can override the knobs above).
+  Everything defaults to *unset* — the launch command is untouched until you change something.
+  The composed prefix is shown live in the pane ("Launch as: `ANTHROPIC_MODEL='opus' claude …`")
+  and is typed visibly into the session's shell, so each experiment is scoped to that session and
+  auditable in the terminal. Applies to Claude sessions started from Suit (the ✦ button / ⌃⌘C,
+  worktree tasks, recipes, review passes); Autopilot workers are deliberately unaffected.
 - **Set as Goal** — select code or prose in a file viewer, transcript, or terminal, then
   right-click ▸ "Set as Goal" (or the palette's "Set Selection as Claude Goal") to send
   `/goal <selection>` into a chosen session — turning "this is what I want done" into a
