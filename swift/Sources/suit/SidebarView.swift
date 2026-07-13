@@ -1,12 +1,14 @@
 import Cocoa
 
-// The window's left rail, toggled with Cmd-B: Files / Git / Notes, picked
-// via an icon rail (text segments don't scale in a
-// 180–420pt sidebar; restyled to the mockup's flat hover-square icons in the
-// fidelity work). The Files tab is the SearchView with its
-// search input on top and the FileBrowserView filling the area below
-// until a pattern is typed — then results take that space. Git hosts the
-// GitView (changes + worktree/branch switcher); Notes hosts the NotesView.
+// The window's left rail, toggled with Cmd-B: Files / Sessions / SSH Hosts /
+// Notes / Bookmarks (in that order — see `railOrder`), picked via an icon rail
+// (text segments don't scale in a 180–420pt sidebar; restyled to the mockup's
+// flat hover-square icons in the fidelity work). The Files tab is the
+// SearchView with its search input on top and the FileBrowserView filling the
+// area below until a pattern is typed — then results take that space. Sessions
+// hosts the SessionsView (the open-tabs overview), SSH the SSHHostsView,
+// Notes the NotesView, and Bookmarks the BookmarksView. Git has no rail tab;
+// its GitView is reached on demand through the palette (see `railOrder`).
 final class SidebarView: NSView {
     static let defaultWidth: CGFloat = 240
     static let minWidth: CGFloat = 180
