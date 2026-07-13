@@ -166,12 +166,14 @@ extension AutopilotEngine {
         guard !WorktreeTasks.hasUncommittedChanges(root) else {
             return .blocked(.mainDirty, "The main checkout has uncommitted changes — commit or stash them.")
         }
-        // 7. Up to date with origin.
+        // 7. Up to date with origin. A diverged local main is reconciled with a
+        // merge (this repo's local-first main vs the integrate-main job land the
+        // same content under different SHAs); only genuine conflicts block.
         if case .failure(let error) = WorktreeTasks.runGit(root, ["fetch", "origin"]) {
             return .blocked(.offline, "git fetch origin failed: \(error.message)")
         }
-        if case .failure(let error) = WorktreeTasks.runGit(root, ["merge", "--ff-only", "@{u}"]) {
-            return .blocked(.mainDiverged, "The main checkout can't fast-forward to origin/\(defaultBranch): \(error.message)")
+        if let error = WorktreeTasks.reconcileMainWithUpstream(root) {
+            return .blocked(.mainDiverged, "Couldn't bring the main checkout up to origin/\(defaultBranch): \(error)")
         }
         // 8. No leftover worktree/branch for this phase's slug. Auto-clean only
         // when the branch is fully merged into origin's default and the
