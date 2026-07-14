@@ -131,8 +131,12 @@ struct CompletedRun: Codable {
 }
 
 final class AutopilotStore {
-    static let shared = AutopilotStore()
     static let didUpdate = Notification.Name("AutopilotStoreDidUpdate")
+
+    // Which repo this store belongs to. Every autopilot instance owns its own
+    // store, keyed by project root, so several can run concurrently without
+    // trampling each other's state.json / history / logs.
+    let projectRoot: String
 
     // The persisted block: `reason` is the engine's AutopilotBlockReason
     // rawValue (a string here so the store stays engine-independent),
@@ -158,6 +162,7 @@ final class AutopilotStore {
 
     private struct Model: Codable {
         // Optional so partial / older state.json files still decode.
+        var projectRoot: String?
         var run: AutopilotRun?
         var blocked: Blocked?
         var pausedByUser: Bool?
@@ -168,16 +173,48 @@ final class AutopilotStore {
 
     // $HOME rather than NSHomeDirectory() so tests/harnesses can point the
     // store at a scratch home (same reasoning as FavoritesStore).
-    private var baseDirectory: URL {
+    static func autopilotRoot() -> URL {
         let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
         return URL(fileURLWithPath: home + "/.suit/autopilot")
     }
 
-    private var stateFileURL: URL { baseDirectory.appendingPathComponent("state.json") }
-    private var historyFileURL: URL { baseDirectory.appendingPathComponent("history.jsonl") }
-    var logFileURL: URL { baseDirectory.appendingPathComponent("autopilot.log") }
+    // The legacy single-autopilot layout wrote state.json / history.jsonl /
+    // autopilot.log / logs/ straight into ~/.suit/autopilot. The per-repo
+    // layout nests them under repos/<slug>/; migrateLegacyIfNeeded moves the
+    // old files into the configured primary repo's slot on first launch.
+    static func legacyBaseDirectory() -> URL { autopilotRoot() }
 
-    private init() {
+    // A filesystem-safe, collision-resistant directory name for a repo path:
+    // the last path component (sanitised) plus a short hash of the full path.
+    static func slug(for root: String) -> String {
+        let trimmed = root.hasSuffix("/") ? String(root.dropLast()) : root
+        let last = (trimmed as NSString).lastPathComponent
+        let safe = String(last.unicodeScalars.map { scalar -> Character in
+            let ok = (scalar >= "A" && scalar <= "Z") || (scalar >= "a" && scalar <= "z")
+                || (scalar >= "0" && scalar <= "9") || scalar == "." || scalar == "_" || scalar == "-"
+            return ok ? Character(scalar) : "-"
+        }).prefix(40)
+        // djb2 over the full path — stable, no Foundation hashing seed.
+        var hash: UInt64 = 5381
+        for byte in trimmed.utf8 { hash = (hash &* 33) ^ UInt64(byte) }
+        let suffix = String(hash, radix: 16)
+        return (safe.isEmpty ? "repo" : String(safe)) + "-" + suffix
+    }
+
+    private let baseDirectory: URL
+    private let stateFileURL: URL
+    private let historyFileURL: URL
+    let logFileURL: URL
+
+    init(projectRoot: String) {
+        self.projectRoot = projectRoot
+        let base = Self.autopilotRoot()
+            .appendingPathComponent("repos")
+            .appendingPathComponent(Self.slug(for: projectRoot))
+        baseDirectory = base
+        stateFileURL = base.appendingPathComponent("state.json")
+        historyFileURL = base.appendingPathComponent("history.jsonl")
+        logFileURL = base.appendingPathComponent("autopilot.log")
         load()
     }
 
@@ -220,6 +257,19 @@ final class AutopilotStore {
         save()
     }
 
+    // Ensure a state.json exists for this repo even before its first run, so a
+    // user-started ("Start Autopilot Here") but still-idle instance is
+    // re-adopted after a relaunch instead of being forgotten.
+    func markActive() {
+        save()
+    }
+
+    // Tear down this repo's persisted slot entirely (dashboard "Stop"): the
+    // instance is gone, so nothing should re-adopt it next launch.
+    func deleteSlot() {
+        try? FileManager.default.removeItem(at: baseDirectory)
+    }
+
     // MARK: - History (history.jsonl, append-only)
 
     func appendHistory(_ completed: CompletedRun) {
@@ -244,6 +294,25 @@ final class AutopilotStore {
         append(data, to: logFileURL)
     }
 
+    // Cross-instance events (enable/disable, Start Here, Stop) that don't
+    // belong to any one repo — written to the top-level ~/.suit/autopilot log.
+    static let globalLogURL = autopilotRoot().appendingPathComponent("autopilot.log")
+
+    static func logGlobal(_ message: String) {
+        let stamp = logTimestampFormatter.string(from: Date())
+        guard let data = (stamp + "  " + message + "\n").data(using: .utf8) else { return }
+        let dir = autopilotRoot()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        if !FileManager.default.fileExists(atPath: globalLogURL.path) {
+            try? data.write(to: globalLogURL, options: .atomic)
+            return
+        }
+        guard let handle = try? FileHandle(forWritingTo: globalLogURL) else { return }
+        defer { try? handle.close() }
+        handle.seekToEndOfFile()
+        handle.write(data)
+    }
+
     // MARK: - Gate logs (logs/<slug>/build-N.log, review-N.log)
 
     // Returns the file URL for a gate attempt's output, creating the per-run
@@ -264,6 +333,56 @@ final class AutopilotStore {
         return directory.appendingPathComponent(name)
     }
 
+    // MARK: - Legacy migration (single-autopilot → per-repo layout)
+
+    // One-time, best-effort move of the old top-level state.json / history.jsonl
+    // / autopilot.log / logs/ into the configured primary repo's slot. Runs
+    // before any store is constructed for that repo; a no-op once the repo slot
+    // exists or when there's nothing to migrate.
+    static func migrateLegacyIfNeeded(primaryRoot: String) {
+        guard !primaryRoot.isEmpty else { return }
+        let fm = FileManager.default
+        let legacy = legacyBaseDirectory()
+        let legacyState = legacy.appendingPathComponent("state.json")
+        guard fm.fileExists(atPath: legacyState.path) else { return }
+        let target = autopilotRoot().appendingPathComponent("repos").appendingPathComponent(slug(for: primaryRoot))
+        // If the repo slot already has state, the migration already happened.
+        if fm.fileExists(atPath: target.appendingPathComponent("state.json").path) { return }
+        try? fm.createDirectory(at: target, withIntermediateDirectories: true)
+        for name in ["state.json", "history.jsonl", "autopilot.log"] {
+            let from = legacy.appendingPathComponent(name)
+            let to = target.appendingPathComponent(name)
+            if fm.fileExists(atPath: from.path), !fm.fileExists(atPath: to.path) {
+                try? fm.moveItem(at: from, to: to)
+            }
+        }
+        let legacyLogs = legacy.appendingPathComponent("logs")
+        let targetLogs = target.appendingPathComponent("logs")
+        if fm.fileExists(atPath: legacyLogs.path), !fm.fileExists(atPath: targetLogs.path) {
+            try? fm.moveItem(at: legacyLogs, to: targetLogs)
+        }
+    }
+
+    // Repo slots persisted on disk (repos/<slug>/state.json present) — the
+    // manager scans these on launch to re-adopt every autopilot that was live.
+    static func persistedRepoSlugs() -> [String] {
+        let reposDir = autopilotRoot().appendingPathComponent("repos")
+        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: reposDir.path) else { return [] }
+        return entries.filter {
+            FileManager.default.fileExists(atPath: reposDir.appendingPathComponent($0).appendingPathComponent("state.json").path)
+        }
+    }
+
+    // The project root a persisted slot belongs to, read back from its
+    // state.json (the run's worktree/branch alone can't name the repo). Stored
+    // explicitly so a slug never has to be reversed into a path.
+    static func projectRoot(forSlug slug: String) -> String? {
+        let stateURL = autopilotRoot().appendingPathComponent("repos").appendingPathComponent(slug).appendingPathComponent("state.json")
+        guard let data = try? Data(contentsOf: stateURL),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return object["projectRoot"] as? String
+    }
+
     // MARK: - Disk
 
     private func load() {
@@ -273,6 +392,9 @@ final class AutopilotStore {
     }
 
     private func save() {
+        // Stamp the repo path so a launch scan can map a slug slot back to its
+        // project root without reversing the hash.
+        model.projectRoot = projectRoot
         try? FileManager.default.createDirectory(at: baseDirectory, withIntermediateDirectories: true)
         if let data = try? JSONEncoder().encode(model) {
             try? data.write(to: stateFileURL, options: .atomic)

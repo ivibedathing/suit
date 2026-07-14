@@ -1,0 +1,31 @@
+[
+  {
+    "id": "big-read",
+    "prompt": "Read swift/Sources/suit/FleetDashboard.swift and swift/Sources/suit/SettingsWindowController+Sections.swift in full, then summarize in five bullets what the fleet dashboard shows and how the settings sections are built. Cite the key function names.",
+    "expect_regex": "[Ff]leet",
+    "allowed_tools": ["Read", "Grep", "Glob"]
+  },
+  {
+    "id": "broad-grep",
+    "prompt": "Search the entire repository for every reference to NotificationCenter and report the three files with the most hits, describing which notifications each posts or observes.",
+    "expect_regex": "Notification",
+    "allowed_tools": ["Read", "Grep", "Glob"]
+  },
+  {
+    "id": "trace-tabs",
+    "prompt": "Trace the life of a tab: read TabStore.swift, TabStripView.swift, Pane.swift, and any other file you need (re-reading files whenever you need to double-check), then explain how a newly created tab ends up displayed and focused in a pane. Cite the functions involved.",
+    "expect_regex": "TabStore",
+    "allowed_tools": ["Read", "Grep", "Glob"]
+  },
+  {
+    "id": "glob-map",
+    "prompt": "List every Swift source file under swift/Sources/suit and group them into functional areas, one line per area naming its files.",
+    "expect_regex": "Autopilot",
+    "allowed_tools": ["Read", "Grep", "Glob"]
+  },
+  {
+    "id": "git-history",
+    "prompt": "Using git log (read as much history as you need), summarize the major themes of the last 150 commits in this repository in six bullets.",
+    "allowed_tools": ["Bash(git log:*)", "Bash(git show:*)", "Bash(git diff:*)", "Read", "Grep", "Glob"]
+  }
+]

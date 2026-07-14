@@ -57,7 +57,8 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let fontSizeStepper = NSStepper(frame: NSRect(x: 0, y: 0, width: 19, height: 27))
     let textColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 44, height: 24))
     let backgroundColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 44, height: 24))
-    let opacitySlider = NSSlider(value: 1, minValue: 0.3, maxValue: 1, target: nil, action: nil)
+    let opacitySlider = NSSlider(value: 1, minValue: 0.05, maxValue: 1, target: nil, action: nil)
+    let blurRadiusSlider = NSSlider(value: 30, minValue: 0, maxValue: 64, target: nil, action: nil)
     let blurCheckbox = NSButton(checkboxWithTitle: "Background Blur", target: nil, action: nil)
 
     let shellField = NSTextField(string: "")
@@ -174,6 +175,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             textColorWell.color = appDelegate.currentTextColor
             backgroundColorWell.color = appDelegate.defaultTerminalBackground
             opacitySlider.doubleValue = Double(appDelegate.backgroundAlpha)
+            blurRadiusSlider.doubleValue = Double(appDelegate.blurRadius)
             blurCheckbox.state = appDelegate.blurEnabled ? .on : .off
             shellField.stringValue = appDelegate.shellPath
             let (shape, blinking) = Self.components(of: appDelegate.cursorStyle)

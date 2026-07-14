@@ -142,6 +142,7 @@ final class ClaudeUsageFooterView: NSView {
     // the log otherwise (both route to AppDelegate via the window controller).
     var onAutopilotFocusRunTab: (() -> Void)?
     var onAutopilotOpenLog: (() -> Void)?
+    var onAutopilotOpenDashboard: (() -> Void)?
     // Same contract as RecentFoldersView: poke the sidebar's manual layout
     // when the row count changes.
     var onHeightChange: (() -> Void)?
@@ -179,7 +180,12 @@ final class ClaudeUsageFooterView: NSView {
         // (and excluded from desiredHeight) while Autopilot is disabled.
         autopilotRow.isHidden = true
         autopilotRow.onClick = { [weak self] in
-            if case .running = AutopilotEngine.shared.state {
+            // Clicking the footer opens the dashboard when more than one
+            // autopilot is active; otherwise the single instance's run tab (if
+            // running) or its log.
+            if AutopilotManager.shared.activeEngines.count > 1 {
+                self?.onAutopilotOpenDashboard?()
+            } else if AutopilotManager.shared.targetEngine()?.isOccupyingRunSlot == true {
                 self?.onAutopilotFocusRunTab?()
             } else {
                 self?.onAutopilotOpenLog?()
@@ -223,10 +229,11 @@ final class ClaudeUsageFooterView: NSView {
     // the composed status string, the full reason as tooltip, and a
     // Theme.session* dot color per state kind.
     private func renderAutopilot() {
-        let engine = AutopilotEngine.shared
+        let manager = AutopilotManager.shared
+        let active = manager.activeEngines
         let wasHidden = autopilotRow.isHidden
-        autopilotRow.isHidden = !engine.isActive
-        if engine.isActive {
+        autopilotRow.isHidden = active.isEmpty
+        if let engine = manager.targetEngine() ?? active.first {
             let status = engine.footerStatus()
             let color: NSColor
             switch status.kind {
@@ -236,7 +243,14 @@ final class ClaudeUsageFooterView: NSView {
             case .paused: color = Theme.sessionNeedsInput
             case .done: color = Theme.sessionDone
             }
-            autopilotRow.configure(text: status.text, tooltip: status.tooltip, dotColor: color)
+            // With several autopilots, prefix the repo and note the fleet size.
+            var text = status.text
+            var tooltip = status.tooltip
+            if active.count > 1 {
+                text = "\(engine.displayName): \(status.text)  ·  \(active.count) autopilots"
+                tooltip = "\(active.count) autopilots active — click to open the dashboard. " + status.tooltip
+            }
+            autopilotRow.configure(text: text, tooltip: tooltip, dotColor: color)
         }
         needsLayout = true
         if wasHidden != autopilotRow.isHidden {

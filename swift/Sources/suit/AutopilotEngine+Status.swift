@@ -33,6 +33,14 @@ extension AutopilotEngine {
             }
             return AutopilotFooterStatus(text: text, tooltip: message, kind: .blocked)
         case .idle:
+            // Waiting behind another instance for the single active-run slot.
+            if !AutopilotManager.shared.mayEngineBeginRun(self) {
+                return AutopilotFooterStatus(
+                    text: "Autopilot · queued",
+                    tooltip: "Another autopilot is running — one runs at a time (shared Claude budget)",
+                    kind: .idle
+                )
+            }
             if case .wait(let until, let why)? = lastDecision {
                 let text: String
                 if let until {

@@ -83,7 +83,7 @@ extension AutopilotEngine {
         let maxAttempts = app.autopilotMaxGateAttempts
         store.updateRun { $0.reviewAttempts = attempt }
         let logURL = store.reviewLogURL(slug: run.slug, attempt: attempt)
-        let root = app.autopilotProjectRoot
+        let root = projectRoot
         let model = app.autopilotReviewModel
         store.log("review gate: attempt \(attempt)/\(maxAttempts) — headless claude review of \(run.branch)")
         let job = beginBackgroundJob()
