@@ -132,6 +132,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         hosted: { [weak self] id in self?.terminalContent(forSessionId: id) != nil },
         onTrip: { [weak self] trip in self?.handleCompactTrip(trip) }
     )
+    // Cache hit-rate meter: rolling prompt-cache hit rate per
+    // session from the transcript's usage blocks; one notification per
+    // collapse (CacheStats / CacheStatsGuard). The fleet dashboard reads its
+    // per-session rate for the row metrics.
+    lazy var cacheGuard: CacheStatsGuard = CacheStatsGuard(
+        onAlert: { [weak self] alert in self?.handleCacheAlert(alert) }
+    )
     lazy var settingsWindowController = SettingsWindowController(appDelegate: self)
     lazy var commandPalette = CommandPaletteController { [weak self] in
         self?.paletteCommands() ?? []
@@ -160,6 +167,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         controller.onArchive = { [weak self] id in self?.archiveSession(withId: id) }
         controller.onBroadcast = { [weak self] scope in self?.presentBroadcast(scope: scope) }
         controller.onSetBudget = { [weak self] id in self?.setBudget(forSessionId: id) }
+        controller.cacheRate = { [weak self] id in self?.cacheGuard.hitRatePct(forSession: id) }
         return controller
     }()
     // Fleet activity feed / daily digest: a floating
@@ -294,6 +302,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             // Auto-/compact guardrails: /compact a session that
             // idles past the context threshold, once per crossing.
             self.compactGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
+            // Cache hit-rate meter: refresh each session's rolling
+            // prompt-cache hit rate from its transcript tail and alert once
+            // per collapse (misses bill input near full price).
+            self.cacheGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
         }
         attentionCenter = ClaudeAttentionCenter { [weak self] sessionId in
             self?.focusSession(withId: sessionId)

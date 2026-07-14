@@ -328,6 +328,18 @@ app does.
   target path, so worktrees resolve their own copy. Same contract as the other filters —
   fail open on any error, `SUIT_TOKEN_FILTERS=off` kill switch, denies and drops logged to the
   savings meter (kind `ignore`).
+- **Cache hit-rate meter** — prompt-cache misses bill input tokens at near full price (~10× the
+  cached rate) and are invisible in every normal readout. Suit computes each live session's
+  **rolling cache-hit percentage** — cache-read tokens as a share of all input tokens over the
+  last 5 turns, parsed from the transcript's per-turn `usage` blocks (tail-read, at most every
+  15 s and only when the transcript grew) — and shows it on the **fleet dashboard** row next to
+  context % and cost, tinted by an inverted gauge (neutral ≥ 70 %, amber to 40 %, red below).
+  When a session with a full measurement window **collapses under 40 %**, Suit posts one
+  notification naming the usual cause — CLAUDE.md, hook scripts, or MCP config changed
+  mid-session, turning the prompt prefix cold — and suggests finishing or restarting the session.
+  Edge-triggered with hysteresis (re-arms only past 55 % or when the session ends), so a
+  sustained collapse is one banner, not one per heartbeat; early sessions (< 5 measured turns)
+  are never judged, since their first turns legitimately create cache rather than read it.
 - **Token-savings meter & benchmark** — two layers measuring what the filters above actually
   save. **The meter** (always on with the filters, `SUIT_SAVINGS_LOG=0` to disable): every
   rewrite the post-tool filter makes appends one JSONL line to `~/.suit/token-savings.jsonl`

@@ -62,7 +62,7 @@ session default model/effort. Route them per phase:
   feedback, still consuming the attempt. `autopilotReviewModel` stays the
   review gate's own override, documented beside the annotations.
 
-### Phase 3 — Cache hit-rate meter
+### Phase 3 — Cache hit-rate meter ✅
 
 Prompt-cache misses silently multiply input cost ~10×; today they are
 invisible. Surface them:
@@ -71,12 +71,16 @@ invisible. Surface them:
   (`cache_read_input_tokens`, `cache_creation_input_tokens`,
   `input_tokens`) from a session's transcript JSONL (path already known
   via `~/.suit/sessions/<sid>.json` → `transcript_path`) into a rolling
-  cache-hit percentage. Foundation-only, harness-tested against fixture
-  transcripts.
-- Fleet Dashboard rows show the hit rate next to context % and cost;
-  a collapsed hit rate (e.g. < 40% over the last 5 turns) tints the metric
-  like the fuel-gauge colors and posts one attention-center notice per
-  crossing (the BudgetMonitor edge-trigger pattern).
-- The likely cause worth naming in the notice: CLAUDE.md / hook scripts /
-  MCP config changed mid-session invalidating the prefix — suggest
-  finishing or restarting the session.
+  cache-hit percentage over the last 5 turns. Foundation-only,
+  harness-tested against fixture transcripts
+  (`scripts/cache-stats-test.sh`); shape verified against a live
+  transcript, including streamed duplicate assistant lines.
+- `CacheStatsGuard` refreshes rates on the 3 s heartbeat (tail-read, at
+  most every 15 s and only when the transcript grew); Fleet Dashboard rows
+  show the hit rate next to context % and cost, tinted by an inverted
+  fuel gauge (`Theme.cacheHitLevelColor`).
+- A collapse (< 40% with ≥ 5 measured turns) posts one attention-center
+  notice per crossing (`CacheHitMonitor` — the BudgetMonitor edge-trigger
+  pattern plus hysteresis, re-arming past 55%), naming the likely cause:
+  CLAUDE.md / hook scripts / MCP config changed mid-session invalidating
+  the prefix — finish or restart the session.
