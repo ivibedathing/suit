@@ -19,6 +19,13 @@
 #   --dedup         read-once: replace a repeat full-file Read of an unchanged
 #                   file with a short "already in this conversation" stub,
 #                   tracked per session in ~/.suit/read-cache/<sid>.json
+#   --ignore        token-ignore: drop Grep/Glob result lines under the
+#                   prefixes listed in the repo's .claude/token-ignore
+#                   (found walking up from tool_input.path, else .cwd),
+#                   replaced by a one-line count marker. A search whose
+#                   tool_input.path is explicitly inside an ignored prefix
+#                   passes through untouched. The Read side of the feature
+#                   is the suit-token-ignore.sh PreToolUse hook.
 #   --clear-cache   PreCompact: empty the session's read cache — after any
 #                   compaction the previously-read content is gone from
 #                   context, so "already in this conversation" would be a lie
@@ -62,11 +69,13 @@ pass_through() { exit 0; }
 
 COMPRESS=0
 DEDUP=0
+IGNORE=0
 MODE=""
 for arg in "$@"; do
   case "$arg" in
     --compress) COMPRESS=1 ;;
     --dedup) DEDUP=1 ;;
+    --ignore) IGNORE=1 ;;
     --clear-cache) MODE="clear" ;;
     --end-session) MODE="end" ;;
     *) : ;;
@@ -187,6 +196,85 @@ TEXT="$(printf '%s' "$INPUT" | jq -r '
     else empty end
   | if type == "string" then . else empty end
 ' 2>/dev/null)"
+
+# --- Token-ignore (Grep/Glob result filtering) ---------------------------------
+# Drops result lines under the repo's .claude/token-ignore prefixes. Runs
+# before dedup/compression and, when it rewrites, exits — the marker already
+# tells the model how to widen if the hidden tail matters, so a second
+# elision pass over the filtered remainder isn't worth the added complexity.
+if [ "$IGNORE" = "1" ] && { [ "$TOOL" = "Grep" ] || [ "$TOOL" = "Glob" ]; } && [ -n "$TEXT" ]; then
+  TPATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.path // empty' 2>/dev/null)"
+  HOOK_CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
+  START="${TPATH:-$HOOK_CWD}"
+  [ -d "$START" ] || START="$(dirname "$START" 2>/dev/null)"
+  # Walk up for the nearest .claude/token-ignore; none → nothing to filter.
+  IGN_ROOT=""
+  DIR="$START"
+  while [ -n "$DIR" ] && [ "$DIR" != "/" ] && [ "$DIR" != "." ]; do
+    if [ -f "$DIR/.claude/token-ignore" ]; then
+      IGN_ROOT="$DIR"
+      break
+    fi
+    DIR="$(dirname "$DIR")"
+  done
+  if [ -n "$IGN_ROOT" ]; then
+    # Patterns → absolute prefixes, newline-separated.
+    PREFIXES=""
+    while IFS= read -r LINE; do
+      LINE="${LINE%%#*}"
+      # shellcheck disable=SC2001
+      LINE="$(printf '%s' "$LINE" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+      [ -n "$LINE" ] || continue
+      case "$LINE" in
+        /*) ABS="$LINE" ;;
+        *)  ABS="$IGN_ROOT/$LINE" ;;
+      esac
+      PREFIXES="$PREFIXES$ABS
+"
+    done <"$IGN_ROOT/.claude/token-ignore"
+
+    # A search explicitly rooted inside an ignored prefix is deliberate —
+    # pass the whole result through.
+    EXPLICIT=0
+    if [ -n "$TPATH" ]; then
+      while IFS= read -r P; do
+        [ -n "$P" ] || continue
+        case "$TPATH/" in "$P"*) EXPLICIT=1; break ;; esac
+      done <<PREF_EOF
+$PREFIXES
+PREF_EOF
+    fi
+
+    if [ "$EXPLICIT" = "0" ] && [ -n "$PREFIXES" ]; then
+      FILTERED="$(jq -cn --arg text "$TEXT" --arg prefixes "$PREFIXES" '
+        ($prefixes | split("\n") | map(select(length > 0))) as $ps
+        | ($text | split("\n")) as $lines
+        | ($lines | map(select(
+            (. as $l | $ps | any(. as $p | $l | startswith($p))) | not
+          ))) as $kept
+        | {dropped: (($lines | length) - ($kept | length)),
+           kept: ($kept | join("\n"))}
+      ' 2>/dev/null)"
+      DROPPED="$(printf '%s' "$FILTERED" | jq -r '.dropped // 0' 2>/dev/null)"
+      if [ "$DROPPED" -gt 0 ] 2>/dev/null; then
+        KEPT="$(printf '%s' "$FILTERED" | jq -r '.kept // ""' 2>/dev/null)"
+        IGN_MARKER="[suit token-ignore: hid $DROPPED $TOOL result line(s) under the prefixes in $IGN_ROOT/.claude/token-ignore — pass an explicit path inside an ignored directory to include them.]"
+        if [ -n "$KEPT" ]; then
+          NEW="$KEPT
+$IGN_MARKER"
+        else
+          NEW="$IGN_MARKER"
+        fi
+        OUT="$(printf '%s' "$INPUT" | jq -c --arg new "$NEW" "$REPLACE_JQ" 2>/dev/null)"
+        if [ -n "$OUT" ]; then
+          log_saving ignore "${#TEXT}" "${#NEW}"
+          printf '%s' "$OUT"
+          exit 0
+        fi
+      fi
+    fi
+  fi
+fi
 
 # --- Read-dedup (before compression, so a stub is never elided) ---------------
 if [ "$DEDUP" = "1" ] && [ "$TOOL" = "Read" ] && [ -n "$SID" ]; then

@@ -2,7 +2,7 @@
 # Suit token-savings report: aggregate the savings meter that
 # scripts/claude/suit-posttool-filter.sh appends to ~/.suit/token-savings.jsonl —
 # one JSONL line per rewrite recording the counterfactual the hook saw
-# ({ts, session_id, tool, kind: compress|dedup, original_chars, emitted_chars}).
+# ({ts, session_id, tool, kind: compress|dedup|ignore, original_chars, emitted_chars}).
 # This is the exact, zero-variance measure of what Suit's filters cut on real
 # sessions: the original result was in the hook's hands, so nothing is
 # simulated. What it can't see is second-order behavior (extra turns after a
