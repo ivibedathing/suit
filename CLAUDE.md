@@ -91,7 +91,8 @@ Everything lives in `swift/Sources/suit/` unless noted. Roughly by area:
   controller — open tabs, panes, sidebar, state, tab-store delegate), `SettingsWindowController.swift`
   (+ `+Sections` / `+Actions`), `CommandPalette.swift` (⌘K palette, also ⌘P file picker),
   `OverlayPrompt.swift`, `KeyboardShortcuts.swift`, `Theme.swift` (central styling), `Broadcast.swift`
-  (⌘-typing to many terminals at once).
+  (⌘-typing to many terminals at once), `UpdateCheckCore.swift` / `UpdateChecker.swift` (GitHub
+  release update check — notification + download offer; user installs the .dmg).
 - **Tabs & panes**: `TabStore.swift`, `TabStripView.swift`, `TabItemView.swift`,
   `TabSwitcherPanel.swift` (⌃Tab MRU), `Pane.swift`, `PaneContent.swift`, `PaneTerminalView.swift`,
   `PaneTabBarView.swift`, `PaneTitleBarView.swift`, `RootHeaderView.swift`, `PaneScreensaverView.swift`,

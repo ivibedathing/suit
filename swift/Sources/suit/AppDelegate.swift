@@ -200,6 +200,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var sessionRefreshTick = 0
     var attentionCenter: ClaudeAttentionCenter?
 
+    // GitHub release update check: notification when a newer tag ships, the
+    // App menu's manual Check for Updates…, and the download offer alert.
+    var updateChecker: UpdateChecker?
+
     // The session a goal last went to, so a repeat gesture defaults to it
     // (sorted first in the picker) instead of re-choosing from scratch. Session
     // ids are ephemeral, so this is deliberately not persisted.
@@ -313,6 +317,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         attentionCenter?.onBudgetEvent = { [weak self] sessionId in
             self?.focusSession(withId: sessionId)
         }
+
+        // Update check: daily GitHub-release poll; a hit posts a notification
+        // whose click presents the download offer.
+        updateChecker = UpdateChecker { [weak self] title, body in
+            self?.attentionCenter?.postUpdateEvent(title: title, body: body)
+        }
+        attentionCenter?.onUpdateEvent = { [weak self] in
+            self?.updateChecker?.presentPendingUpdate()
+        }
+        updateChecker?.startAutomaticChecks()
 
         // Autopilot: the engine hangs off the same 3 s
         // timer (tick added in the closure above) and needs the session
