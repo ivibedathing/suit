@@ -314,11 +314,25 @@ app does.
   auto-compact, and Claude Code's own all count, since compaction evicts the content the stub
   points back to) and deleted at `SessionEnd`, with a 48 h sweep for crashed sessions. Same
   fail-open contract: any error means the read passes through untouched.
+- **Token-ignore firewall** — a **Settings ▸ Claude** toggle ("Firewall token-ignored paths"),
+  **off by default**, that keeps a repo's heaviest directories out of the context window
+  entirely. A repo opts in with **`.claude/token-ignore`** at its root: one root-relative path
+  prefix per line (`#` comments allowed) naming what nobody should read wholesale — vendored
+  dependencies (Suit's own lists `swift/Vendor/`), build output, generated code. Two halves,
+  wired by the one toggle: a `PreToolUse` hook (`suit-token-ignore.sh`, matcher `Read`)
+  **denies full-file Reads** under an ignored prefix with a reason that teaches the escape
+  hatches, and the `PostToolUse` dispatcher (`--ignore`) **hides Grep/Glob result lines** there
+  behind a one-line count marker. Deliberate access always works: `offset`/`limit` range reads
+  pass through, as does any search whose `path` explicitly targets the ignored directory, and
+  the ignore list itself is always readable. The ignore file is found by walking up from the
+  target path, so worktrees resolve their own copy. Same contract as the other filters —
+  fail open on any error, `SUIT_TOKEN_FILTERS=off` kill switch, denies and drops logged to the
+  savings meter (kind `ignore`).
 - **Token-savings meter & benchmark** — two layers measuring what the filters above actually
   save. **The meter** (always on with the filters, `SUIT_SAVINGS_LOG=0` to disable): every
   rewrite the post-tool filter makes appends one JSONL line to `~/.suit/token-savings.jsonl`
   recording the exact counterfactual it just saw — the chars the original result would have
-  cost vs the chars actually emitted (`{ts, session_id, tool, kind: compress|dedup,
+  cost vs the chars actually emitted (`{ts, session_id, tool, kind: compress|dedup|ignore,
   original_chars, emitted_chars}`). `scripts/token-savings-report.sh` aggregates it (totals,
   by kind / tool / day, `--session SID`, `--today`; token numbers are chars/4 estimates) —
   zero-variance, real-workload savings with no extra spend. **The benchmark**
@@ -334,6 +348,13 @@ app does.
   cache-creation, the context-growth number the filters target), cache reads, output, turns,
   cost, wall time, and an `expect_regex` success check, with Δ columns for on-vs-off.
   `--report FILE` re-aggregates an existing results JSONL without spending anything.
+- **Tokens-saved counter** — the meter, surfaced in the app: a pane whose tab runs a Claude
+  session shows **`↓12k`** in its title bar (left of the context %), the estimated tokens
+  Suit's filters have saved *that session* so far. Hover for the breakdown — the spelled-out
+  estimate, the rewrite count, and how it splits between elisions and read-dedups. The counter
+  reads `~/.suit/token-savings.jsonl` incrementally (only appended lines are parsed), appears
+  after the session's first rewrite, and uses the same chars/4 estimate as the report script.
+  No setting: it's on whenever the filters are producing meter rows.
 - **Shell helpers (run_silent)** — a **Settings ▸ Claude** toggle ("Shell helpers (run_silent)
   in new terminals"), **off by default**. New **zsh** terminals launch through a ZDOTDIR shim
   (the VS Code shell-integration mechanism, installed under `~/.suit/zsh/` — your own dotfiles

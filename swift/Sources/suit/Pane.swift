@@ -239,6 +239,9 @@ final class Pane: NSObject {
         container.titleBar.exitStatus = tab.exitStatus
         container.titleBar.sessionState = tab.liveSessionState
         container.titleBar.contextPct = tab.exitStatus == nil ? tab.claudeSession?.contextPct : nil
+        container.titleBar.savings = tab.exitStatus == nil
+            ? tab.claudeSession.flatMap { TokenSavingsMonitor.shared.totals(forSessionId: $0.id) }
+            : nil
         container.titleBar.isDirty = tab.isDirty
         refreshTabBar()
     }

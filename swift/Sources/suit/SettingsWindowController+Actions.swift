@@ -210,6 +210,10 @@ extension SettingsWindowController {
         appDelegate?.readDedupChanged(sender.state == .on)
     }
 
+    @objc func tokenIgnoreChanged(_ sender: NSButton) {
+        appDelegate?.tokenIgnoreChanged(sender.state == .on)
+    }
+
     @objc func shellExtrasChanged(_ sender: NSButton) {
         appDelegate?.shellExtrasChanged(sender.state == .on)
     }

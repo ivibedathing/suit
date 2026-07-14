@@ -330,6 +330,16 @@ extension SettingsWindowController {
             width: 340
         )
 
+        // Token-ignore firewall: the PreToolUse Read hook + the dispatcher's
+        // --ignore flag, wired together by one toggle.
+        tokenIgnoreCheckbox.target = self
+        tokenIgnoreCheckbox.action = #selector(tokenIgnoreChanged)
+        let tokenIgnoreRow = row(label: "", controls: [tokenIgnoreCheckbox])
+        let tokenIgnoreHintRow = hintRow(
+            "Repos listing heavy paths (vendored deps, build output) in .claude/token-ignore get full-file Reads there denied and Grep/Glob results there hidden behind a count marker. Range reads and searches that target the path explicitly always pass.",
+            width: 340
+        )
+
         // Shell helpers: the ZDOTDIR shim + run_silent, new zsh terminals only.
         shellExtrasCheckbox.target = self
         shellExtrasCheckbox.action = #selector(shellExtrasChanged)
@@ -386,6 +396,7 @@ extension SettingsWindowController {
             rtkCompressionRow, rtkHintRow,
             postToolCompressRow, postToolHintRow,
             readDedupRow, readDedupHintRow,
+            tokenIgnoreRow, tokenIgnoreHintRow,
             shellExtrasRow, shellExtrasHintRow,
             autoCompactRow, autoCompactInstructionsRow, autoCompactHintRow,
             taskDoneSoundRow, needsInputSoundRow,
