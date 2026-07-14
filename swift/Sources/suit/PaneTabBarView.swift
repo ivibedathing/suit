@@ -307,6 +307,10 @@ final class PaneTabBarView: NSView {
     // Whether the bar should take vertical space (only with 2+ tabs).
     func wantsDisplay(for tabs: [Tab]) -> Bool { tabs.count > 1 }
 
+    // Chip frame lookup for offscreen design renders (design/tabs-demo), so a
+    // scripted drag's ghost can lift off from the real chip's position.
+    func chipFrame(forTabId id: String) -> NSRect? { chips[id]?.frame }
+
     func configure(tabs: [Tab], activeId: String?) {
         order = tabs
         var seen = Set<String>()
