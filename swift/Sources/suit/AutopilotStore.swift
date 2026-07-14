@@ -48,6 +48,16 @@ struct AutopilotRun: Codable {
     var costUSD: Double?
     var maxContextPct: Double?
     var sessionIds: [String] = []
+    // Per-phase routing annotations snapshotted from the RoadmapPhase at
+    // spawn (like specSnapshot): the worker launches with these as
+    // ANTHROPIC_MODEL / CLAUDE_CODE_EFFORT_LEVEL. nil = session default.
+    var model: String?
+    var effort: String?
+    // Hash of the last diff a review verdict was actually issued for: when
+    // the next review attempt sees a byte-identical diff, the gate skips the
+    // headless claude call (the verdict couldn't change) and re-sends
+    // unchanged-diff feedback instead.
+    var lastReviewedDiffHash: String?
 
     // Explicit keys so the defaulted vars decode leniently from older files.
     private enum CodingKeys: String, CodingKey {
@@ -55,11 +65,12 @@ struct AutopilotRun: Codable {
         case sessionId, prNumber, buildAttempts, reviewAttempts, mergeAttempts
         case nudgeCount, lastNudgeAt, specSnapshot
         case costUSD, maxContextPct, sessionIds
+        case model, effort, lastReviewedDiffHash
     }
 
     init(phaseId: Int, title: String, slug: String, branch: String,
          worktreePath: String, stage: String, startedAt: TimeInterval,
-         specSnapshot: String) {
+         specSnapshot: String, model: String? = nil, effort: String? = nil) {
         self.phaseId = phaseId
         self.title = title
         self.slug = slug
@@ -68,6 +79,8 @@ struct AutopilotRun: Codable {
         self.stage = stage
         self.startedAt = startedAt
         self.specSnapshot = specSnapshot
+        self.model = model
+        self.effort = effort
     }
 
     init(from decoder: Decoder) throws {
@@ -91,6 +104,9 @@ struct AutopilotRun: Codable {
         costUSD = try c.decodeIfPresent(Double.self, forKey: .costUSD)
         maxContextPct = try c.decodeIfPresent(Double.self, forKey: .maxContextPct)
         sessionIds = try c.decodeIfPresent([String].self, forKey: .sessionIds) ?? []
+        model = try c.decodeIfPresent(String.self, forKey: .model)
+        effort = try c.decodeIfPresent(String.self, forKey: .effort)
+        lastReviewedDiffHash = try c.decodeIfPresent(String.self, forKey: .lastReviewedDiffHash)
     }
 }
 

@@ -129,6 +129,25 @@ extension AutopilotEngine {
                 }
                 return
             }
+            // Token-cost short-circuit: a diff byte-identical to the one the
+            // gate last issued a verdict for can only mean the worker pushed
+            // nothing real since the rejection (an approve would have moved
+            // the run to merging) — skip the headless claude call and send
+            // unchanged-diff feedback. Still consumes the attempt, so a
+            // worker that never changes anything runs into maxAttempts.
+            let diffHash = AutopilotDiffHash.hash(diff)
+            if diffHash == run.lastReviewedDiffHash {
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.endBackgroundJob(job)
+                    if self.activeGateHandle === handle { self.activeGateHandle = nil }
+                    guard gen == self.generation, case .running = self.state,
+                          let current = self.store.run, current.id == run.id,
+                          AutopilotRunStage(rawValue: current.stage) == .gatingReview else { return }
+                    self.handleUnchangedDiff(run: current, attempt: attempt, maxAttempts: maxAttempts)
+                }
+                return
+            }
             // Repo rules from the *main* checkout: a worker that weakened
             // CLAUDE.md must be judged against the original, not its edit.
             let claudeMd = (try? String(contentsOfFile: root + "/CLAUDE.md", encoding: .utf8)) ?? ""
@@ -150,16 +169,33 @@ extension AutopilotEngine {
                           AutopilotRunStage(rawValue: current.stage) == .gatingReview else { return }
                     self.handleReviewGate(outcome, output: output, run: current,
                                           attempt: attempt, maxAttempts: maxAttempts,
-                                          logPath: logURL.path)
+                                          logPath: logURL.path, diffHash: diffHash)
                 }
             }
         }
         postUpdate()
     }
 
+    // The unchanged-diff short-circuit's rejection path: same policy as a
+    // real rejection (attempt consumed, maxAttempts blocks), minus the API
+    // spend and the findings (the previous rejection already carried them).
+    private func handleUnchangedDiff(run: AutopilotRun, attempt: Int, maxAttempts: Int) {
+        reviewGateBrokenCount = 0
+        store.log("review gate skipped (attempt \(attempt)/\(maxAttempts)) — diff unchanged since the last rejection")
+        if attempt >= maxAttempts {
+            block(.reviewAttemptsExhausted,
+                  "Phase \(run.phaseId): the review gate rejected \(attempt) attempts (the last diff was unchanged)",
+                  phaseId: run.phaseId)
+            return
+        }
+        returnRunToWorking(run, message: AutopilotPrompts.unchangedDiffMessage(
+            phase: run.phaseId, attempt: attempt, maxAttempts: maxAttempts, slug: run.slug
+        ), logLine: "unchanged-diff feedback sent — back to working")
+    }
+
     private func handleReviewGate(_ outcome: AutopilotGateOutcome, output: String,
                                   run: AutopilotRun, attempt: Int, maxAttempts: Int,
-                                  logPath: String) {
+                                  logPath: String, diffHash: String) {
         switch outcome {
         case .failedToLaunch(let message):
             // No retry can fix a missing/unrunnable binary.
@@ -173,6 +209,9 @@ extension AutopilotEngine {
                 reviewGateFailed(run: run, why: "the output's final line wasn't a VERDICT — see \(logPath)")
                 return
             }
+            // A verdict was actually issued for this diff — remember its
+            // fingerprint so a byte-identical re-review can be skipped.
+            store.updateRun { $0.lastReviewedDiffHash = diffHash }
             switch verdict {
             case .approve:
                 store.log("review gate approved (attempt \(attempt)) — merging PR #\(run.prNumber ?? 0)")

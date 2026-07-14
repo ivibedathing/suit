@@ -172,6 +172,23 @@ enum AutopilotPrompts {
         """
     }
 
+    // Review gate short-circuit: the diff is byte-identical to the one the
+    // gate already rejected, so no new review ran (the verdict couldn't
+    // change — only tokens would burn). Counts as a rejected attempt.
+    static func unchangedDiffMessage(phase: Int, attempt: Int, maxAttempts: Int,
+                                     slug: String) -> String {
+        """
+        AUTOPILOT REVIEW — Phase \(phase) attempt \(attempt) of \(maxAttempts): the branch's diff
+        is byte-identical to the one the review gate already rejected, so the
+        review was not re-run. Nothing you pushed changed the PR. Actually
+        address the findings from the previous rejection (they were sent in the
+        earlier AUTOPILOT REVIEW message; the full review output is under
+        logs/\(slug)/ in ~/.suit/autopilot/), commit real changes, and push to
+        the same branch task/\(slug).
+        When pushed, print AUTOPILOT DONE PHASE \(phase) again.
+        """
+    }
+
     // Merge stage "not mergeable" (§2.9 conflict feedback): the default branch
     // moved under the PR.
     static func mergeConflictMessage(phase: Int, slug: String,

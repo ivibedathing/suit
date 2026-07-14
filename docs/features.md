@@ -472,6 +472,23 @@ app does.
   and per-repo controls — Focus run tab, Pause/Resume, Skip Current Phase, Retry (while
   blocked), Show Log, and **Stop** (drop that instance without touching its worktree). A
   **Start Here** button launches a new one on the active tab's repo.
+- **Per-phase model & effort routing** — a phase's `ROADMAP.md` body can carry `model:` and/or
+  `effort:` annotation lines (bare or `- `-led, case-insensitive key, value verbatim — e.g.
+  `model: haiku`, `effort: low`), and Autopilot launches that phase's worker with
+  `ANTHROPIC_MODEL` / `CLAUDE_CODE_EFFORT_LEVEL` set accordingly, so mechanical phases (doc
+  sweeps, renames, migrations) run on a cheaper tier while design-heavy phases keep the session
+  default. The annotations are snapshotted onto the run at spawn (like the spec) and survive
+  `--continue` respawns; the first occurrence per phase wins, and prose mentioning "the model:"
+  mid-sentence never triggers. Deliberately independent of the Settings ▸ Claude API prefix —
+  autonomous runs don't silently inherit interactive experiments; the in-repo annotation is the
+  explicit, versioned opt-in. The review gate's model is separate (the review-gate model field
+  in Settings ▸ Autopilot, empty = default).
+- **Unchanged-diff review skip** — every review verdict records a fingerprint of the exact PR
+  diff it judged; if the next review attempt sees a byte-identical diff (the worker pushed
+  nothing real since the rejection), the headless review is skipped — no API spend — and the
+  worker instead gets told plainly that nothing changed and to address the previous findings.
+  The skip still consumes a review attempt, so a worker that never changes anything runs into
+  the attempts cap rather than looping forever.
 - **Budget modes** — three switchable modes decide when a run may *start* (a run in flight
   always finishes): **Pace to reset** spreads the weekly budget evenly across the rate-limit
   window, **Max out** runs whenever usage is under the ceilings, **Night shift** is max-out

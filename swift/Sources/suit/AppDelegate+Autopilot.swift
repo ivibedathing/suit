@@ -142,9 +142,11 @@ extension AppDelegate {
 
     // The engine's tab factory (§2.5 launch stage): the run tab opens in the
     // active window without stealing focus. Nil only when no window exists.
-    func openAutopilotRunTab(directory: String, title: String, continueSession: Bool) -> Tab? {
+    func openAutopilotRunTab(directory: String, title: String, continueSession: Bool,
+                             model: String? = nil, effort: String? = nil) -> Tab? {
         activeWindowController()?.openAutopilotRunTab(
-            directory: directory, title: title, continueSession: continueSession
+            directory: directory, title: title, continueSession: continueSession,
+            model: model, effort: effort
         )
     }
 

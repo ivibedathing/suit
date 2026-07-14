@@ -39,6 +39,7 @@ HARNESSES=(
   "rtk|scripts/rtk-test.sh|fast"
   "posttool|scripts/posttool-test.sh|fast"
   "token-ignore|scripts/token-ignore-test.sh|fast"
+  "roadmap-routing|scripts/roadmap-routing-test.sh|fast"
   "savings-report|scripts/savings-report-test.sh|fast"
   "token-savings|scripts/token-savings-test.sh|fast"
   "token-bench|scripts/token-bench-test.sh|fast"

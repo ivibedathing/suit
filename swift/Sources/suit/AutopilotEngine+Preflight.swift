@@ -92,7 +92,8 @@ extension AutopilotEngine {
             branch: phase.branch, worktreePath: worktreePath,
             stage: AutopilotRunStage.working.rawValue,
             startedAt: Date().timeIntervalSince1970,
-            specSnapshot: phase.specText
+            specSnapshot: phase.specText,
+            model: phase.model, effort: phase.effort
         )
         store.setRun(run)
         respawnCount = 0
@@ -117,8 +118,12 @@ extension AutopilotEngine {
         guard let tab = appDelegate?.openAutopilotRunTab(
             directory: run.worktreePath,
             title: "⚙ Phase \(run.phaseId) — \(run.title)",
-            continueSession: continueSession
+            continueSession: continueSession,
+            model: run.model, effort: run.effort
         ) else { return false }
+        if run.model != nil || run.effort != nil {
+            store.log("phase routing: model=\(run.model ?? "default") effort=\(run.effort ?? "default")")
+        }
         workerTabId = tab.id
         deliverResumePrompt = continueSession
         sessionReadyDeadline = Date().addingTimeInterval(Self.sessionReadyTimeout)

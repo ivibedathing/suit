@@ -570,9 +570,16 @@ extension TerminalWindowController {
     // the strip/footer, never forced); only a window with no tab at all
     // activates it, since there is nothing to steal focus from then.
     // `continueSession` is the §2.7 watchdog respawn: `claude --continue`
-    // resumes the dead worker's conversation.
+    // resumes the dead worker's conversation. `model`/`effort` are the
+    // phase's routing annotations (ROADMAP.md "model:"/"effort:" body lines,
+    // snapshotted on the run): they prefix the command with ANTHROPIC_MODEL /
+    // CLAUDE_CODE_EFFORT_LEVEL so a mechanical phase can run on a cheaper
+    // tier. Deliberately independent of the Settings ▸ Claude API prefix —
+    // autonomous runs must not silently inherit interactive experiments
+    // (see ClaudeAPISettings); the roadmap annotation is the explicit opt-in.
     @discardableResult
-    func openAutopilotRunTab(directory: String, title: String, continueSession: Bool = false) -> Tab {
+    func openAutopilotRunTab(directory: String, title: String, continueSession: Bool = false,
+                             model: String? = nil, effort: String? = nil) -> Tab {
         let wasEmpty = store.tabs.isEmpty
         let content = TerminalPaneContent()
         let tab = Tab(content: content)
@@ -593,6 +600,14 @@ extension TerminalWindowController {
         // stray newline here would submit a truncated command line.
         var command = "claude --dangerously-skip-permissions"
         if continueSession { command += " --continue" }
+        var envPrefix = ""
+        if let model = model.map(ClaudeAPISettings.sanitize), !model.isEmpty {
+            envPrefix += "ANTHROPIC_MODEL=\(ClaudeAPISettings.shellQuote(model)) "
+        }
+        if let effort = effort.map(ClaudeAPISettings.sanitize), !effort.isEmpty {
+            envPrefix += "CLAUDE_CODE_EFFORT_LEVEL=\(ClaudeAPISettings.shellQuote(effort)) "
+        }
+        command = envPrefix + command
         let extraArgs = appDelegate.autopilotExtraArgs
             .replacingOccurrences(of: "\n", with: " ")
             .replacingOccurrences(of: "\r", with: " ")

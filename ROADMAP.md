@@ -36,7 +36,7 @@ out of the context window:
   default. Harness-tested (`scripts/token-ignore-test.sh`), documented in
   `docs/features.md`.
 
-### Phase 2 — Autopilot model & effort routing
+### Phase 2 — Autopilot model & effort routing ✅
 
 Autopilot workers are the most token-hungry surface but always run at the
 session default model/effort. Route them per phase:
@@ -44,18 +44,23 @@ session default model/effort. Route them per phase:
 - `RoadmapParser` learns optional per-phase annotations in the body —
   lines of the form `model: haiku` / `effort: low` (first occurrence wins,
   case-insensitive key, value passed through verbatim) — surfaced as new
-  optional fields on `RoadmapPhase`. Pure parsing, harness-covered.
+  optional fields on `RoadmapPhase`. Pure parsing, harness-covered
+  (`scripts/roadmap-routing-test.sh`).
 - The engine exports `ANTHROPIC_MODEL` / `CLAUDE_CODE_EFFORT_LEVEL` for a
-  worker whose phase carries annotations, so mechanical phases (docs,
+  worker whose phase carries annotations (snapshotted onto the run like the
+  spec, surviving `--continue` respawns), so mechanical phases (docs,
   renames, migrations) can run on a cheap model at low effort while design
   phases keep the default.
-- The Settings ▸ Claude API env prefix (`ClaudeAPISettings`) additionally
-  applies to Autopilot worker launches (today it covers only ✦/task/recipe
-  launches), with phase annotations taking precedence over it.
-- Review-gate cheapening: skip the headless review when the PR diff is
-  byte-identical to the last reviewed diff for the run (hash it), and keep
-  the existing `autopilotReviewModel` override documented next to the new
-  annotations.
+- Decided against the original bullet about applying the Settings ▸ Claude
+  API env prefix to workers: `ClaudeAPISettings` deliberately excludes
+  Autopilot (autonomous runs must not silently inherit interactive
+  experiments — see its header). The in-repo annotation is the explicit,
+  versioned opt-in instead.
+- Review-gate cheapening: every verdict records the reviewed diff's
+  fingerprint (`AutopilotDiffHash`, FNV-1a 64); a byte-identical diff on
+  the next attempt skips the headless review and sends unchanged-diff
+  feedback, still consuming the attempt. `autopilotReviewModel` stays the
+  review gate's own override, documented beside the annotations.
 
 ### Phase 3 — Cache hit-rate meter
 
