@@ -10,9 +10,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // terminal background becomes see-through/blurred while text stays fully opaque.
     // Shared across every window/tab, so kept here rather than per-controller.
     var blurEnabled = false
+    // Frost softness (gaussian radius, points). 30 is what the system frost
+    // ships with, so the default look is unchanged; 0 = tinted but sharp glass.
+    var blurRadius: CGFloat = 30
+    let maxBlurRadius: CGFloat = 64
     var backgroundAlpha: CGFloat = 1
     let opacityStep: CGFloat = 0.05
-    let minOpacity: CGFloat = 0.3
+    let minOpacity: CGFloat = 0.05
 
     // Same bounds as the settings window's font-size stepper.
     let minFontSize: CGFloat = 8
@@ -131,6 +135,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // Fleet-supervision dashboard: a floating cross-window
     // view of every live Claude session, sorted needs-you-first, with per-row
     // steering routed through the same paths as the palette's session verbs.
+    // Autopilot dashboard: the multi-run supervision panel — one row per active
+    // autopilot instance with its status and per-repo controls (focus / pause /
+    // resume / skip / retry / log / stop).
+    lazy var autopilotDashboard: AutopilotDashboardController = {
+        let controller = AutopilotDashboardController()
+        controller.onFocusRunTab = { [weak self] engine in self?.focusAutopilotRunTab(engine: engine) }
+        controller.onOpenLog = { [weak self] engine in self?.openAutopilotLog(engine: engine) }
+        controller.onStartHere = { [weak self] in self?.startAutopilotHere() }
+        return controller
+    }()
+
     lazy var fleetDashboard: FleetDashboardController = {
         let controller = FleetDashboardController()
         controller.hostedIds = { [weak self] in self?.hostedSessionIds() ?? [] }
@@ -255,7 +270,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             } else {
                 self.remapClaudeSessions()
             }
-            AutopilotEngine.shared.tick()
+            AutopilotManager.shared.tick()
             // Background-task monitor: a job that crashed
             // without the wrapper's exit trap firing changes no record file, so
             // the same heartbeat re-runs the liveness sweep that catches it.
@@ -283,7 +298,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // interesting surface, otherwise the log — the footer row's routing.
         attentionCenter?.onAutopilotEvent = { [weak self] _ in
             guard let self else { return }
-            if AutopilotEngine.shared.workerTabId != nil {
+            if AutopilotManager.shared.allEngines.contains(where: { $0.workerTabId != nil }) {
                 self.focusAutopilotRunTab()
             } else {
                 self.openAutopilotLog()
@@ -302,8 +317,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // Autopilot: the engine hangs off the same 3 s
         // timer (tick added in the closure above) and needs the session
         // monitor, which the observers above have already instantiated.
-        AutopilotEngine.shared.appDelegate = self
-        AutopilotEngine.shared.adoptOnLaunch()
+        AutopilotManager.shared.appDelegate = self
+        AutopilotManager.shared.adoptOnLaunch()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

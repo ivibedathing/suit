@@ -284,9 +284,11 @@ app does.
 - **Large tool-result compression** — a **Settings ▸ Claude** toggle ("Compress large tool
   results (Read/Grep/Glob/Bash)"), **off by default**, that installs a Claude Code
   `PostToolUse` hook (`suit-posttool-filter.sh`) rewriting a tool's *result* before it reaches
-  the context window via `updatedToolOutput` (requires Claude Code ≥ 2.1.133) — the side of a
-  tool call rtk can't touch, covering the built-in Read/Grep/Glob tools and any Bash output
-  that escaped rtk. Deliberately conservative: results under **~30k characters (≈7.5k tokens)
+  the context window via `updatedToolOutput` — the side of a tool call rtk can't touch,
+  covering the built-in Read/Grep/Glob tools and any Bash output that escaped rtk. The
+  replacement mirrors each tool's own response shape (Bash `{stdout, stderr}`, Read
+  `{file: {content}}`, Grep `{content}`, Glob `{filenames}`); Claude Code silently ignores a
+  mismatched shape, so a bare-string replacement would be a no-op (verified on 2.1.208). Deliberately conservative: results under **~30k characters (≈7.5k tokens)
   are never modified**; larger ones keep their first 200 and last 50 lines (or a byte-based
   head+tail for single-blob output) around a marker telling Claude how to narrow the query
   (`head_limit`, `offset`/`limit`, a tighter pattern). A Bash result's stderr survives the cut,
@@ -310,6 +312,26 @@ app does.
   auto-compact, and Claude Code's own all count, since compaction evicts the content the stub
   points back to) and deleted at `SessionEnd`, with a 48 h sweep for crashed sessions. Same
   fail-open contract: any error means the read passes through untouched.
+- **Token-savings meter & benchmark** — two layers measuring what the filters above actually
+  save. **The meter** (always on with the filters, `SUIT_SAVINGS_LOG=0` to disable): every
+  rewrite the post-tool filter makes appends one JSONL line to `~/.suit/token-savings.jsonl`
+  recording the exact counterfactual it just saw — the chars the original result would have
+  cost vs the chars actually emitted (`{ts, session_id, tool, kind: compress|dedup,
+  original_chars, emitted_chars}`). `scripts/token-savings-report.sh` aggregates it (totals,
+  by kind / tool / day, `--session SID`, `--today`; token numbers are chars/4 estimates) —
+  zero-variance, real-workload savings with no extra spend. **The benchmark**
+  (`scripts/token-bench.sh`, real API spend, run on demand — not part of `scripts/test.sh`)
+  catches what the meter can't: second-order effects like a dedup stub causing an extra
+  re-read turn. It A/Bs a task suite (`scripts/token-bench/tasks.json`, or `--tasks yours`)
+  through headless `claude -p` with filters **on** (your installed hooks, or a bench-only
+  `--settings` file when none are installed) vs **off** — the off arm sets
+  `SUIT_TOKEN_FILTERS=off`, a kill-switch both hook scripts honor as a per-process
+  pass-through, so `~/.claude/settings.json` is never touched. Arms are interleaved so
+  prompt-cache weather averages out; each run gets a fresh local clone of the repo; medians
+  over `--reps N` (default 3) are reported per task — fresh input tokens (input +
+  cache-creation, the context-growth number the filters target), cache reads, output, turns,
+  cost, wall time, and an `expect_regex` success check, with Δ columns for on-vs-off.
+  `--report FILE` re-aggregates an existing results JSONL without spending anything.
 - **Shell helpers (run_silent)** — a **Settings ▸ Claude** toggle ("Shell helpers (run_silent)
   in new terminals"), **off by default**. New **zsh** terminals launch through a ZDOTDIR shim
   (the VS Code shell-integration mechanism, installed under `~/.suit/zsh/` — your own dotfiles
@@ -411,9 +433,22 @@ app does.
   and loops to the next phase. Gate failures feed the build-log tail or review findings back
   into the live session for another attempt (capped by the Attempts setting); anything
   unrecoverable blocks Autopilot with a notification, keeping the worktree, branch, PR and
-  logs for inspection (the palette's Retry resumes). One run at a time; merged phases post a
-  notification too. Needs the `gh` CLI (installed and authenticated) and the Claude Code
-  integration.
+  logs for inspection (the palette's Retry resumes). Merged phases post a notification too.
+  Needs the `gh` CLI (installed and authenticated) and the Claude Code integration.
+- **Multiple autopilots at once** — Autopilot is per-repo, and several run concurrently, one
+  per git repository. **`Autopilot: Start Here`** (palette) resolves the active tab's working
+  directory up to its git root, requires a `ROADMAP.md` there, and stands up an autopilot for
+  that repo — so you launch a run from wherever you're looking, no Settings trip needed. The
+  configured project (Settings ▸ Autopilot) still auto-runs on launch as the "primary". Because
+  every worker draws on the *same* Claude budget, only **one instance holds a live run at a
+  time**: the others sit **queued** and take the slot the moment it frees (the budget modes
+  below still decide when the active slot may start a new phase). Each instance keeps its own
+  state, history, and logs, and a running autopilot is re-adopted on the next launch.
+- **Autopilot dashboard** (`Autopilot: Dashboard`, or click the footer row when more than one
+  is active) — a floating panel with one row per running autopilot: the repo, its live status,
+  and per-repo controls — Focus run tab, Pause/Resume, Skip Current Phase, Retry (while
+  blocked), Show Log, and **Stop** (drop that instance without touching its worktree). A
+  **Start Here** button launches a new one on the active tab's repo.
 - **Budget modes** — three switchable modes decide when a run may *start* (a run in flight
   always finishes): **Pace to reset** spreads the weekly budget evenly across the rate-limit
   window, **Max out** runs whenever usage is under the ceilings, **Night shift** is max-out
@@ -428,12 +463,17 @@ app does.
   and "Keep the Mac awake during runs".
 - **Status row** — a one-line status in the sidebar footer, above the usage rows: `Autopilot ·
   next run ~03:40`, `⚙ Phase 23 · running 41m`, `⚙ Phase 23 · gate: build`, `⚙ Phase 23 ·
-  merging PR #142`, `⚠ Phase 23 blocked — …`. Clicking it focuses the run tab while a run is
-  active, otherwise opens the log; the tooltip carries the full reason.
+  merging PR #142`, `⚠ Phase 23 blocked — …`, `Autopilot · queued` (waiting behind the active
+  instance). With several autopilots active the row shows the running (or primary) one prefixed
+  with its repo and a `· N autopilots` count. Clicking it opens the dashboard when more than one
+  is active, else focuses the run tab (while running) or the log; the tooltip carries the full
+  reason.
 - **Palette commands** — `Autopilot: Enable`/`Disable` (the title flips) and `Autopilot: Show
-  Log` are always there; while enabled, also `Run Next Phase Now` (bypasses the budget gate
-  once), `Pause After Current Run`/`Resume`, `Skip Current Phase`, and `Open Run Tab`, plus
-  `Retry` while blocked. No new keyboard bindings — palette-reachable is keyboard-complete.
+  Log` are always there; while enabled, also `Start Here (active tab's repo)`, `Dashboard`,
+  `Run Next Phase Now` (bypasses the budget gate once), `Pause After Current Run`/`Resume`,
+  `Skip Current Phase`, and `Open Run Tab`, plus `Retry` while blocked. The run-control verbs
+  act on the current instance (running / primary / first active). No new keyboard bindings —
+  palette-reachable is keyboard-complete.
 - **The run tab** — the worker is an ordinary terminal tab titled `⚙ Phase N — <Title>`,
   opened without stealing focus; watch it, split it, or type into it (the session dot pulses
   on needs-input as usual). A worker exit never auto-closes the tab, so the scrollback
@@ -442,12 +482,15 @@ app does.
   phase heading means shipped, `⏸` means skipped ("Skip Current Phase" appends it — the
   engine's one write to the file). When every phase is shipped or skipped, Autopilot idles
   until the roadmap changes again.
-- **On disk** — `~/.suit/autopilot/` holds `state.json` (the current run — it survives a
-  relaunch, and Autopilot resumes it at the right stage), `history.jsonl` (one row per
-  finished run: outcome, PR URL, attempts, cost), `autopilot.log` (the human-readable event
-  log Show Log opens as a viewer tab), and `logs/<slug>/build-N.log` / `review-N.log` (gate
-  output). A `~/.suit/autopilot-prompt.md`, when present, overrides the worker prompt
-  template.
+- **On disk** — each autopilot owns a per-repo slot under `~/.suit/autopilot/repos/<slug>/`
+  holding `state.json` (its current run — it survives a relaunch, and Autopilot resumes it at
+  the right stage), `history.jsonl` (one row per finished run: outcome, PR URL, attempts,
+  cost), `autopilot.log` (the human-readable event log Show Log opens as a viewer tab), and
+  `logs/<phase-slug>/build-N.log` / `review-N.log` (gate output). Cross-instance events
+  (enable/disable, Start Here, Stop) go to the top-level `~/.suit/autopilot/autopilot.log`. The
+  old single-autopilot layout (files directly under `~/.suit/autopilot/`) is migrated into the
+  primary repo's slot automatically on first launch. A `~/.suit/autopilot-prompt.md`, when
+  present, overrides the worker prompt template.
 
 ## Appearance & settings
 
@@ -471,14 +514,20 @@ app does.
 Like the native macOS Terminal, only the **terminal panes** go translucent — the window's title
 bar stays solid, and file/diff/markdown viewers stay opaque for legibility.
 
-- **Real transparency** — the **Transparency** slider in **Settings ▸ Appearance** (or ⌘] / ⌘[)
+- **Real transparency** — the **Opacity** slider in **Settings ▸ Appearance** (or ⌘] / ⌘[)
   lowers each terminal's background alpha so the desktop shows *through* the terminal, while the text
-  itself stays fully opaque and crisp. The live percentage is shown next to the slider.
+  itself stays fully opaque and crisp. The slider reaches down to 5% opacity, so the glass can go
+  almost fully clear.
 - **Background blur** — the **Background Blur** checkbox (⇧⌘B) puts a behind-window frost directly
   behind each translucent terminal, so it reads as a pane of frosted glass rather than a plain
   see-through hole. The frost sits *under* the terminal only, so the title bar and chrome keep their
   solid backing. Blur only becomes visible once transparency is below 100% — there's nothing to see
   through an opaque pane.
+- **Blur amount** — the **Blur** slider (below Opacity in **Settings ▸ Appearance**) tunes how soft
+  the frost is, from 0 (tinted but sharp glass — the desktop stays readable through the terminal) up
+  to roughly twice the stock system blur. The default (30) matches the system frost exactly. The
+  slider takes effect while the Background Blur checkbox is on and the terminal is translucent, and
+  it applies live to every open terminal pane.
 
 ## Themes
 

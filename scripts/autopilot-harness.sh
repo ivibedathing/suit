@@ -329,6 +329,13 @@ sed 's/^/[driver] /' "$DRIVER_LOG"
 
 # ----------------------------------------------------------------- assertions
 
+# Autopilot is now per-repo: state.json / history.jsonl / autopilot.log / logs
+# live in a per-repo slot under $AUTOPILOT_DIR/repos/<slug>/ (the slug is a hash
+# of the project root). This harness drives a single repo, so there's exactly
+# one slot — resolve it by glob rather than recomputing the hash.
+REPO_DIR=$(ls -d "$AUTOPILOT_DIR"/repos/*/ 2>/dev/null | head -1)
+REPO_DIR="${REPO_DIR%/}"
+
 DELIVERY="$STATE/delivery.log"
 STDIN_LOG="$STATE/stdin.log"
 GH_ARGS="$STATE/gh-args.log"
@@ -360,7 +367,7 @@ worktree_and_branch_gone() {
 }
 
 history_row_ok() {
-  /usr/bin/python3 - "$AUTOPILOT_DIR/history.jsonl" "$SLUG" <<'PY'
+  /usr/bin/python3 - "$REPO_DIR/history.jsonl" "$SLUG" <<'PY'
 import json, sys
 rows = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
 slug = sys.argv[2]
@@ -392,7 +399,7 @@ check "worker prompt carried the phase spec" \
 check "nudge sent while the PR was missing" \
   grep -qF 'AUTOPILOT CHECK — Phase 1' "$STDIN_LOG"
 check "nudge named the missing PR" \
-  grep -q 'nudge 1/5 sent.*an open PR' "$AUTOPILOT_DIR/autopilot.log"
+  grep -q 'nudge 1/5 sent.*an open PR' "$REPO_DIR/autopilot.log"
 check "review rejection feedback re-sent to the live session" \
   grep -qF 'AUTOPILOT REVIEW — Phase 1 attempt 1' "$STDIN_LOG"
 check "rejection feedback carried the gate's findings" \
@@ -400,13 +407,13 @@ check "rejection feedback carried the gate's findings" \
 check "merge argv was exactly 'pr merge 1 --merge'" \
   grep -qxF 'pr merge 1 --merge' "$GH_ARGS"
 check "build gate ran twice (a log per attempt)" \
-  test -s "$AUTOPILOT_DIR/logs/$SLUG/build-1.log" -a -s "$AUTOPILOT_DIR/logs/$SLUG/build-2.log"
+  test -s "$REPO_DIR/logs/$SLUG/build-1.log" -a -s "$REPO_DIR/logs/$SLUG/build-2.log"
 check "review gate ran twice (reject, then approve)" \
   test "$(cat "$STATE/review-calls" 2>/dev/null)" = 2
 check "first review log ends in VERDICT: REJECT" \
-  grep -qxF 'VERDICT: REJECT' "$AUTOPILOT_DIR/logs/$SLUG/review-1.log"
+  grep -qxF 'VERDICT: REJECT' "$REPO_DIR/logs/$SLUG/review-1.log"
 check "second review log ends in VERDICT: APPROVE" \
-  grep -qxF 'VERDICT: APPROVE' "$AUTOPILOT_DIR/logs/$SLUG/review-2.log"
+  grep -qxF 'VERDICT: APPROVE' "$REPO_DIR/logs/$SLUG/review-2.log"
 check "worktree and branch gone after the merge (local + origin)" \
   worktree_and_branch_gone
 check "history.jsonl row is correct" \
@@ -418,7 +425,7 @@ check "⏸-marked Phase 2 skipped on the next pass (doneAllPhases)" \
 check "⏸-marked Phase 2 never started (no worktree, no second PR)" \
   phase2_never_started
 check "doneAllPhases reason logged (shipped or skipped)" \
-  grep -q 'shipped or skipped' "$AUTOPILOT_DIR/autopilot.log"
+  grep -q 'shipped or skipped' "$REPO_DIR/autopilot.log"
 
 echo
 if [ "$FAIL" -eq 0 ]; then
@@ -428,7 +435,7 @@ if [ "$FAIL" -eq 0 ]; then
 else
   echo "[harness] $FAIL assertion(s) FAILED — artifacts kept at $BASE"
   echo "[harness] --- autopilot.log tail ---"
-  tail -40 "$AUTOPILOT_DIR/autopilot.log" 2>/dev/null || true
+  tail -40 "$REPO_DIR/autopilot.log" 2>/dev/null || true
   echo "[harness] --- delivery.log ---"
   cat "$DELIVERY" 2>/dev/null || true
   exit 1

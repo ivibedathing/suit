@@ -62,13 +62,13 @@ delegate.autopilotPreventSleep = false
 
 // The applicationDidFinishLaunching wiring, minus the 3 s timer (the loop
 // below ticks by hand, faster — every throttle the engine applies is its own).
-AutopilotEngine.shared.appDelegate = delegate
+AutopilotManager.shared.appDelegate = delegate
 ClaudeSessionMonitor.shared.reload()
-AutopilotEngine.shared.adoptOnLaunch()
+AutopilotManager.shared.adoptOnLaunch()
 observe("engine-started")
 
-let engine = AutopilotEngine.shared
-let store = AutopilotStore.shared
+let engine = AutopilotManager.shared.engine(for: projectRoot)
+let store = engine.store
 var seenRunIds = Set<String>()
 var lastStageLine = ""
 var ticks = 0

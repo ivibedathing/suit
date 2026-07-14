@@ -135,6 +135,7 @@ final class Pane: NSObject {
     // stays solid — setBlur re-gates on the current content).
     private var blurEnabled = false
     private var blurMaterial: NSVisualEffectView.Material = .underWindowBackground
+    private var blurRadius: CGFloat = 30
     // Managed by Pane+Screensaver; torn down here in teardown().
     var screensaverView: PaneScreensaverView?
 
@@ -226,7 +227,7 @@ final class Pane: NSObject {
         container.setContentView(newTab.content.view)
         // Re-gate the frost for the newly shown content (terminal → glass,
         // viewer → solid).
-        container.setBlur(active: blurEnabled && terminalContent != nil, material: blurMaterial)
+        container.setBlur(active: blurEnabled && terminalContent != nil, material: blurMaterial, radius: blurRadius)
         refreshChrome()
         host?.paneTitleChanged(self)
     }
@@ -412,10 +413,11 @@ final class Pane: NSObject {
     // or markdown pane stays solid for legibility even while terminals go
     // translucent. The gate lives here (not in the window controller) so a tab
     // swap between a terminal and a viewer in the same pane re-evaluates it.
-    func setBlur(enabled: Bool, material: NSVisualEffectView.Material) {
+    func setBlur(enabled: Bool, material: NSVisualEffectView.Material, radius: CGFloat) {
         blurEnabled = enabled
         blurMaterial = material
-        container.setBlur(active: enabled && terminalContent != nil, material: material)
+        blurRadius = radius
+        container.setBlur(active: enabled && terminalContent != nil, material: material, radius: radius)
     }
 
     private func applyBackgroundColor() {

@@ -33,11 +33,16 @@ import Foundation
 
 // NSObject for the selector-based NotificationCenter observation below.
 final class AutopilotEngine: NSObject {
-    static let shared = AutopilotEngine()
     static let didUpdate = Notification.Name("AutopilotEngineDidUpdate")
 
-    // Set once in applicationDidFinishLaunching; the engine reads its §2.9
-    // settings (enabled, project root, mode, ceilings, …) through it live.
+    // The git repo (containing ROADMAP.md) this engine drives. Each concurrent
+    // autopilot owns one root; AutopilotManager keys instances by it. Replaces
+    // the old single app-wide autopilotProjectRoot lookup.
+    let projectRoot: String
+
+    // Set once by AutopilotManager; the engine reads its §2.9 settings (mode,
+    // ceilings, stall minutes, …) through it live. The project root is now the
+    // engine's own `projectRoot`, not read from here.
     weak var appDelegate: AppDelegate?
 
     var state: AutopilotEngineState = .off
@@ -51,7 +56,26 @@ final class AutopilotEngine: NSObject {
         return true
     }
 
-    let store = AutopilotStore.shared
+    // Holding the single active-run slot: a live run (any stage), an in-flight
+    // adoption resolving into one, or a background job already claiming the
+    // slot — crucially the idle→preflight→spawn window, where `state` is still
+    // `.idle` but `inFlight` is set, so a sibling ticking later in the same
+    // manager pass can't also start. The manager's one-at-a-time gate keys on
+    // this.
+    var isOccupyingRunSlot: Bool {
+        if adopting || inFlight { return true }
+        if case .running = state { return true }
+        return false
+    }
+
+    // The repo's folder name — the dashboard/footer label for this instance.
+    var displayName: String {
+        let trimmed = projectRoot.hasSuffix("/") ? String(projectRoot.dropLast()) : projectRoot
+        let last = (trimmed as NSString).lastPathComponent
+        return last.isEmpty ? projectRoot : last
+    }
+
+    let store: AutopilotStore
 
     // MARK: - Tick throttles (§2.4 last paragraph)
 
@@ -166,10 +190,12 @@ final class AutopilotEngine: NSObject {
         return formatter
     }()
 
-    override init() {
+    init(projectRoot: String) {
+        self.projectRoot = projectRoot
+        self.store = AutopilotStore(projectRoot: projectRoot)
         super.init()
         // Observing by name doesn't instantiate the monitor — safe even though
-        // the engine singleton can be created early (the sidebar footer).
+        // an engine can be created early (the sidebar footer / launch adoption).
         NotificationCenter.default.addObserver(
             self, selector: #selector(sessionMonitorUpdated(_:)),
             name: ClaudeSessionMonitor.didUpdate, object: nil
