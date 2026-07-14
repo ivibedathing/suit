@@ -35,6 +35,17 @@
 # nothing, exit 0), so a broken filter can never break a tool result Claude
 # was going to read.
 #
+# Savings meter: every rewrite appends one JSONL line to
+# ~/.suit/token-savings.jsonl recording the counterfactual this hook just saw —
+# the chars the original result would have cost vs the chars actually emitted
+# ({ts, session_id, tool, kind: compress|dedup, original_chars, emitted_chars}).
+# scripts/token-savings-report.sh aggregates it. Best-effort: a failed append
+# never affects the rewrite. SUIT_SAVINGS_LOG=0 disables the meter.
+#
+# Bench kill-switch: SUIT_TOKEN_FILTERS=off makes this hook a pure pass-through
+# for the whole process, so an A/B benchmark (scripts/token-bench.sh) can run
+# a filters-off arm without touching ~/.claude/settings.json.
+#
 # Debug: SUIT_POSTTOOL_DEBUG=1 appends each raw stdin payload to
 # ~/.suit/posttool-debug.jsonl before filtering — the empirical way to inspect
 # the per-tool tool_response shapes on the installed Claude Code.
@@ -63,8 +74,24 @@ done
 # jq is required to read/emit the hook JSON; without it, pass through.
 command -v jq >/dev/null 2>&1 || pass_through
 
+# Savings meter: log_saving <kind> <original_chars> <emitted_chars> appends one
+# JSONL counterfactual line. Best-effort — never lets a failure escape.
+log_saving() {
+  [ "${SUIT_SAVINGS_LOG:-1}" = "0" ] && return 0
+  mkdir -p "$HOME/.suit" 2>/dev/null
+  printf '{"ts":%s,"session_id":"%s","tool":"%s","kind":"%s","original_chars":%s,"emitted_chars":%s}\n' \
+    "$(date +%s)" "${SID:-unknown}" "${TOOL:-unknown}" "$1" "${2:-0}" "${3:-0}" \
+    >>"$HOME/.suit/token-savings.jsonl" 2>/dev/null
+  return 0
+}
+
 INPUT="$(cat)"
 [ -n "$INPUT" ] || pass_through
+
+# Bench kill-switch: disable every rewrite (and the cache lifecycle ops)
+# per-process, leaving the installed hook entries untouched. Checked after the
+# stdin read so the hook's writer never takes a SIGPIPE.
+[ "${SUIT_TOKEN_FILTERS:-on}" = "off" ] && pass_through
 
 if [ "${SUIT_POSTTOOL_DEBUG:-0}" = "1" ]; then
   mkdir -p "$HOME/.suit" 2>/dev/null
@@ -104,6 +131,26 @@ case "$TOOL" in
   *) pass_through ;;
 esac
 
+# Extract the result text defensively (used by the savings meter and the
+# compression cut): the hook docs don't pin tool_response's shape per tool, so
+# accept a plain string or the known object fields — anything else yields empty
+# and the affected behavior passes through. A Bash object result keeps its
+# stderr (labeled) so a failure's diagnostics survive an elision.
+TEXT="$(printf '%s' "$INPUT" | jq -r '
+  .tool_response
+  | if type == "string" then .
+    elif type == "object" then
+      (if has("stdout") then
+         ((.stdout // "")
+          + (if ((.stderr // "") | length) > 0 then "\n[stderr]\n" + .stderr else "" end))
+       else
+         (.output? // .content? // .file?.content?
+          // (try (.filenames | join("\n")) catch null) // empty)
+       end)
+    else empty end
+  | if type == "string" then . else empty end
+' 2>/dev/null)"
+
 # --- Read-dedup (before compression, so a stub is never elided) ---------------
 if [ "$DEDUP" = "1" ] && [ "$TOOL" = "Read" ] && [ -n "$SID" ]; then
   FILE="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)"
@@ -135,9 +182,12 @@ if [ "$DEDUP" = "1" ] && [ "$TOOL" = "Read" ] && [ -n "$SID" ]; then
         jq --arg f "$FILE" \
            '.files[$f].stubbed = true' "$CACHE" 2>/dev/null | write_cache
         STUB="[suit read-dedup: $FILE is unchanged since your full read at ${WHEN:-earlier} ($E_LINES lines, $FSIZE bytes) — its content is already in this conversation. Read it again to force the full file, or use offset/limit for a specific range.]"
-        printf '%s' "$STUB" | jq -Rs \
+        OUT="$(printf '%s' "$STUB" | jq -Rs \
           '{hookSpecificOutput: {hookEventName: "PostToolUse", updatedToolOutput: .}}' \
-          2>/dev/null || pass_through
+          2>/dev/null)"
+        [ -n "$OUT" ] || pass_through
+        log_saving dedup "${#TEXT}" "${#STUB}"
+        printf '%s' "$OUT"
         exit 0
       fi
 
@@ -179,24 +229,7 @@ if [ "$TOOL" = "Bash" ]; then
   esac
 fi
 
-# Extract the result text defensively: the hook docs don't pin tool_response's
-# shape per tool, so accept a plain string or the known object fields — and
-# pass anything else through untouched. A Bash object result keeps its stderr
-# (labeled) so a failure's diagnostics survive the elision.
-TEXT="$(printf '%s' "$INPUT" | jq -r '
-  .tool_response
-  | if type == "string" then .
-    elif type == "object" then
-      (if has("stdout") then
-         ((.stdout // "")
-          + (if ((.stderr // "") | length) > 0 then "\n[stderr]\n" + .stderr else "" end))
-       else
-         (.output? // .content? // .file?.content?
-          // (try (.filenames | join("\n")) catch null) // empty)
-       end)
-    else empty end
-  | if type == "string" then . else empty end
-' 2>/dev/null)"
+# The result text was extracted up top; an unrecognized shape passes through.
 [ -n "$TEXT" ] || pass_through
 
 # Size gate: results under ~30k chars (≈7.5k tokens) are never touched.
@@ -225,8 +258,11 @@ $TAIL"
 # Only replace when the elision genuinely shrinks the result.
 [ "${#ELIDED}" -lt "$SIZE" ] || pass_through
 
-printf '%s' "$ELIDED" | jq -Rs \
+OUT="$(printf '%s' "$ELIDED" | jq -Rs \
   '{hookSpecificOutput: {hookEventName: "PostToolUse", updatedToolOutput: .}}' \
-  2>/dev/null || pass_through
+  2>/dev/null)"
+[ -n "$OUT" ] || pass_through
+log_saving compress "$SIZE" "${#ELIDED}"
+printf '%s' "$OUT"
 
 exit 0

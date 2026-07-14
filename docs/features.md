@@ -310,6 +310,26 @@ app does.
   auto-compact, and Claude Code's own all count, since compaction evicts the content the stub
   points back to) and deleted at `SessionEnd`, with a 48 h sweep for crashed sessions. Same
   fail-open contract: any error means the read passes through untouched.
+- **Token-savings meter & benchmark** — two layers measuring what the filters above actually
+  save. **The meter** (always on with the filters, `SUIT_SAVINGS_LOG=0` to disable): every
+  rewrite the post-tool filter makes appends one JSONL line to `~/.suit/token-savings.jsonl`
+  recording the exact counterfactual it just saw — the chars the original result would have
+  cost vs the chars actually emitted (`{ts, session_id, tool, kind: compress|dedup,
+  original_chars, emitted_chars}`). `scripts/token-savings-report.sh` aggregates it (totals,
+  by kind / tool / day, `--session SID`, `--today`; token numbers are chars/4 estimates) —
+  zero-variance, real-workload savings with no extra spend. **The benchmark**
+  (`scripts/token-bench.sh`, real API spend, run on demand — not part of `scripts/test.sh`)
+  catches what the meter can't: second-order effects like a dedup stub causing an extra
+  re-read turn. It A/Bs a task suite (`scripts/token-bench/tasks.json`, or `--tasks yours`)
+  through headless `claude -p` with filters **on** (your installed hooks, or a bench-only
+  `--settings` file when none are installed) vs **off** — the off arm sets
+  `SUIT_TOKEN_FILTERS=off`, a kill-switch both hook scripts honor as a per-process
+  pass-through, so `~/.claude/settings.json` is never touched. Arms are interleaved so
+  prompt-cache weather averages out; each run gets a fresh local clone of the repo; medians
+  over `--reps N` (default 3) are reported per task — fresh input tokens (input +
+  cache-creation, the context-growth number the filters target), cache reads, output, turns,
+  cost, wall time, and an `expect_regex` success check, with Δ columns for on-vs-off.
+  `--report FILE` re-aggregates an existing results JSONL without spending anything.
 - **Shell helpers (run_silent)** — a **Settings ▸ Claude** toggle ("Shell helpers (run_silent)
   in new terminals"), **off by default**. New **zsh** terminals launch through a ZDOTDIR shim
   (the VS Code shell-integration mechanism, installed under `~/.suit/zsh/` — your own dotfiles
