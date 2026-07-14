@@ -294,6 +294,18 @@ final class PaneContainerView: NSView {
         return .generic
     }
 
+    // Drives the same drop-zone preview a live tab drag shows, for offscreen
+    // design renders (design/tabs-demo) where no real NSDraggingSession can
+    // exist. `point` is in this view's coordinates; nil hides the preview.
+    func previewTabDrop(at point: NSPoint?) {
+        guard let point else {
+            dropIndicator.isHidden = true
+            return
+        }
+        dropIndicator.frame = indicatorFrame(forTabTarget: tabDropTarget(at: point))
+        dropIndicator.isHidden = false
+    }
+
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         updateDropPreview(sender)
     }

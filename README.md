@@ -21,6 +21,12 @@
   <img src="design/phase15-window.png" alt="Suit window: pinned terminal, shell and file viewer split">
 </p>
 
+<p align="center">
+  <img src="design/tabs-drag.gif" alt="Dragging tabs between panes: dropping on a pane edge splits the tab out, dropping on the center shows it there — with a live highlight previewing where it will land">
+  <br>
+  <em>Tabs in motion — drag a tab onto a pane <strong>edge</strong> to split it out, onto the <strong>center</strong> to show it there. The highlighted area previews exactly where it will land.</em>
+</p>
+
 Suit is a personal macOS app bundle — its own Dock icon, bundle identifier and TCC permission
 entries — whose windows host browser-style tabs of terminals, file viewers, diffs and Claude
 transcripts. Each shell runs directly over a real pty via
