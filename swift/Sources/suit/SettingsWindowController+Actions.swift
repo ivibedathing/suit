@@ -58,6 +58,10 @@ extension SettingsWindowController {
         appDelegate?.blurChanged(sender.state == .on)
     }
 
+    @objc func blurRadiusChanged(_ sender: NSSlider) {
+        appDelegate?.blurRadiusChanged(CGFloat(sender.doubleValue))
+    }
+
     // Commit on Enter or focus loss. The shell path is validated (an invalid
     // path beeps and the field snaps back); the Claude arguments are free-form.
     func controlTextDidEndEditing(_ notification: Notification) {

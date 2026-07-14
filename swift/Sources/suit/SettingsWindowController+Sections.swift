@@ -222,13 +222,19 @@ extension SettingsWindowController {
         opacitySlider.widthAnchor.constraint(equalToConstant: 160).isActive = true
         let opacityRow = row(label: "Opacity:", controls: [opacitySlider])
 
+        blurRadiusSlider.target = self
+        blurRadiusSlider.action = #selector(blurRadiusChanged)
+        blurRadiusSlider.translatesAutoresizingMaskIntoConstraints = false
+        blurRadiusSlider.widthAnchor.constraint(equalToConstant: 160).isActive = true
+        let blurAmountRow = row(label: "Blur:", controls: [blurRadiusSlider])
+
         blurCheckbox.target = self
         blurCheckbox.action = #selector(blurChanged)
         let blurRow = row(label: "", controls: [blurCheckbox])
 
         return NSStackView(views: [
             paneTitle("Appearance"),
-            fontRow, fontSizeRow, textColorRow, backgroundRow, opacityRow, blurRow,
+            fontRow, fontSizeRow, textColorRow, backgroundRow, opacityRow, blurAmountRow, blurRow,
         ])
     }
 
