@@ -18,10 +18,6 @@
 </p>
 
 <p align="center">
-  <img src="design/phase15-window.png" alt="Suit window: pinned terminal, shell and file viewer split">
-</p>
-
-<p align="center">
   <img src="design/tabs-drag.gif" alt="Dragging tabs between panes: dropping on a pane edge splits the tab out, dropping on the center shows it there — with a live highlight previewing where it will land">
   <br>
   <em>Tabs in motion — drag a tab onto a pane <strong>edge</strong> to split it out, onto the <strong>center</strong> to show it there. The highlighted area previews exactly where it will land.</em>
