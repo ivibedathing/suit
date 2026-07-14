@@ -124,7 +124,9 @@ app does.
   universal-ctags on PATH to enable the index.
 - **Preview tabs** — the viewer routes by extension, so previewing a README or a design asset
   never means a trip to Finder. Markdown (`.md`/`.markdown`) renders as a proper document in a
-  centered reading column (capped at ~720pt, margins grow with the pane, like GitHub/Typora):
+  centered reading column (capped at ~720pt, margins grow with the pane, like GitHub/Typora),
+  set in proportional reading type — at least 16pt with roomy line spacing, scaling up with the
+  pane font (⌘= / ⌘-):
   ATX and setext headings on a GitHub-style scale with hairline rules under H1/H2, hard-wrapped
   source lines joined into flowing paragraphs, nested bullet/ordered lists with hanging indents,
   task-list checkboxes (`- [ ]` / `- [x]`), fenced code as full-width padded cards
