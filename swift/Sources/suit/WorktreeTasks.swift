@@ -133,6 +133,32 @@ enum WorktreeTasks {
         return nil
     }
 
+    // Bring the main checkout up to its already-fetched upstream (Autopilot's
+    // preflight and post-merge cleanup — the caller fetches first). Fast-forwards
+    // when local main is a strict ancestor of @{u} — the clean, common case.
+    // When local main has *diverged* from origin it reconciles with a real merge
+    // commit instead of failing: this repo runs a local-first `main` alongside an
+    // integrate-main job that lands the same content under different SHAs, so
+    // `main` and `origin/main` routinely diverge even though their content
+    // converges. The sanctioned resolution here is to merge (never reset/force),
+    // which also preserves any genuine local-only commits while still landing the
+    // merged HEAD so the next worktree branches from it. Returns nil on success,
+    // or an error message when even the merge can't reconcile (real conflicts a
+    // human must resolve) — the checkout is left clean in that case.
+    static func reconcileMainWithUpstream(_ root: String) -> String? {
+        // Already up to date or a clean fast-forward.
+        if case .success = runGit(root, ["merge", "--ff-only", "@{u}"]) {
+            return nil
+        }
+        // Diverged: reconcile with a merge commit.
+        if case .failure(let error) = runGit(root, ["merge", "--no-edit", "@{u}"]) {
+            // Leave the checkout clean if the merge stopped on conflicts.
+            _ = runGit(root, ["merge", "--abort"])
+            return "the main checkout diverged from its upstream and couldn't be reconciled automatically: \(error.message)"
+        }
+        return nil
+    }
+
     // git with stderr captured, since every failure path here is worth
     // showing. Internal: the Git tab's branch checkout reuses it.
     static func runGit(_ root: String, _ arguments: [String]) -> Result<String, WorktreeTaskError> {

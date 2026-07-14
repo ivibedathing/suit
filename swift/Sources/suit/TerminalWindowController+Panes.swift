@@ -13,7 +13,8 @@ extension TerminalWindowController {
         pane.setBackgroundAlpha(appDelegate.backgroundAlpha)
         pane.setBlur(
             enabled: appDelegate.backgroundAlpha < 1 && appDelegate.blurEnabled,
-            material: Self.glassMaterial
+            material: Self.glassMaterial,
+            radius: appDelegate.blurRadius
         )
         pane.setFont(appDelegate.currentFont)
         pane.setTextColor(appDelegate.currentTextColor)
@@ -258,13 +259,17 @@ extension TerminalWindowController {
     // its solid backing (dropping the fill to clear is what made the title bar
     // see-through before). isOpaque=false is all the window needs for the
     // per-pane frost to sample the desktop behind it.
-    func applyTransparency(alpha: CGFloat, blurEnabled: Bool) {
+    func applyTransparency(alpha: CGFloat, blurEnabled: Bool, blurRadius: CGFloat) {
         let transparent = alpha < 1
         window.isOpaque = !transparent
         window.backgroundColor = Theme.bg
         for pane in panes {
             pane.setBackgroundAlpha(alpha)
-            pane.setBlur(enabled: transparent && blurEnabled, material: Self.glassMaterial)
+            pane.setBlur(
+                enabled: transparent && blurEnabled,
+                material: Self.glassMaterial,
+                radius: blurRadius
+            )
         }
     }
 

@@ -284,9 +284,11 @@ app does.
 - **Large tool-result compression** — a **Settings ▸ Claude** toggle ("Compress large tool
   results (Read/Grep/Glob/Bash)"), **off by default**, that installs a Claude Code
   `PostToolUse` hook (`suit-posttool-filter.sh`) rewriting a tool's *result* before it reaches
-  the context window via `updatedToolOutput` (requires Claude Code ≥ 2.1.133) — the side of a
-  tool call rtk can't touch, covering the built-in Read/Grep/Glob tools and any Bash output
-  that escaped rtk. Deliberately conservative: results under **~30k characters (≈7.5k tokens)
+  the context window via `updatedToolOutput` — the side of a tool call rtk can't touch,
+  covering the built-in Read/Grep/Glob tools and any Bash output that escaped rtk. The
+  replacement mirrors each tool's own response shape (Bash `{stdout, stderr}`, Read
+  `{file: {content}}`, Grep `{content}`, Glob `{filenames}`); Claude Code silently ignores a
+  mismatched shape, so a bare-string replacement would be a no-op (verified on 2.1.208). Deliberately conservative: results under **~30k characters (≈7.5k tokens)
   are never modified**; larger ones keep their first 200 and last 50 lines (or a byte-based
   head+tail for single-blob output) around a marker telling Claude how to narrow the query
   (`head_limit`, `offset`/`limit`, a tighter pattern). A Bash result's stderr survives the cut,
@@ -310,6 +312,26 @@ app does.
   auto-compact, and Claude Code's own all count, since compaction evicts the content the stub
   points back to) and deleted at `SessionEnd`, with a 48 h sweep for crashed sessions. Same
   fail-open contract: any error means the read passes through untouched.
+- **Token-savings meter & benchmark** — two layers measuring what the filters above actually
+  save. **The meter** (always on with the filters, `SUIT_SAVINGS_LOG=0` to disable): every
+  rewrite the post-tool filter makes appends one JSONL line to `~/.suit/token-savings.jsonl`
+  recording the exact counterfactual it just saw — the chars the original result would have
+  cost vs the chars actually emitted (`{ts, session_id, tool, kind: compress|dedup,
+  original_chars, emitted_chars}`). `scripts/token-savings-report.sh` aggregates it (totals,
+  by kind / tool / day, `--session SID`, `--today`; token numbers are chars/4 estimates) —
+  zero-variance, real-workload savings with no extra spend. **The benchmark**
+  (`scripts/token-bench.sh`, real API spend, run on demand — not part of `scripts/test.sh`)
+  catches what the meter can't: second-order effects like a dedup stub causing an extra
+  re-read turn. It A/Bs a task suite (`scripts/token-bench/tasks.json`, or `--tasks yours`)
+  through headless `claude -p` with filters **on** (your installed hooks, or a bench-only
+  `--settings` file when none are installed) vs **off** — the off arm sets
+  `SUIT_TOKEN_FILTERS=off`, a kill-switch both hook scripts honor as a per-process
+  pass-through, so `~/.claude/settings.json` is never touched. Arms are interleaved so
+  prompt-cache weather averages out; each run gets a fresh local clone of the repo; medians
+  over `--reps N` (default 3) are reported per task — fresh input tokens (input +
+  cache-creation, the context-growth number the filters target), cache reads, output, turns,
+  cost, wall time, and an `expect_regex` success check, with Δ columns for on-vs-off.
+  `--report FILE` re-aggregates an existing results JSONL without spending anything.
 - **Shell helpers (run_silent)** — a **Settings ▸ Claude** toggle ("Shell helpers (run_silent)
   in new terminals"), **off by default**. New **zsh** terminals launch through a ZDOTDIR shim
   (the VS Code shell-integration mechanism, installed under `~/.suit/zsh/` — your own dotfiles
@@ -492,14 +514,20 @@ app does.
 Like the native macOS Terminal, only the **terminal panes** go translucent — the window's title
 bar stays solid, and file/diff/markdown viewers stay opaque for legibility.
 
-- **Real transparency** — the **Transparency** slider in **Settings ▸ Appearance** (or ⌘] / ⌘[)
+- **Real transparency** — the **Opacity** slider in **Settings ▸ Appearance** (or ⌘] / ⌘[)
   lowers each terminal's background alpha so the desktop shows *through* the terminal, while the text
-  itself stays fully opaque and crisp. The live percentage is shown next to the slider.
+  itself stays fully opaque and crisp. The slider reaches down to 5% opacity, so the glass can go
+  almost fully clear.
 - **Background blur** — the **Background Blur** checkbox (⇧⌘B) puts a behind-window frost directly
   behind each translucent terminal, so it reads as a pane of frosted glass rather than a plain
   see-through hole. The frost sits *under* the terminal only, so the title bar and chrome keep their
   solid backing. Blur only becomes visible once transparency is below 100% — there's nothing to see
   through an opaque pane.
+- **Blur amount** — the **Blur** slider (below Opacity in **Settings ▸ Appearance**) tunes how soft
+  the frost is, from 0 (tinted but sharp glass — the desktop stays readable through the terminal) up
+  to roughly twice the stock system blur. The default (30) matches the system frost exactly. The
+  slider takes effect while the Background Blur checkbox is on and the terminal is translucent, and
+  it applies live to every open terminal pane.
 
 ## Themes
 

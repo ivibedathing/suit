@@ -56,6 +56,9 @@ hcheck "$(empty "$(run_hook '"rtk git status"')")" "already-wrapped command -> p
 hcheck "$(empty "$(run_hook '"git status # nortk"')")" "'# nortk' marker -> pass through"
 hcheck "$(empty "$(run_hook '"NO_RTK=1 npm test"')")" "'NO_RTK=1' prefix -> pass through"
 hcheck "$(empty "$(run_hook '""')")" "empty command -> pass through"
+hcheck "$(empty "$(printf '{"tool_input":{"command":"git status"}}' \
+  | SUIT_TOKEN_FILTERS=off PATH="$SCRATCH:$PATH" bash "$HOOK")")" \
+  "SUIT_TOKEN_FILTERS=off (bench kill-switch) -> pass through"
 
 run_hook '"git status"' >/dev/null; hcheck "$([ $? -eq 0 ] && echo 1 || echo 0)" "hook exits 0"
 

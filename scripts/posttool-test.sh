@@ -56,7 +56,11 @@ payload() {
     "$1" "$ti" "$2"
 }
 
-run_hook() { bash "$HOOK" --compress; }
+# All hook invocations run against a scratch HOME so the savings meter (and
+# anything else under ~/.suit) never touches the real home.
+HHOME="$SCRATCH/home"
+mkdir -p "$HHOME"
+run_hook() { HOME="$HHOME" bash "$HOOK" --compress; }
 
 out="$(payload Grep "$BIG_LINES" | run_hook)"
 hcheck "$(nonempty "$out")" "a giant line-shaped Grep result is rewritten"
@@ -74,11 +78,29 @@ hcheck "$(nonempty "$out")" "a giant single-blob Read result is rewritten (byte 
 BIG_GLOB="$(jq -n '{filenames: ([range(0; 1500)] | map("/repo/src/deeply/nested/dir/file-" + (. | tostring) + ".swift")), numFiles: 1500}')"
 out="$(payload Glob "$BIG_GLOB" | run_hook)"
 hcheck "$(nonempty "$out")" "a giant Glob filenames array is rewritten"
+# Claude Code silently ignores a replacement whose shape differs from the
+# tool's own tool_response — every object result must be mirrored in shape.
+hcheck "$(printf '%s' "$out" | jq -e '.hookSpecificOutput.updatedToolOutput
+          | (.filenames | type == "array") and .numFiles == (.filenames | length)' \
+          >/dev/null 2>&1 && echo 1 || echo 0)" \
+  "the Glob replacement mirrors the shape (filenames array, numFiles updated)"
 
-out="$(payload Bash "{\"stdout\":$BIG_BLOB,\"stderr\":\"boom failed\"}" '{"command":"npm test"}' | run_hook)"
+BIG_GREP="$(jq -n --argjson c "$BIG_LINES" '{mode: "content", numFiles: 4, filenames: [], content: $c, numLines: 2000}')"
+out="$(payload Grep "$BIG_GREP" | run_hook)"
+hcheck "$(printf '%s' "$out" | jq -e '.hookSpecificOutput.updatedToolOutput
+          | .mode == "content" and (.content | contains("[suit: elided"))
+            and .numLines == (.content | split("\n") | length)' \
+          >/dev/null 2>&1 && echo 1 || echo 0)" \
+  "an object-shaped Grep result is rewritten in shape (content + numLines)"
+
+out="$(payload Bash "{\"stdout\":$BIG_BLOB,\"stderr\":\"boom failed\",\"interrupted\":false}" '{"command":"npm test"}' | run_hook)"
 hcheck "$(nonempty "$out")" "an object-shaped Bash result (stdout/stderr) is rewritten"
 hcheck "$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedToolOutput' | grep -q 'boom failed' && echo 1 || echo 0)" \
   "the Bash stderr survives in the replacement"
+hcheck "$(printf '%s' "$out" | jq -e '.hookSpecificOutput.updatedToolOutput
+          | (.stdout | contains("[stderr]")) and .stderr == "" and .interrupted == false' \
+          >/dev/null 2>&1 && echo 1 || echo 0)" \
+  "the Bash replacement mirrors the shape (stderr folded into stdout, flags kept)"
 
 hcheck "$(empty "$(payload Read "$SMALL" | run_hook)")" "a small result passes through untouched"
 hcheck "$(empty "$(payload Bash "$BIG_BLOB" '{"command":"rtk git status"}' | run_hook)")" \
@@ -126,6 +148,10 @@ out="$(read_payload | dedup_hook)"
 hcheck "$(nonempty "$out")" "a repeat read of the unchanged file is stubbed"
 hcheck "$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedToolOutput' | grep -q 'read-dedup' && echo 1 || echo 0)" \
   "the stub names itself and the recovery path"
+hcheck "$(printf '%s' "$out" | jq -e '.hookSpecificOutput.updatedToolOutput
+          | .type == "text" and (.file.content | startswith("[suit read-dedup"))' \
+          >/dev/null 2>&1 && echo 1 || echo 0)" \
+  "the stub replaces the file content in the Read response shape"
 hcheck "$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedToolOutput' | grep -q '3 lines' && echo 1 || echo 0)" \
   "the stub reports the file's line count"
 hcheck "$(jq -r --arg f "$TARGET" '.files[$f].stubbed' "$CACHEFILE" | grep -q true && echo 1 || echo 0)" \
@@ -166,6 +192,50 @@ hcheck "$(empty "$(read_payload | HOME="$DHOME" bash "$HOOK" --compress)")" \
   "no --dedup flag → a repeat read passes through"
 rm -f "$TARGET"
 hcheck "$(empty "$(read_payload | dedup_hook)")" "a vanished file passes through"
+
+# --- Savings-meter & kill-switch assertions (fresh scratch HOME) ---------------
+echo "==> Running savings-meter assertions"
+MHOME="$SCRATCH/mhome"
+mkdir -p "$MHOME"
+MLOG="$MHOME/.suit/token-savings.jsonl"
+mhook() { HOME="$MHOME" bash "$HOOK" "$@"; }
+
+payload Grep "$BIG_LINES" | mhook --compress >/dev/null
+hcheck "$([ -f "$MLOG" ] && echo 1 || echo 0)" "a compress rewrite appends a savings-meter line"
+hcheck "$(jq -e 'select(.kind == "compress" and .tool == "Grep"
+                 and .original_chars > .emitted_chars and .session_id == "s1")' \
+          "$MLOG" >/dev/null 2>&1 && echo 1 || echo 0)" \
+  "the line records kind/tool/session and a genuine shrink"
+
+hcheck "$(empty "$(payload Read "$SMALL" | mhook --compress)")" "(setup) small result passes through"
+hcheck "$([ "$(wc -l <"$MLOG" | tr -d ' ')" = "1" ] && echo 1 || echo 0)" \
+  "a pass-through logs nothing"
+
+out="$(payload Grep "$BIG_LINES" | SUIT_SAVINGS_LOG=0 mhook --compress)"
+hcheck "$(nonempty "$out")" "SUIT_SAVINGS_LOG=0 still rewrites"
+hcheck "$([ "$(wc -l <"$MLOG" | tr -d ' ')" = "1" ] && echo 1 || echo 0)" \
+  "SUIT_SAVINGS_LOG=0 skips the meter"
+
+# A dedup stub logs its counterfactual too (original content vs stub size).
+printf 'line one\nline two\nline three\n' >"$TARGET"
+read_payload | HOME="$MHOME" bash "$HOOK" --dedup >/dev/null
+out="$(read_payload | HOME="$MHOME" bash "$HOOK" --dedup)"
+hcheck "$(nonempty "$out")" "(setup) repeat read is stubbed"
+# (On this tiny fixture the stub is longer than the file — the meter records
+# the negative saving truthfully; only the counterfactual fields are asserted.)
+hcheck "$(jq -es '[.[] | select(.kind == "dedup" and .tool == "Read"
+                  and .original_chars > 0 and .emitted_chars > 0)] | length == 1' \
+          "$MLOG" >/dev/null 2>&1 && echo 1 || echo 0)" \
+  "the stub logs a dedup savings line"
+
+# Kill-switch: SUIT_TOKEN_FILTERS=off makes every mode a pure pass-through.
+hcheck "$(empty "$(payload Grep "$BIG_LINES" | SUIT_TOKEN_FILTERS=off mhook --compress)")" \
+  "SUIT_TOKEN_FILTERS=off → compress passes through"
+printf 'line one\nline two\nline three\n' >"$TARGET"
+read_payload | HOME="$MHOME" bash "$HOOK" --dedup >/dev/null
+hcheck "$(empty "$(read_payload | SUIT_TOKEN_FILTERS=off HOME="$MHOME" bash "$HOOK" --dedup)")" \
+  "SUIT_TOKEN_FILTERS=off → dedup passes through"
+rm -f "$TARGET"
 
 if [ "$hook_fail" -gt 0 ]; then
   echo "$hook_fail HOOK-SCRIPT FAILURE(S)"

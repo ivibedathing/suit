@@ -127,12 +127,14 @@ extension AutopilotEngine {
         let gen = generation
         DispatchQueue.global(qos: .utility).async { [weak self] in
             // Main checkout catches up to the merged HEAD first, so the next
-            // phase's worktree branches from it.
+            // phase's worktree branches from it. A diverged local main (this
+            // repo's local-first main vs the integrate-main job) is reconciled
+            // with a merge rather than wedging on a rigid fast-forward.
             var divergedMessage: String?
             if case .failure(let error) = WorktreeTasks.runGit(root, ["fetch", "origin"]) {
                 divergedMessage = "post-merge git fetch origin failed: \(error.message)"
-            } else if case .failure(let error) = WorktreeTasks.runGit(root, ["merge", "--ff-only", "@{u}"]) {
-                divergedMessage = "the main checkout can't fast-forward to the merged HEAD: \(error.message)"
+            } else {
+                divergedMessage = WorktreeTasks.reconcileMainWithUpstream(root)
             }
             var removalWarning: String?
             if divergedMessage == nil {
