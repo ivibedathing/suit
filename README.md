@@ -192,7 +192,7 @@ assembled into an app bundle by `build.sh` (see [Requirements](#requirements) an
 SwiftPM" note in `CLAUDE.md` for the reasoning).
 
 ```sh
-git clone https://github.com/<your-org>/suit.git
+git clone https://github.com/ivibedathing/suit.git
 cd suit
 ./build.sh                 # builds swift/, assembles build/Suit.app (ad-hoc code signed)
 open build/Suit.app        # launch like a normal Mac app
