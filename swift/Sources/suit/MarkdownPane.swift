@@ -1,7 +1,8 @@
 import Cocoa
 
 // Markdown preview tab: renders `.md`/`.markdown` as a formatted, read-only
-// document — a centered reading column (max ~720pt, like GitHub/Typora) with
+// document — a centered reading column (max ~720pt, like GitHub/Typora) set
+// in proportional document type (16pt floor, scaling with the pane font) with
 // headings over hairline rules, joined paragraphs, nested lists and task
 // checkboxes, full-width code-block backgrounds (fences colored by
 // SyntaxHighlighter), bar-quoted blockquotes, pipe tables, local images, and
@@ -258,9 +259,11 @@ enum MarkdownRenderer {
     }
 
     static func render(_ text: String, baseFont: NSFont, textColor: NSColor, baseDir: String? = nil) -> NSAttributedString {
-        // Reading size: prose renders a touch larger than the terminal font it
-        // inherits, the way documentation surfaces do.
-        let size = baseFont.pointSize + 2
+        // Reading size: prose renders larger than the terminal font it
+        // inherits, the way documentation surfaces do, and never below a 16pt
+        // floor — the default 13pt terminal font should still yield
+        // comfortable document type. ⌘= / ⌘- keep scaling it past the floor.
+        let size = max(baseFont.pointSize + 3, 16)
         let body = NSFont.systemFont(ofSize: size)
         let mono = NSFont.monospacedSystemFont(ofSize: size - 2, weight: .regular)
         let out = NSMutableAttributedString()
@@ -328,15 +331,25 @@ enum MarkdownRenderer {
                 continue
             }
 
-            // List item (bullet, ordered, or task).
+            // List item (bullet, ordered, or task). Indented continuation
+            // lines join the item the way hard-wrapped paragraph lines join —
+            // a wrapped bullet stays one bullet.
             if let item = listItem(line) {
+                var content = item.content
+                var j = i + 1
+                while j < lines.count,
+                      lines[j].first == " " || lines[j].first == "\t",
+                      isParagraphContinuation(lines[j], next: j + 1 < lines.count ? lines[j + 1] : nil) {
+                    content += " " + lines[j].trimmingCharacters(in: .whitespaces)
+                    j += 1
+                }
                 let indent = 4 + CGFloat(item.level) * 20
                 let para = NSMutableParagraphStyle()
                 para.firstLineHeadIndent = indent
                 para.headIndent = indent + 24
                 para.tabStops = [NSTextTab(textAlignment: .left, location: indent + 24)]
-                para.lineSpacing = size * 0.2
-                para.paragraphSpacing = size * 0.25
+                para.lineSpacing = size * 0.3
+                para.paragraphSpacing = size * 0.35
                 let attrs: [NSAttributedString.Key: Any] = [
                     .font: body, .foregroundColor: textColor, .paragraphStyle: para,
                 ]
@@ -349,9 +362,9 @@ enum MarkdownRenderer {
                     markerAttrs[.foregroundColor] = Theme.textDim
                 }
                 out.append(NSAttributedString(string: marker + "\t", attributes: markerAttrs))
-                out.append(inline(item.content, base: attrs, size: size, textColor: textColor, mono: mono))
+                out.append(inline(content, base: attrs, size: size, textColor: textColor, mono: mono))
                 out.append(NSAttributedString(string: "\n", attributes: attrs))
-                i += 1
+                i = j
                 continue
             }
 
@@ -388,7 +401,7 @@ enum MarkdownRenderer {
                 i += 1
             }
             let para = NSMutableParagraphStyle()
-            para.lineSpacing = size * 0.3
+            para.lineSpacing = size * 0.4
             para.paragraphSpacing = size * 0.7
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: body, .foregroundColor: textColor, .paragraphStyle: para,
