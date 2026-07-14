@@ -11,6 +11,8 @@ extension AppDelegate {
         let appMenu = NSMenu()
         let aboutItem = appMenu.addItem(withTitle: "About Suit", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         aboutItem.target = NSApp
+        let checkUpdatesItem = appMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates(_:)), keyEquivalent: "")
+        checkUpdatesItem.target = self
         appMenu.addItem(.separator())
         let settingsItem = appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings(_:)), keyEquivalent: ",")
         settingsItem.target = self
@@ -318,5 +320,12 @@ extension AppDelegate {
         NSApp.windowsMenu = windowMenu
 
         NSApp.mainMenu = mainMenu
+    }
+
+    // App menu ▸ Check for Updates… — the manual check; always answers with
+    // an alert (offer / up to date / error), ignoring the daily throttle and
+    // any skipped version.
+    @objc func checkForUpdates(_ sender: Any?) {
+        updateChecker?.checkNow()
     }
 }
