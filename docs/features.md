@@ -124,7 +124,9 @@ app does.
   universal-ctags on PATH to enable the index.
 - **Preview tabs** — the viewer routes by extension, so previewing a README or a design asset
   never means a trip to Finder. Markdown (`.md`/`.markdown`) renders as a proper document in a
-  centered reading column (capped at ~720pt, margins grow with the pane, like GitHub/Typora):
+  centered reading column (capped at ~720pt, margins grow with the pane, like GitHub/Typora),
+  set in proportional reading type — at least 16pt with roomy line spacing, scaling up with the
+  pane font (⌘= / ⌘-):
   ATX and setext headings on a GitHub-style scale with hairline rules under H1/H2, hard-wrapped
   source lines joined into flowing paragraphs, nested bullet/ordered lists with hanging indents,
   task-list checkboxes (`- [ ]` / `- [x]`), fenced code as full-width padded cards
@@ -516,6 +518,16 @@ app does.
   rtk tool-output compression toggle — see below), **Themes** (swap the whole color palette — see below),
   **Autopilot**, **Budget**, and a read-only
   **Shortcuts** reference. Everything persists across launches.
+- **Update check** — Suit polls the GitHub releases of its own repo (at most one API hit per day,
+  re-evaluated shortly after launch and every 6 h for long uptimes) and, when a release tag newer
+  than the running version ships, posts a notification; clicking it opens the offer dialog with
+  the release notes and **Download** / **Remind Me Later** / **Skip This Version**. Download opens
+  the release's `.dmg` (or the release page when there's no `.dmg` asset) in the browser — you
+  install it yourself by dragging the new app into Applications; Suit never replaces itself.
+  Skipping silences that tag until a newer one appears. **Suit ▸ Check for Updates…** (also in the
+  ⌘K palette) checks immediately, ignoring the throttle and any skipped version, and always
+  answers — offer, "You're up to date", or the error. State (last check, skipped tag) lives in
+  `~/.suit/update-check.json`.
 - **Per-pane looks** — right-click a pane for background presets or a custom color, per-pane
   font size (⌘= / ⌘-), and a decorative ASCII screensaver overlay (waves/stars) with its own
   colors and speed. Terminals ground a step darker than the chrome: "Midnight" (#0E1013) is the
