@@ -472,14 +472,20 @@ app does.
 Like the native macOS Terminal, only the **terminal panes** go translucent — the window's title
 bar stays solid, and file/diff/markdown viewers stay opaque for legibility.
 
-- **Real transparency** — the **Transparency** slider in **Settings ▸ Appearance** (or ⌘] / ⌘[)
+- **Real transparency** — the **Opacity** slider in **Settings ▸ Appearance** (or ⌘] / ⌘[)
   lowers each terminal's background alpha so the desktop shows *through* the terminal, while the text
-  itself stays fully opaque and crisp. The live percentage is shown next to the slider.
+  itself stays fully opaque and crisp. The slider reaches down to 5% opacity, so the glass can go
+  almost fully clear.
 - **Background blur** — the **Background Blur** checkbox (⇧⌘B) puts a behind-window frost directly
   behind each translucent terminal, so it reads as a pane of frosted glass rather than a plain
   see-through hole. The frost sits *under* the terminal only, so the title bar and chrome keep their
   solid backing. Blur only becomes visible once transparency is below 100% — there's nothing to see
   through an opaque pane.
+- **Blur amount** — the **Blur** slider (below Opacity in **Settings ▸ Appearance**) tunes how soft
+  the frost is, from 0 (tinted but sharp glass — the desktop stays readable through the terminal) up
+  to roughly twice the stock system blur. The default (30) matches the system frost exactly. The
+  slider takes effect while the Background Blur checkbox is on and the terminal is translucent, and
+  it applies live to every open terminal pane.
 
 ## Themes
 
