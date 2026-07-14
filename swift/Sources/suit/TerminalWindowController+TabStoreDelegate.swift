@@ -24,8 +24,8 @@ extension TerminalWindowController: TabStoreDelegate {
         // Autopilot's worker tab: the engine owns what a
         // death means (§2.7 one --continue respawn, then blocked) and the
         // scrollback must survive for debugging — skip the clean-exit close.
-        if AutopilotEngine.shared.ownsTab(withId: tab.id) {
-            AutopilotEngine.shared.workerTabExited(tab)
+        if let engine = AutopilotManager.shared.engineOwningTab(withId: tab.id) {
+            engine.workerTabExited(tab)
             return
         }
         guard tab.exitStatus?.isClean == true else { return }

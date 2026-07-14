@@ -411,9 +411,22 @@ app does.
   and loops to the next phase. Gate failures feed the build-log tail or review findings back
   into the live session for another attempt (capped by the Attempts setting); anything
   unrecoverable blocks Autopilot with a notification, keeping the worktree, branch, PR and
-  logs for inspection (the palette's Retry resumes). One run at a time; merged phases post a
-  notification too. Needs the `gh` CLI (installed and authenticated) and the Claude Code
-  integration.
+  logs for inspection (the palette's Retry resumes). Merged phases post a notification too.
+  Needs the `gh` CLI (installed and authenticated) and the Claude Code integration.
+- **Multiple autopilots at once** — Autopilot is per-repo, and several run concurrently, one
+  per git repository. **`Autopilot: Start Here`** (palette) resolves the active tab's working
+  directory up to its git root, requires a `ROADMAP.md` there, and stands up an autopilot for
+  that repo — so you launch a run from wherever you're looking, no Settings trip needed. The
+  configured project (Settings ▸ Autopilot) still auto-runs on launch as the "primary". Because
+  every worker draws on the *same* Claude budget, only **one instance holds a live run at a
+  time**: the others sit **queued** and take the slot the moment it frees (the budget modes
+  below still decide when the active slot may start a new phase). Each instance keeps its own
+  state, history, and logs, and a running autopilot is re-adopted on the next launch.
+- **Autopilot dashboard** (`Autopilot: Dashboard`, or click the footer row when more than one
+  is active) — a floating panel with one row per running autopilot: the repo, its live status,
+  and per-repo controls — Focus run tab, Pause/Resume, Skip Current Phase, Retry (while
+  blocked), Show Log, and **Stop** (drop that instance without touching its worktree). A
+  **Start Here** button launches a new one on the active tab's repo.
 - **Budget modes** — three switchable modes decide when a run may *start* (a run in flight
   always finishes): **Pace to reset** spreads the weekly budget evenly across the rate-limit
   window, **Max out** runs whenever usage is under the ceilings, **Night shift** is max-out
@@ -428,12 +441,17 @@ app does.
   and "Keep the Mac awake during runs".
 - **Status row** — a one-line status in the sidebar footer, above the usage rows: `Autopilot ·
   next run ~03:40`, `⚙ Phase 23 · running 41m`, `⚙ Phase 23 · gate: build`, `⚙ Phase 23 ·
-  merging PR #142`, `⚠ Phase 23 blocked — …`. Clicking it focuses the run tab while a run is
-  active, otherwise opens the log; the tooltip carries the full reason.
+  merging PR #142`, `⚠ Phase 23 blocked — …`, `Autopilot · queued` (waiting behind the active
+  instance). With several autopilots active the row shows the running (or primary) one prefixed
+  with its repo and a `· N autopilots` count. Clicking it opens the dashboard when more than one
+  is active, else focuses the run tab (while running) or the log; the tooltip carries the full
+  reason.
 - **Palette commands** — `Autopilot: Enable`/`Disable` (the title flips) and `Autopilot: Show
-  Log` are always there; while enabled, also `Run Next Phase Now` (bypasses the budget gate
-  once), `Pause After Current Run`/`Resume`, `Skip Current Phase`, and `Open Run Tab`, plus
-  `Retry` while blocked. No new keyboard bindings — palette-reachable is keyboard-complete.
+  Log` are always there; while enabled, also `Start Here (active tab's repo)`, `Dashboard`,
+  `Run Next Phase Now` (bypasses the budget gate once), `Pause After Current Run`/`Resume`,
+  `Skip Current Phase`, and `Open Run Tab`, plus `Retry` while blocked. The run-control verbs
+  act on the current instance (running / primary / first active). No new keyboard bindings —
+  palette-reachable is keyboard-complete.
 - **The run tab** — the worker is an ordinary terminal tab titled `⚙ Phase N — <Title>`,
   opened without stealing focus; watch it, split it, or type into it (the session dot pulses
   on needs-input as usual). A worker exit never auto-closes the tab, so the scrollback
@@ -442,12 +460,15 @@ app does.
   phase heading means shipped, `⏸` means skipped ("Skip Current Phase" appends it — the
   engine's one write to the file). When every phase is shipped or skipped, Autopilot idles
   until the roadmap changes again.
-- **On disk** — `~/.suit/autopilot/` holds `state.json` (the current run — it survives a
-  relaunch, and Autopilot resumes it at the right stage), `history.jsonl` (one row per
-  finished run: outcome, PR URL, attempts, cost), `autopilot.log` (the human-readable event
-  log Show Log opens as a viewer tab), and `logs/<slug>/build-N.log` / `review-N.log` (gate
-  output). A `~/.suit/autopilot-prompt.md`, when present, overrides the worker prompt
-  template.
+- **On disk** — each autopilot owns a per-repo slot under `~/.suit/autopilot/repos/<slug>/`
+  holding `state.json` (its current run — it survives a relaunch, and Autopilot resumes it at
+  the right stage), `history.jsonl` (one row per finished run: outcome, PR URL, attempts,
+  cost), `autopilot.log` (the human-readable event log Show Log opens as a viewer tab), and
+  `logs/<phase-slug>/build-N.log` / `review-N.log` (gate output). Cross-instance events
+  (enable/disable, Start Here, Stop) go to the top-level `~/.suit/autopilot/autopilot.log`. The
+  old single-autopilot layout (files directly under `~/.suit/autopilot/`) is migrated into the
+  primary repo's slot automatically on first launch. A `~/.suit/autopilot-prompt.md`, when
+  present, overrides the worker prompt template.
 
 ## Appearance & settings
 

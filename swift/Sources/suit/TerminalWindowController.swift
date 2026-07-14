@@ -282,6 +282,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.usageFooter.onAutopilotOpenLog = { [weak self] in
             self?.appDelegate.openAutopilotLog()
         }
+        sidebar.usageFooter.onAutopilotOpenDashboard = { [weak self] in
+            self?.appDelegate.showAutopilotDashboard()
+        }
         // Restore a previously pinned root (one key across windows, like
         // sidebarWidth); a vanished directory silently unpins.
         if let pinned = UserDefaults.standard.string(forKey: "sidebarPinnedRoot") {

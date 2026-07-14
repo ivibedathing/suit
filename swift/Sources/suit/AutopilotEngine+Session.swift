@@ -80,8 +80,8 @@ extension AutopilotEngine {
         guard !inFlight else { return }
         if let last = lastVerificationAt,
            Date().timeIntervalSince(last) < Self.verificationInterval { return }
-        guard let run = store.run, let root = appDelegate?.autopilotProjectRoot,
-              !root.isEmpty else { return }
+        let root = projectRoot
+        guard let run = store.run, !root.isEmpty else { return }
         lastVerificationAt = Date()
         let job = beginBackgroundJob()
         let gen = generation

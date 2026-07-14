@@ -42,6 +42,13 @@ extension TerminalWindowController {
         return nil
     }
 
+    // The working directory of the currently active tab — the focused pane's
+    // cwd, falling back to the active tab's content. Used by "Autopilot: Start
+    // Here" to resolve the repo the user is looking at.
+    func activeTabWorkingDirectory() -> String? {
+        focusedPane()?.workingDirectory ?? activeTab?.content.workingDirectory
+    }
+
     func paneTitleChanged(_ pane: Pane) {
         if focusedPane() === pane {
             window.title = pane.displayTitle

@@ -18,7 +18,7 @@ extension AutopilotEngine {
         if let last = lastMergePollAt,
            Date().timeIntervalSince(last) < Self.gitPollInterval { return }
         lastMergePollAt = Date()
-        let root = app.autopilotProjectRoot
+        let root = projectRoot
         let confirmOnly = mergeConfirmedPending
         if confirmOnly {
             store.log("merge: re-checking PR #\(prNumber) state")
@@ -121,7 +121,7 @@ extension AutopilotEngine {
 
     func maybeStartCleanup(_ run: AutopilotRun) {
         guard !inFlight, let app = appDelegate else { return }
-        let root = app.autopilotProjectRoot
+        let root = projectRoot
         store.log("cleanup: syncing the main checkout and removing the task worktree")
         let job = beginBackgroundJob()
         let gen = generation

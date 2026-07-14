@@ -14,7 +14,7 @@ extension AutopilotEngine {
         budgetBypassOnce = false
         let job = beginBackgroundJob()
         let gen = generation
-        let root = appDelegate?.autopilotProjectRoot ?? ""
+        let root = projectRoot
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let result = AutopilotEngine.runPreflight(root: root)
             DispatchQueue.main.async {
@@ -56,7 +56,7 @@ extension AutopilotEngine {
     // full tree — too slow for main), then run record + tab on main.
     private func spawnRun(for phase: RoadmapPhase) {
         guard !inFlight, let app = appDelegate else { return }
-        let root = app.autopilotProjectRoot
+        let root = projectRoot
         let job = beginBackgroundJob()
         // §2.9: the sleep hold spans spawning…cleanup. Spawning happens while
         // the state is still `idle`, so it's taken explicitly here;
@@ -237,11 +237,18 @@ extension AutopilotEngine {
     // all land here. Resolves world state on a background queue, then
     // finishAdoption lands the run at its true stage.
     func adoptPersistedRun(context: String) {
-        guard let app = appDelegate, let run = store.run else {
+        guard appDelegate != nil, let run = store.run else {
             setState(.idle)
             return
         }
-        let root = app.autopilotProjectRoot
+        // One active run at a time across all instances: if a sibling holds the
+        // slot, keep the run persisted and stay idle — tickIdle re-adopts once
+        // the slot frees.
+        guard AutopilotManager.shared.mayEngineBeginRun(self) else {
+            setState(.idle)
+            return
+        }
+        let root = projectRoot
         guard !root.isEmpty else {
             block(.noProject, "No Autopilot project is configured — choose one in Settings ▸ Autopilot.", phaseId: nil)
             return
