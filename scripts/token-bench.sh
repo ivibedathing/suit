@@ -158,7 +158,12 @@ fi
 for script in suit-posttool-filter.sh suit-rtk-rewrite.sh; do
   inst="$HOME/.suit/scripts/$script"
   if [ -f "$inst" ] && ! cmp -s "$inst" "$ROOT/scripts/claude/$script"; then
-    cp "$ROOT/scripts/claude/$script" "$inst" && chmod +x "$inst"
+    # Atomic replace (temp + mv): live sessions execute these hooks constantly,
+    # and a plain cp lets a concurrently launched hook read a torn file.
+    tmp="$(mktemp "$HOME/.suit/scripts/.sync.XXXXXX")" \
+      && cp "$ROOT/scripts/claude/$script" "$tmp" \
+      && chmod 755 "$tmp" \
+      && mv -f "$tmp" "$inst"
     echo "note: synced installed $script to this repo's version (kill-switch + meter)."
   fi
 done

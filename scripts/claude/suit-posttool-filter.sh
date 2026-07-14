@@ -6,9 +6,11 @@
 # command, this hook works on the other side of a tool call: it rewrites the
 # tool's *result* before it reaches the model's context window, via
 #   {"hookSpecificOutput":{"hookEventName":"PostToolUse",
-#     "updatedToolOutput":"<replacement>"}}
-# (Claude Code ≥ 2.1.133) — reaching the built-in Read/Grep/Glob results rtk
-# never sees. Installed / removed by Suit's Settings ▸ Claude toggles (see
+#     "updatedToolOutput":<same shape as tool_response, content replaced>}}
+# — reaching the built-in Read/Grep/Glob results rtk never sees. The
+# replacement MUST mirror the tool's own tool_response shape (see REPLACE_JQ);
+# Claude Code silently ignores a mismatched shape (e.g. a bare string for
+# Read's object result — verified empirically on 2.1.208). Installed / removed by Suit's Settings ▸ Claude toggles (see
 # PostToolHook.swift); off by default. One script serves both toggles, its
 # behaviors selected by flags, because matching hooks for an event run in
 # parallel and two independent rewriters for the same result would race:
@@ -88,15 +90,16 @@ log_saving() {
 INPUT="$(cat)"
 [ -n "$INPUT" ] || pass_through
 
-# Bench kill-switch: disable every rewrite (and the cache lifecycle ops)
-# per-process, leaving the installed hook entries untouched. Checked after the
-# stdin read so the hook's writer never takes a SIGPIPE.
-[ "${SUIT_TOKEN_FILTERS:-on}" = "off" ] && pass_through
-
 if [ "${SUIT_POSTTOOL_DEBUG:-0}" = "1" ]; then
   mkdir -p "$HOME/.suit" 2>/dev/null
   printf '%s\n' "$INPUT" >>"$HOME/.suit/posttool-debug.jsonl" 2>/dev/null
 fi
+
+# Bench kill-switch: disable every rewrite (and the cache lifecycle ops)
+# per-process, leaving the installed hook entries untouched. Checked after the
+# stdin read (so the hook's writer never takes a SIGPIPE) and after the debug
+# tee (diagnostics work regardless of the switch).
+[ "${SUIT_TOKEN_FILTERS:-on}" = "off" ] && pass_through
 
 SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)"
 CACHE_DIR="$HOME/.suit/read-cache"
@@ -131,11 +134,45 @@ case "$TOOL" in
   *) pass_through ;;
 esac
 
+# Emit an updatedToolOutput payload that mirrors the original tool_response's
+# shape with only its content-bearing field replaced by $new. Claude Code
+# SILENTLY IGNORES a bare-string updatedToolOutput for tools whose response is
+# an object (verified empirically on 2.1.208: the full result still reached
+# the model) — the replacement must be the same shape the tool produced.
+# Observed shapes: Bash {stdout, stderr, ...} (stderr is folded, labeled, into
+# the replacement stdout), Grep {content, numLines, ...}, Glob {filenames,
+# numFiles, ...}, Read {type, file: {content, numLines, ...}}. An unrecognized
+# shape emits nothing → the caller passes through.
+REPLACE_JQ='
+  def replaced($new):
+    .tool_response as $r
+    | if ($r | type) == "string" then $new
+      elif ($r | type) == "object" then
+        (if ($r.stdout? != null) then ($r | .stdout = $new | .stderr = "")
+         elif ($r.output? != null) then ($r | .output = $new)
+         elif ($r.content? != null) then
+           ($r | .content = $new
+               | (if (.numLines? != null) then .numLines = ($new | split("\n") | length) else . end))
+         elif ($r.file?.content? != null) then
+           ($r | .file.content = $new
+               | (if (.file.numLines? != null) then .file.numLines = ($new | split("\n") | length) else . end))
+         elif ($r.filenames? != null) then
+           ($r | .filenames = ($new | split("\n"))
+               | (if (.numFiles? != null) then .numFiles = (.filenames | length) else . end))
+         else null end)
+      else null end;
+  replaced($new) as $updated
+  | if $updated == null then empty
+    else {hookSpecificOutput: {hookEventName: "PostToolUse", updatedToolOutput: $updated}} end
+'
+
 # Extract the result text defensively (used by the savings meter and the
 # compression cut): the hook docs don't pin tool_response's shape per tool, so
 # accept a plain string or the known object fields — anything else yields empty
 # and the affected behavior passes through. A Bash object result keeps its
-# stderr (labeled) so a failure's diagnostics survive an elision.
+# stderr (labeled) so a failure's diagnostics survive an elision. The field
+# priority here matches replaced() above, so the text measured is the text
+# that gets replaced.
 TEXT="$(printf '%s' "$INPUT" | jq -r '
   .tool_response
   | if type == "string" then .
@@ -182,9 +219,7 @@ if [ "$DEDUP" = "1" ] && [ "$TOOL" = "Read" ] && [ -n "$SID" ]; then
         jq --arg f "$FILE" \
            '.files[$f].stubbed = true' "$CACHE" 2>/dev/null | write_cache
         STUB="[suit read-dedup: $FILE is unchanged since your full read at ${WHEN:-earlier} ($E_LINES lines, $FSIZE bytes) — its content is already in this conversation. Read it again to force the full file, or use offset/limit for a specific range.]"
-        OUT="$(printf '%s' "$STUB" | jq -Rs \
-          '{hookSpecificOutput: {hookEventName: "PostToolUse", updatedToolOutput: .}}' \
-          2>/dev/null)"
+        OUT="$(printf '%s' "$INPUT" | jq -c --arg new "$STUB" "$REPLACE_JQ" 2>/dev/null)"
         [ -n "$OUT" ] || pass_through
         log_saving dedup "${#TEXT}" "${#STUB}"
         printf '%s' "$OUT"
@@ -258,9 +293,7 @@ $TAIL"
 # Only replace when the elision genuinely shrinks the result.
 [ "${#ELIDED}" -lt "$SIZE" ] || pass_through
 
-OUT="$(printf '%s' "$ELIDED" | jq -Rs \
-  '{hookSpecificOutput: {hookEventName: "PostToolUse", updatedToolOutput: .}}' \
-  2>/dev/null)"
+OUT="$(printf '%s' "$INPUT" | jq -c --arg new "$ELIDED" "$REPLACE_JQ" 2>/dev/null)"
 [ -n "$OUT" ] || pass_through
 log_saving compress "$SIZE" "${#ELIDED}"
 printf '%s' "$OUT"

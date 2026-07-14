@@ -284,9 +284,11 @@ app does.
 - **Large tool-result compression** — a **Settings ▸ Claude** toggle ("Compress large tool
   results (Read/Grep/Glob/Bash)"), **off by default**, that installs a Claude Code
   `PostToolUse` hook (`suit-posttool-filter.sh`) rewriting a tool's *result* before it reaches
-  the context window via `updatedToolOutput` (requires Claude Code ≥ 2.1.133) — the side of a
-  tool call rtk can't touch, covering the built-in Read/Grep/Glob tools and any Bash output
-  that escaped rtk. Deliberately conservative: results under **~30k characters (≈7.5k tokens)
+  the context window via `updatedToolOutput` — the side of a tool call rtk can't touch,
+  covering the built-in Read/Grep/Glob tools and any Bash output that escaped rtk. The
+  replacement mirrors each tool's own response shape (Bash `{stdout, stderr}`, Read
+  `{file: {content}}`, Grep `{content}`, Glob `{filenames}`); Claude Code silently ignores a
+  mismatched shape, so a bare-string replacement would be a no-op (verified on 2.1.208). Deliberately conservative: results under **~30k characters (≈7.5k tokens)
   are never modified**; larger ones keep their first 200 and last 50 lines (or a byte-based
   head+tail for single-blob output) around a marker telling Claude how to narrow the query
   (`head_limit`, `offset`/`limit`, a tighter pattern). A Bash result's stderr survives the cut,

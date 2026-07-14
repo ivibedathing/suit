@@ -78,11 +78,29 @@ hcheck "$(nonempty "$out")" "a giant single-blob Read result is rewritten (byte 
 BIG_GLOB="$(jq -n '{filenames: ([range(0; 1500)] | map("/repo/src/deeply/nested/dir/file-" + (. | tostring) + ".swift")), numFiles: 1500}')"
 out="$(payload Glob "$BIG_GLOB" | run_hook)"
 hcheck "$(nonempty "$out")" "a giant Glob filenames array is rewritten"
+# Claude Code silently ignores a replacement whose shape differs from the
+# tool's own tool_response — every object result must be mirrored in shape.
+hcheck "$(printf '%s' "$out" | jq -e '.hookSpecificOutput.updatedToolOutput
+          | (.filenames | type == "array") and .numFiles == (.filenames | length)' \
+          >/dev/null 2>&1 && echo 1 || echo 0)" \
+  "the Glob replacement mirrors the shape (filenames array, numFiles updated)"
 
-out="$(payload Bash "{\"stdout\":$BIG_BLOB,\"stderr\":\"boom failed\"}" '{"command":"npm test"}' | run_hook)"
+BIG_GREP="$(jq -n --argjson c "$BIG_LINES" '{mode: "content", numFiles: 4, filenames: [], content: $c, numLines: 2000}')"
+out="$(payload Grep "$BIG_GREP" | run_hook)"
+hcheck "$(printf '%s' "$out" | jq -e '.hookSpecificOutput.updatedToolOutput
+          | .mode == "content" and (.content | contains("[suit: elided"))
+            and .numLines == (.content | split("\n") | length)' \
+          >/dev/null 2>&1 && echo 1 || echo 0)" \
+  "an object-shaped Grep result is rewritten in shape (content + numLines)"
+
+out="$(payload Bash "{\"stdout\":$BIG_BLOB,\"stderr\":\"boom failed\",\"interrupted\":false}" '{"command":"npm test"}' | run_hook)"
 hcheck "$(nonempty "$out")" "an object-shaped Bash result (stdout/stderr) is rewritten"
 hcheck "$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedToolOutput' | grep -q 'boom failed' && echo 1 || echo 0)" \
   "the Bash stderr survives in the replacement"
+hcheck "$(printf '%s' "$out" | jq -e '.hookSpecificOutput.updatedToolOutput
+          | (.stdout | contains("[stderr]")) and .stderr == "" and .interrupted == false' \
+          >/dev/null 2>&1 && echo 1 || echo 0)" \
+  "the Bash replacement mirrors the shape (stderr folded into stdout, flags kept)"
 
 hcheck "$(empty "$(payload Read "$SMALL" | run_hook)")" "a small result passes through untouched"
 hcheck "$(empty "$(payload Bash "$BIG_BLOB" '{"command":"rtk git status"}' | run_hook)")" \
@@ -130,6 +148,10 @@ out="$(read_payload | dedup_hook)"
 hcheck "$(nonempty "$out")" "a repeat read of the unchanged file is stubbed"
 hcheck "$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedToolOutput' | grep -q 'read-dedup' && echo 1 || echo 0)" \
   "the stub names itself and the recovery path"
+hcheck "$(printf '%s' "$out" | jq -e '.hookSpecificOutput.updatedToolOutput
+          | .type == "text" and (.file.content | startswith("[suit read-dedup"))' \
+          >/dev/null 2>&1 && echo 1 || echo 0)" \
+  "the stub replaces the file content in the Read response shape"
 hcheck "$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedToolOutput' | grep -q '3 lines' && echo 1 || echo 0)" \
   "the stub reports the file's line count"
 hcheck "$(jq -r --arg f "$TARGET" '.files[$f].stubbed' "$CACHEFILE" | grep -q true && echo 1 || echo 0)" \
