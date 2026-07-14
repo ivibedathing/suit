@@ -39,6 +39,7 @@ HARNESSES=(
   "rtk|scripts/rtk-test.sh|fast"
   "posttool|scripts/posttool-test.sh|fast"
   "savings-report|scripts/savings-report-test.sh|fast"
+  "token-savings|scripts/token-savings-test.sh|fast"
   "token-bench|scripts/token-bench-test.sh|fast"
   "shell-extras|scripts/shell-extras-test.sh|fast"
   "dictation|scripts/dictation-test.sh|fast"

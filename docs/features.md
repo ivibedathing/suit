@@ -334,6 +334,13 @@ app does.
   cache-creation, the context-growth number the filters target), cache reads, output, turns,
   cost, wall time, and an `expect_regex` success check, with Δ columns for on-vs-off.
   `--report FILE` re-aggregates an existing results JSONL without spending anything.
+- **Tokens-saved counter** — the meter, surfaced in the app: a pane whose tab runs a Claude
+  session shows **`↓12k`** in its title bar (left of the context %), the estimated tokens
+  Suit's filters have saved *that session* so far. Hover for the breakdown — the spelled-out
+  estimate, the rewrite count, and how it splits between elisions and read-dedups. The counter
+  reads `~/.suit/token-savings.jsonl` incrementally (only appended lines are parsed), appears
+  after the session's first rewrite, and uses the same chars/4 estimate as the report script.
+  No setting: it's on whenever the filters are producing meter rows.
 - **Shell helpers (run_silent)** — a **Settings ▸ Claude** toggle ("Shell helpers (run_silent)
   in new terminals"), **off by default**. New **zsh** terminals launch through a ZDOTDIR shim
   (the VS Code shell-integration mechanism, installed under `~/.suit/zsh/` — your own dotfiles
