@@ -1,0 +1,5 @@
+# Paths Claude sessions should not read wholesale — full-file Reads are
+# denied (range reads pass) and Grep/Glob results here are hidden unless the
+# search targets the path explicitly. One root-relative prefix per line.
+# Consumed by suit-token-ignore.sh / suit-posttool-filter.sh --ignore.
+swift/Vendor/

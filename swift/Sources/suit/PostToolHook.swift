@@ -6,11 +6,12 @@ import Foundation
 // works on the other side of a tool call: a Claude Code PostToolUse hook
 // (suit-posttool-filter.sh) rewrites the tool's *result* via
 // hookSpecificOutput.updatedToolOutput (Claude Code ≥ 2.1.133) — reaching the
-// built-in Read/Grep/Glob results rtk never sees. Two Settings toggles share
+// built-in Read/Grep/Glob results rtk never sees. Three Settings toggles share
 // the one script and the one hook entry, encoded as command-line flags
 // (--compress elides giant results, --dedup stubs re-reads of unchanged
-// files), because matching hooks for an event run in parallel and two
-// independent rewriters for the same Read would race. Dedup additionally needs
+// files, --ignore hides Grep/Glob results under a repo's .claude/token-ignore
+// prefixes), because matching hooks for an event run in parallel and two
+// independent rewriters for the same result would race. Dedup additionally needs
 // PreCompact (clear the session's read cache — post-compact, "already in this
 // conversation" would be a lie) and SessionEnd (delete it) entries, managed
 // here too. This core owns only the ~/.claude/settings.json transform,
@@ -33,12 +34,16 @@ enum PostToolHook {
     // script itself decides per tool and size whether to touch a result.
     private static let matcher = "Read|Grep|Glob|Bash"
 
-    // The desired command line for the current toggle state, nil when both
-    // toggles are off (the whole hook set is then removed).
-    static func filterCommand(compress: Bool, dedup: Bool) -> String? {
+    // The desired command line for the current toggle state, nil when every
+    // toggle is off (the whole hook set is then removed). `ignore` is the
+    // Grep/Glob half of the token-ignore firewall (TokenIgnoreHook owns the
+    // PreToolUse Read half); it defaults off so pre-existing call sites and
+    // harnesses are unchanged.
+    static func filterCommand(compress: Bool, dedup: Bool, ignore: Bool = false) -> String? {
         var flags: [String] = []
         if compress { flags.append("--compress") }
         if dedup { flags.append("--dedup") }
+        if ignore { flags.append("--ignore") }
         guard !flags.isEmpty else { return nil }
         return scriptPath + " " + flags.joined(separator: " ")
     }
@@ -62,9 +67,9 @@ enum PostToolHook {
     // existing entry is repointed in place (drifted path or changed flags);
     // events whose entry is no longer desired lose exactly ours. Idempotent:
     // a no-op reports changed == false. Everything foreign is preserved.
-    static func applying(to root: [String: Any], compress: Bool, dedup: Bool)
+    static func applying(to root: [String: Any], compress: Bool, dedup: Bool, ignore: Bool = false)
         -> (root: [String: Any], changed: Bool) {
-        let filter = filterCommand(compress: compress, dedup: dedup)
+        let filter = filterCommand(compress: compress, dedup: dedup, ignore: ignore)
         // event → (desired command for ours, matcher for a fresh entry)
         let desired: [String: (command: String?, matcher: String?)] = [
             "PostToolUse": (filter, matcher),
@@ -163,10 +168,10 @@ enum PostToolHook {
     // entries, leaving the script and every other setting in place. Returns
     // whether settings.json changed.
     @discardableResult
-    static func setEnabled(compress: Bool, dedup: Bool) throws -> Bool {
+    static func setEnabled(compress: Bool, dedup: Bool, ignore: Bool = false) throws -> Bool {
         let fm = FileManager.default
 
-        if compress || dedup {
+        if compress || dedup || ignore {
             guard let source = bundledFilterScript() else {
                 throw InstallError(
                     "The post-tool filter script was not found in the app's Resources. "
@@ -182,7 +187,7 @@ enum PostToolHook {
         }
 
         let root = readSettings() ?? [:]
-        let (updated, changed) = applying(to: root, compress: compress, dedup: dedup)
+        let (updated, changed) = applying(to: root, compress: compress, dedup: dedup, ignore: ignore)
         guard changed else { return false }
 
         try fm.createDirectory(

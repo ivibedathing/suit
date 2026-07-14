@@ -293,10 +293,24 @@ extension AppDelegate {
         applyPostToolHook()
     }
 
+    // Token-ignore firewall: one toggle drives both halves — the PreToolUse
+    // Read hook (TokenIgnoreHook) and the dispatcher's --ignore flag.
+    func tokenIgnoreChanged(_ enabled: Bool) {
+        tokenIgnoreEnabled = enabled
+        saveSettings()
+        do {
+            _ = try TokenIgnoreHook.setEnabled(enabled)
+        } catch {
+            NSLog("Suit: token-ignore firewall \(enabled ? "install" : "removal") failed: \(error.localizedDescription)")
+        }
+        applyPostToolHook()
+    }
+
     func applyPostToolHook() {
         do {
             _ = try PostToolHook.setEnabled(
-                compress: postToolCompressEnabled, dedup: readDedupEnabled
+                compress: postToolCompressEnabled, dedup: readDedupEnabled,
+                ignore: tokenIgnoreEnabled
             )
         } catch {
             NSLog("Suit: post-tool filter reconcile failed: \(error.localizedDescription)")
@@ -387,6 +401,7 @@ extension AppDelegate {
         postToolCompressEnabled = defaults.bool(forKey: "postToolCompressEnabled")
         shellExtrasEnabled = defaults.bool(forKey: "shellExtrasEnabled")
         readDedupEnabled = defaults.bool(forKey: "readDedupEnabled")
+        tokenIgnoreEnabled = defaults.bool(forKey: "tokenIgnoreEnabled")
         if let args = defaults.string(forKey: "claudeSessionArgs") {
             claudeSessionArgs = args
         }
@@ -501,6 +516,7 @@ extension AppDelegate {
         defaults.set(postToolCompressEnabled, forKey: "postToolCompressEnabled")
         defaults.set(shellExtrasEnabled, forKey: "shellExtrasEnabled")
         defaults.set(readDedupEnabled, forKey: "readDedupEnabled")
+        defaults.set(tokenIgnoreEnabled, forKey: "tokenIgnoreEnabled")
         defaults.set(claudeSessionArgs, forKey: "claudeSessionArgs")
         defaults.set(claudeAPI.model, forKey: "claudeAPIModel")
         defaults.set(claudeAPI.subagentModel, forKey: "claudeAPISubagentModel")
