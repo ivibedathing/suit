@@ -57,9 +57,9 @@ change so visual drift shows up in review diffs.
 
 ## Architecture — the load-bearing concepts
 
-- **Browser-tab model** (`TabStore.swift`, `TabStripView.swift`): tabs are the unit; a window
+- **Browser-tab model** (`TabStore.swift`, `PaneTabBarView.swift`): tabs are the unit; a window
   owns one ordered tab list + MRU order. Panes are viewports — each displays at most one tab;
-  backgrounded tabs keep their processes running. Splitting is tab-first (⌘D, strip
+  backgrounded tabs keep their processes running. Splitting is tab-first (⌘D, tab
   right-click, drag a tab to a pane edge); files are regular tabs deduped by path.
 - **`PaneContent` protocol** (`PaneContent.swift`): what a pane hosts (view, focus target, title,
   appearance hooks, teardown). New pane kinds (viewer, diff, transcript, references, commit
@@ -95,7 +95,7 @@ Everything lives in `swift/Sources/suit/` unless noted. Roughly by area:
   `OverlayPrompt.swift`, `KeyboardShortcuts.swift`, `Theme.swift` (central styling), `Broadcast.swift`
   (⌘-typing to many terminals at once), `UpdateCheckCore.swift` / `UpdateChecker.swift` (GitHub
   release update check — notification + download offer; user installs the .dmg).
-- **Tabs & panes**: `TabStore.swift`, `TabStripView.swift`, `TabItemView.swift`,
+- **Tabs & panes**: `TabStore.swift`,
   `TabSwitcherPanel.swift` (⌃Tab MRU), `Pane.swift`, `PaneContent.swift`, `PaneTerminalView.swift`,
   `PaneTabBarView.swift`, `PaneTitleBarView.swift`, `RootHeaderView.swift`, `PaneScreensaverView.swift`,
   `SplitOrientation.swift`, `StateRestoration.swift`, `Layouts.swift` + `AppDelegate+Layouts.swift`,
@@ -109,7 +109,8 @@ Everything lives in `swift/Sources/suit/` unless noted. Roughly by area:
   `Highlighting`, `Blame` extensions), `ViewerContainerView.swift`, `ViewerTextView.swift`,
   `LineNumberRulerView.swift`, `FileEdit.swift`, `FileTimeTravel.swift`, `SyntaxHighlighter.swift`,
   `MinimapView.swift`, `SymbolIndexCore.swift` / `SymbolIndex.swift` (ctags go-to-definition),
-  `ReferencesPane.swift`. Other pane kinds: `MarkdownPane.swift`, `ImagePane.swift`,
+  `ReferencesPane.swift`. Other pane kinds: `MarkdownPane.swift` (+ `MarkdownRenderer.swift`,
+  the markdown → NSAttributedString parser), `ImagePane.swift`,
   `PDFPane.swift`.
 - **Git & GitHub**: `GitStatus.swift`, `GitBlame.swift`, `GitView.swift` (review surface, shown
   via the palette — no sidebar rail tab) + `GitView+Feedback.swift` / `GitView+PRInbox.swift`,
@@ -135,7 +136,8 @@ Everything lives in `swift/Sources/suit/` unless noted. Roughly by area:
 - **Autopilot & fleet**: `AutopilotEngine.swift` + `AutopilotEngine+*.swift`,
   `AutopilotScheduler.swift`, `RoadmapParser.swift`, `AutopilotStore.swift`, `AutopilotGates.swift`,
   `AutopilotPrompts.swift`, `AutopilotEngineTypes.swift`, `BudgetGuardrails.swift` +
-  `AppDelegate+Budget.swift`, `FleetDashboard.swift` (fleet-supervision dashboard),
+  `AppDelegate+Budget.swift`, `FleetDashboard.swift` + `FleetModel.swift` (fleet-supervision
+  dashboard and its pure projection model),
   `GoalComposition.swift` (`/goal` task composition).
 - **Sessions & history**: `CommandHistory.swift` + `AppDelegate+CommandHistory.swift`,
   `CheckpointTimeline.swift`, `Markers.swift`, `SlashCommands.swift`, `TranscriptSearch.swift`,
