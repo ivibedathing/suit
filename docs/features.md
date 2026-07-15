@@ -131,9 +131,13 @@ app does.
   source lines joined into flowing paragraphs, nested bullet/ordered lists with hanging indents,
   task-list checkboxes (`- [ ]` / `- [x]`), fenced code as full-width padded cards
   (syntax-colored), blockquotes with a left bar, pipe tables as real grids (header row shaded,
-  `:---:` alignments honored), full-width horizontal rules, local images inline (scaled to the
-  column), and inline bold/italic/strikethrough/code plus clickable links — with a
-  Rendered ↔ Raw toggle. Images (PNG/JPG/GIF/SVG/…) open over a checkerboard backing with a zoom-to-fit /
+  `:---:` alignments honored), full-width horizontal rules, images (scaled to the column), and
+  inline bold/italic/strikethrough/code plus clickable links — with a Rendered ↔ Raw toggle.
+  Images render wherever READMEs put them: local paths and remote `http(s)` sources, block
+  `![alt](src)` lines, inline images and `[![badge](src)](href)` linked badges in prose, and
+  raw `<img>` tags (the `<p align="center"><img …></p>` idiom; a `width` attribute is
+  honored). Remote images fetch asynchronously into a shared per-run cache — the alt text
+  shows as a dim placeholder until the bitmap lands, and stays if the fetch fails. Images (PNG/JPG/GIF/SVG/…) open over a checkerboard backing with a zoom-to-fit /
   actual-size toggle and the pixel dimensions in the header. PDFs open in a PDFKit view with a
   page-thumbnail rail. All three are ordinary tabs, so split, drag, path-dedupe, and state
   restoration (scroll / zoom / page) work unchanged.
