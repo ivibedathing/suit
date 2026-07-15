@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Stop Using IDE Terminal.</strong><br>
-  A native macOS terminal that's growing into a Claude-code-first cockpit for codebase work.
+  A native macOS terminal that's growing into a vibe-coding-first cockpit for codebase work.
 </p>
 
 <p align="center">
@@ -189,7 +189,7 @@ Comment verdict via `gh pr review`.
 
 There is no Xcode project and no SwiftPM package — Suit is compiled directly with `swiftc` and
 assembled into an app bundle by `build.sh` (see [Requirements](#requirements) and the "Why no
-SwiftPM" note in `CLAUDE.md` for the reasoning).
+SwiftPM" note in `AGENTS.md` for the reasoning).
 
 ```sh
 git clone https://github.com/ivibedathing/suit.git
@@ -207,7 +207,7 @@ swiftc -O swift/Sources/suit/*.swift \
 
 There is no XCTest target; the pure, UI-free logic is covered by standalone harnesses. Run them
 all with `scripts/test.sh` (fast suite) or `scripts/test.sh --all` (includes the ~4-minute
-Autopilot pipeline harness) — see the "Testing" section in `CLAUDE.md`.
+Autopilot pipeline harness) — see the "Testing" section in `AGENTS.md`.
 
 Two integrations are wired up from inside the app rather than by hand:
 
@@ -229,23 +229,22 @@ Two integrations are wired up from inside the app rather than by hand:
 | Path | What lives there |
 | --- | --- |
 | `swift/Sources/suit/` | The AppKit app — UI, tabs, sidebar, git / Claude / Autopilot logic |
-| `swift/Vendor/SwiftTerm/` | Vendored SwiftTerm source (no SPM — see `CLAUDE.md`) |
+| `swift/Vendor/SwiftTerm/` | Vendored SwiftTerm source (no SPM — see `AGENTS.md`) |
 | `scripts/claude/` | Statusline + session-state hook scripts installed into `~/.suit` |
 | `scripts/test.sh` | Runs the standalone logic harnesses (`*-test.sh` / `*-harness.sh`) |
 | `design/` | App icon and the committed reference render used to catch visual drift |
 | `docs/` | Long-form docs — `features.md` is the full feature reference |
 | `Resources/Info.plist` | App bundle metadata and permission usage strings |
 | `build.sh` | Builds everything and assembles `build/Suit.app` |
-| `AGENTS.md` | Concise front-door for coding agents (60-second orientation) |
+| `AGENTS.md` | Full agent & contributor guidance — architecture, file map, workflow rules |
 | `.claude/commands/` | Repo slash commands: `/build`, `/test`, `/find-file`, `/orient`, … |
-| `CLAUDE.md` | Full architecture breakdown and contributor guidance |
+| `CLAUDE.md` | Stub pointing Claude Code at `AGENTS.md` |
 
 ## Contributing
 
 This is a personal project, but the workflow is documented if you want to hack on it:
 
-- Read `AGENTS.md` for the 60-second orientation, then `CLAUDE.md` for the full architecture, the
-  dev loop, and why the build avoids SwiftPM.
+- Read `AGENTS.md` for the full architecture, the dev loop, and why the build avoids SwiftPM.
 - Start each change on its own branch in its own git worktree — never work directly in the main
   checkout — so concurrent Claude Code sessions don't step on each other's edits.
 - Run `scripts/test.sh` before committing non-UI changes, and regenerate the reference render
