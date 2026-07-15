@@ -1,5 +1,9 @@
 import Cocoa
 
+// This window's slice of state restoration: snapshot its tab list + split tree
+// into StateRestoration's Codable model, replay a saved snapshot on launch or
+// layout-open (dropping tabs whose content can't come back), and re-attach
+// Claude sessions to the restored panes.
 extension TerminalWindowController {
 
     // MARK: - State restoration

@@ -1,5 +1,11 @@
 import Cocoa
 
+// The app-wide settings verbs: the ⌘]/⌘[ opacity and ⇧⌘B blur shortcuts, the
+// font/color/cursor pickers, and the `…Changed` handlers the Settings window
+// calls to apply each value live across every window — plus loadSettings /
+// saveSettings, the UserDefaults persistence both halves share. Adding a
+// setting means touching all three: the AppDelegate property, its handler
+// here, and both sides of the load/save pair.
 extension AppDelegate {
     // MARK: - Opacity & blur
 

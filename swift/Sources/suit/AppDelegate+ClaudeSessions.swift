@@ -1,5 +1,10 @@
 import Cocoa
 
+// App-level verbs over live Claude sessions: focus/steer a session (quick
+// actions typed into its pty), the fleet dashboard and broadcast entry points,
+// the prompt composer, review / PR-review submission into a session, feedback
+// routing, plan approval, and "Set as Goal". Session discovery and state live
+// in ClaudeSessions.swift; this file only acts on what the monitor reports.
 extension AppDelegate {
     // MARK: - Claude sessions
 

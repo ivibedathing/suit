@@ -1,5 +1,9 @@
 import Cocoa
 
+// Autopilot's app-side wiring: the Settings ▸ Autopilot `…Changed` handlers,
+// the palette commands, run-tab open/focus plumbing, notifications, and the
+// activity-feed records for merged/blocked runs. No scheduling decisions live
+// here — the engine (AutopilotEngine*) makes those.
 extension AppDelegate {
     // MARK: - Autopilot
 

@@ -8,7 +8,14 @@ app does.
 
 - [Tabs & panes — tabs live on the pane](#tabs--panes--tabs-live-on-the-pane)
 - [Files, search & navigation](#files-search--navigation)
+  - [Files & sidebar](#files--sidebar) · [File viewer & navigation](#file-viewer--navigation) ·
+    [Git review & inboxes](#git-review--inboxes)
 - [Claude Code cockpit](#claude-code-cockpit)
+  - [Sessions, attention & voice](#sessions-attention--voice) ·
+    [Fleet control & spend](#fleet-control--spend) · [Talking to sessions](#talking-to-sessions) ·
+    [Token-cost filters & meters](#token-cost-filters--meters) ·
+    [Steering & review](#steering--review) · [Transcripts & history](#transcripts--history) ·
+    [Tasks & recipes](#tasks--recipes)
 - [Autopilot](#autopilot)
 - [Appearance & settings](#appearance--settings)
 - [Glassmorphism (transparency & blur)](#glassmorphism-transparency--blur)
@@ -56,6 +63,8 @@ app does.
 
 ## Files, search & navigation
 
+### Files & sidebar
+
 - **Sidebar** (⌘B) — an icon rail with Files, Sessions, SSH Hosts, Notes and Bookmarks. The
   Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
   search / choose-folder / unpin actions, and, inside a repo, a branch-switcher row with the
@@ -77,6 +86,11 @@ app does.
   you can edit it first. A destructive-looking command (curl/wget piped into a shell, `rm -rf`)
   trips the same confirm a risky paste does before it runs. With no history file, it falls back to
   the per-pane commands alone.
+- **Notes** — a free-text scratch tab in the sidebar backed by `~/.suit/notes.txt`;
+  right-click a terminal selection to append it as a note.
+
+### File viewer & navigation
+
 - **File viewer** — files open as tabs (deduped by path) with syntax highlighting, a
   minimap, line numbers, go-to-line (⌘L), and orange marks on lines changed since HEAD.
   Cmd-click a path in any terminal (with optional `:line`) to jump straight to it. Files are
@@ -141,6 +155,9 @@ app does.
   shows in the viewer gutter and minimap. The Bookmarks sidebar tab lists them; Enter or
   double-click reopens the file at that line, right-click renames or removes. Saved in
   `~/.suit/bookmarks.json`, shared across windows, dead paths pruned automatically.
+
+### Git review & inboxes
+
 - **Diff view** — `git diff HEAD` as a tab (⌃⌘D), unified or side-by-side with scroll-locked
   halves; review mode walks changed files with n/p and opens the file under review with o.
   A commit ref (from a blame sha or a File History row) opens that commit's per-file diff.
@@ -197,10 +214,9 @@ app does.
   **Comment** — plus an optional overall note; your line comments fold into the review body and it
   posts via `gh pr review`. Right-click ▸ **Open on GitHub** opens the PR page. Palette: **Show PR
   Review Inbox**, **Submit PR Review…**.
-- **Notes** — a free-text scratch tab in the sidebar backed by `~/.suit/notes.txt`;
-  right-click a terminal selection to append it as a note.
-
 ## Claude Code cockpit
+
+### Sessions, attention & voice
 
 - **Session awareness** — an installer (app menu ▸ "Install Claude Code Integration…") wires
   Claude Code's statusline and hooks to `~/.suit`. Panes running Claude sessions show a state
@@ -220,6 +236,9 @@ app does.
   prompts for microphone and speech-recognition access. **Dictate…** in the command palette (and
   View menu) primes that permission and reminds you of the gesture. If holding 🌐 pops the emoji
   picker instead, set *System Settings ▸ Keyboard ▸ Press 🌐 key to* → **Do Nothing**.
+
+### Fleet control & spend
+
 - **Fleet dashboard** — "Show Fleet" (⇧⌘O, or the command palette) opens a floating,
   cross-window panel listing every live Claude session as a row — status dot, current task,
   project · worktree · branch, context %, and cost — sorted needs-you-first, so one glance
@@ -257,6 +276,9 @@ app does.
   (Esc) when a cap is crossed"** to also send Esc into the offending pty and halt it — never
   silently. This is the per-run kill-switch that complements Autopilot's global 5h/weekly start
   gates: an in-flight run that blows a task cap trips here.
+
+### Talking to sessions
+
 - **Talk-back** — send prompts into any session's pty: quick actions (Prompt… / Continue /
   /compact / Interrupt), a floating composer with `@`-completion over repo files, a prompt
   library (`~/.suit/prompts/*.md`), or right-click ▸ "Send Selection to Claude Session" to pipe
@@ -269,6 +291,9 @@ app does.
 - **One-tap /compact** — the pane title bar's context-% meter is a button: click it (or press
   ⌃⌘K, "Compact Focused Session") to send `/compact` into the focused session, so acting on a
   full context window is one tap instead of a typed command.
+
+### Token-cost filters & meters
+
 - **rtk tool-output compression** — a **Settings ▸ Claude** toggle ("Compress tool output with
   rtk"), **off by default**, that installs a Claude Code `PreToolUse` hook running every Bash
   command through [rtk](https://github.com/gglucass/rtk) so its output is filtered down to the
@@ -404,6 +429,9 @@ app does.
   and is typed visibly into the session's shell, so each experiment is scoped to that session and
   auditable in the terminal. Applies to Claude sessions started from Suit (the ✦ button / ⌃⌘C,
   worktree tasks, recipes, review passes); Autopilot workers are deliberately unaffected.
+
+### Steering & review
+
 - **Set as Goal** — select code or prose in a file viewer, transcript, or terminal, then
   right-click ▸ "Set as Goal" (or the palette's "Set Selection as Claude Goal") to send
   `/goal <selection>` into a chosen session — turning "this is what I want done" into a
@@ -418,6 +446,9 @@ app does.
   with `Claude: Review Plan…`: the plan renders read-only as numbered steps with **Approve & Run**
   / **Edit** / **Discard** buttons that inject the matching choice into the session. A *Refresh*
   re-parses the latest plan from the transcript.
+
+### Transcripts & history
+
 - **Transcripts** — open a live-tailing, read-only render of any session's transcript; file
   paths in it are clickable like terminal links.
 - **Checkpoint timeline** — "Open Checkpoint Timeline…" shows a session's automatic pre-change
@@ -430,6 +461,9 @@ app does.
   searched with ripgrep. Results are readable snippets — prompts, replies, tool calls — grouped
   by session (name · project · date), and clicking one opens that session's transcript anchored
   to the matching line.
+
+### Tasks & recipes
+
 - **Worktree tasks** — "New Claude Task…" (⌃⌘T) opens a pane running `claude` for a named task;
   finishing the task merges or discards its worktree. The prompt carries an **Isolate in
   worktree** switch — on (the default) spins a dedicated git worktree on a `task/…` branch, off

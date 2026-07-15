@@ -1,5 +1,8 @@
 import Cocoa
 
+// Tab interactions: dragging chips (onto panes, edges, other windows, or clear
+// of every window to tear off), ⌘1–9 / ⇧⌘[] / ⌃Tab keyboard navigation,
+// rename/keep/pin niceties, and the tab context menu.
 extension TerminalWindowController {
 
     // MARK: - Tab drag & drop

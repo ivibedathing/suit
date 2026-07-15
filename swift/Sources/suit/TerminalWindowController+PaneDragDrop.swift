@@ -1,5 +1,8 @@
 import Cocoa
 
+// Drag-rearranging panes: while a pane header (or tab chip) drags, show the
+// split-zone preview — outer halves split on that edge, center re-homes — and
+// on drop rebuild the split tree accordingly.
 extension TerminalWindowController {
 
     // MARK: - Pane drag & drop rearrangement

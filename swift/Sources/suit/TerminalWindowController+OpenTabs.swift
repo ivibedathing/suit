@@ -1,5 +1,10 @@
 import Cocoa
 
+// Opening things as tabs in this window: files (deduped by path), the
+// window-singleton panes (diff, transcript, commit graph, plan approval,
+// references, checkpoint timeline), the "what changed since mark" catch-up
+// diff, go-to-definition / find-references, and the launchers that start
+// Claude task / recipe / review-pass sessions in a (worktree) terminal tab.
 extension TerminalWindowController {
 
     // MARK: - Opening file / diff / transcript tabs

@@ -1,5 +1,9 @@
 import Cocoa
 
+// The entire main menu bar, built in code (no nib): every menu, item, and key
+// equivalent, each targeting an action defined in the other AppDelegate /
+// window-controller extensions. Change a shortcut here and in
+// docs/features.md's shortcut table together.
 extension AppDelegate {
     // MARK: - Menu
 

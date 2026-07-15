@@ -1,5 +1,8 @@
 import Cocoa
 
+// Tab-first split screen: ⌘D (and the drag/menu paths) carve a new pane beside
+// the active one and hand it a tab; also unsplit (⌥⌘W), walking splits
+// (⌥⌘arrows), and the NSSplitViewDelegate sizing rules.
 extension TerminalWindowController {
 
     // MARK: - Split Screen (tab-first)

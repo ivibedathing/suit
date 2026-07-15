@@ -1,5 +1,8 @@
 import Cocoa
 
+// The window's tab-model core: every mutation of TabStore (open, close,
+// activate, move) funnels through here, followed by a refresh of the surfaces
+// that render it — the in-pane tab bars and the Sessions sidebar.
 extension TerminalWindowController {
 
     // MARK: - Strip wiring
