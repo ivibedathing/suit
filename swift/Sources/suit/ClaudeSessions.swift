@@ -1,4 +1,4 @@
-import Cocoa
+import Foundation
 import Darwin
 
 // Claude session awareness. Claude Code hooks + the
@@ -30,13 +30,8 @@ enum ClaudeSessionState: String {
         }
     }
 
-    var color: NSColor {
-        switch self {
-        case .working: return Theme.sessionBusy
-        case .needsInput: return Theme.sessionNeedsInput
-        case .done: return Theme.sessionDone
-        }
-    }
+    // The state's dot color lives UI-side (Theme.swift) so this file stays
+    // Foundation-only and standalone-compilable.
 }
 
 struct ClaudeSession {

@@ -105,7 +105,7 @@ extension AutopilotEngine {
                 }
                 return
             }
-            let defaultBranch = GitHubCLI.defaultBranch(root: root) ?? "main"
+            let defaultBranch = AutopilotEngine.defaultBranchOrMain(root: root)
             // Best-effort: verification already fetched recently; a stale
             // origin ref only makes the diff marginally out of date.
             _ = WorktreeTasks.runGit(run.worktreePath, ["fetch", "origin"])

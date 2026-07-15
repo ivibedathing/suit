@@ -200,7 +200,7 @@ extension AutopilotEngine {
     func roadmapModificationDate() -> Date? {
         let root = projectRoot
         guard !root.isEmpty else { return nil }
-        let attributes = try? FileManager.default.attributesOfItem(atPath: root + "/ROADMAP.md")
+        let attributes = try? FileManager.default.attributesOfItem(atPath: RoadmapParser.path(inRoot: root))
         return attributes?[.modificationDate] as? Date
     }
 }

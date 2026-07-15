@@ -139,7 +139,7 @@ final class AutopilotManager {
         guard appDelegate?.autopilotEnabled == true else { return .notEnabled }
         guard let gitRoot = FileIndex.gitRoot(of: directory) else { return .notAGitRepo }
         let key = Self.normalize(gitRoot)
-        guard FileManager.default.fileExists(atPath: key + "/ROADMAP.md") else {
+        guard FileManager.default.fileExists(atPath: RoadmapParser.path(inRoot: key)) else {
             return .noRoadmap(root: key)
         }
         if let existing = engines[key], existing.isActive {

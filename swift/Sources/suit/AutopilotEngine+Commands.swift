@@ -185,7 +185,7 @@ extension AutopilotEngine {
     // error message, nil on success (including already-marked).
     private func markPhaseSkipped(_ phaseId: Int, root: String) -> String? {
         guard !root.isEmpty else { return "no Autopilot project is configured" }
-        let path = root + "/ROADMAP.md"
+        let path = RoadmapParser.path(inRoot: root)
         guard let content = try? String(contentsOfFile: path, encoding: .utf8) else {
             return "couldn't read \(path)"
         }

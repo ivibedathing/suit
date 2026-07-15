@@ -44,7 +44,7 @@ extension AppDelegate {
         let expanded = (path as NSString).expandingTildeInPath
         if !expanded.isEmpty {
             guard FileIndex.gitRoot(of: expanded) != nil,
-                  FileManager.default.fileExists(atPath: expanded + "/ROADMAP.md") else { return false }
+                  FileManager.default.fileExists(atPath: RoadmapParser.path(inRoot: expanded)) else { return false }
         }
         autopilotProjectRoot = expanded
         saveSettings()

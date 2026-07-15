@@ -42,7 +42,7 @@ extension AutopilotEngine {
             // The conflict feedback names the branch to merge; resolve it
             // here so the main-queue handler never shells out.
             let defaultBranch = mergeError != nil
-                ? (GitHubCLI.defaultBranch(root: root) ?? "main") : "main"
+                ? AutopilotEngine.defaultBranchOrMain(root: root) : "main"
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.endBackgroundJob(job)

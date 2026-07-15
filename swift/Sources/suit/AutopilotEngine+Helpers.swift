@@ -183,6 +183,11 @@ extension AutopilotEngine {
 
     // MARK: - Worker-run helpers
 
+    // The one home for the default-branch fallback: gh's answer, else "main".
+    static func defaultBranchOrMain(root: String) -> String {
+        GitHubCLI.defaultBranch(root: root) ?? "main"
+    }
+
     // The staleness guard every background-job completion runs on the main
     // queue: act only if the engine wasn't stopped or restarted since the job
     // began (generation), is still running, and the store still holds the same

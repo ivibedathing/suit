@@ -36,6 +36,12 @@ struct RoadmapPhase {
 }
 
 enum RoadmapParser {
+    // The roadmap's one canonical location: <root>/ROADMAP.md. Call sites
+    // never rebuild the path by hand, so the filename can't drift.
+    static func path(inRoot root: String) -> String {
+        root + "/ROADMAP.md"
+    }
+
     // Every well-formed phase section, in document order. A heading must
     // match ^### Phase (\d+) — (.+)$ exactly (ASCII digits, spaced em dash,
     // non-empty title); malformed variants are not phases, though as ##/###
