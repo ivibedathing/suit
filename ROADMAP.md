@@ -11,7 +11,7 @@ Order rationale: Phase 1 fixes the prompt every later worker reads, so it goes
 first. Phases 2–3 are why the loop can't start; 4–6 are why a started run
 wedges; 7–9 are correctness inside a run; 10–12 are the long tail.
 
-### Phase 1 — Worker prompt and review gate name the docs that exist
+### Phase 1 — Worker prompt and review gate name the docs that exist — ✅ shipped
 
 Every worker prompt sends the model to files that no longer hold what the
 prompt claims. `AutopilotPrompts.swift:32` opens with:
