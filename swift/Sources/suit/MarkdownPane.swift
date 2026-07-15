@@ -5,9 +5,10 @@ import Cocoa
 // in proportional document type (16pt floor, scaling with the pane font) with
 // headings over hairline rules, joined paragraphs, nested lists and task
 // checkboxes, full-width code-block backgrounds (fences colored by
-// SyntaxHighlighter), bar-quoted blockquotes, pipe tables, local images, and
+// SyntaxHighlighter), bar-quoted blockquotes, pipe tables, images — local and
+// remote, `![...]()` blocks, inline badges, and raw `<img>` tags — and
 // inline emphasis/code/strikethrough/links (the parser itself is
-// MarkdownRenderer.swift). A toggle flips rendered ↔ raw;
+// MarkdownRenderer.swift, with MarkdownImageLoader). A toggle flips rendered ↔ raw;
 // raw is the plain highlighted source, the same surface a code file gets in
 // the viewer. Deliberately read-only.
 
@@ -131,6 +132,64 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
         textView.textStorage?.setAttributedString(attributed)
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         updateInsets()
+        loadRemoteImages()
+    }
+
+    // MARK: - Remote images
+
+    // The renderer leaves a dim placeholder run for every remote image, tagged
+    // with the URL. Fetch each one (shared cache, so re-renders are free) and
+    // swap the placeholder for the bitmap once it arrives. Failed fetches keep
+    // the placeholder — the alt text stays readable.
+    private func loadRemoteImages() {
+        guard !rawMode, let storage = textView.textStorage else { return }
+        var urls: Set<URL> = []
+        storage.enumerateAttribute(
+            MarkdownRenderer.remoteImageURLKey,
+            in: NSRange(location: 0, length: storage.length)
+        ) { value, _, _ in
+            if let url = value as? URL { urls.insert(url) }
+        }
+        for url in urls {
+            MarkdownImageLoader.shared.fetch(url) { [weak self] image in
+                guard let image else { return }
+                self?.replaceImagePlaceholders(url: url, image: image)
+            }
+        }
+    }
+
+    private func replaceImagePlaceholders(url: URL, image: NSImage) {
+        guard !rawMode, let storage = textView.textStorage else { return }
+        // Re-find the placeholders by attribute rather than trusting saved
+        // ranges — the document may have been re-rendered since the fetch began.
+        var found: [(NSRange, [NSAttributedString.Key: Any])] = []
+        storage.enumerateAttribute(
+            MarkdownRenderer.remoteImageURLKey,
+            in: NSRange(location: 0, length: storage.length)
+        ) { value, range, _ in
+            if (value as? URL) == url {
+                found.append((range, storage.attributes(at: range.location, effectiveRange: nil)))
+            }
+        }
+        guard !found.isEmpty else { return }
+        storage.beginEditing()
+        for (range, attrs) in found.reversed() {
+            let maxWidth = (attrs[MarkdownRenderer.imageMaxWidthKey] as? NSNumber)
+                .map { CGFloat(truncating: $0) }
+            let replacement = NSMutableAttributedString(
+                attributedString: MarkdownRenderer.attachmentString(for: image, maxWidth: maxWidth)
+            )
+            // Keep what the placeholder inherited from its context: the link
+            // wrapping a badge, and the block/paragraph spacing around it.
+            var carried: [NSAttributedString.Key: Any] = [:]
+            if let link = attrs[.link] { carried[.link] = link }
+            if let para = attrs[.paragraphStyle] { carried[.paragraphStyle] = para }
+            if !carried.isEmpty {
+                replacement.addAttributes(carried, range: NSRange(location: 0, length: replacement.length))
+            }
+            storage.replaceCharacters(in: range, with: replacement)
+        }
+        storage.endEditing()
     }
 
     // Center the rendered column: the horizontal inset absorbs whatever width

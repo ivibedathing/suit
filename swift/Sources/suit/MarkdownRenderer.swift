@@ -1,5 +1,38 @@
 import Cocoa
 
+// Fetches and memory-caches remote markdown images. Shared across panes so a
+// README's badges download once per app run; failures are remembered so theme
+// and font re-renders don't re-hit dead URLs. Completions land on main.
+final class MarkdownImageLoader {
+    static let shared = MarkdownImageLoader()
+
+    private let cache = NSCache<NSURL, NSImage>()
+    private var failed: Set<URL> = []
+    private var inFlight: [URL: [(NSImage?) -> Void]] = [:]
+
+    func cached(_ url: URL) -> NSImage? { cache.object(forKey: url as NSURL) }
+
+    func fetch(_ url: URL, completion: @escaping (NSImage?) -> Void) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        if let hit = cached(url) { completion(hit); return }
+        if failed.contains(url) { completion(nil); return }
+        if inFlight[url] != nil { inFlight[url]?.append(completion); return }
+        inFlight[url] = [completion]
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            var image = data.flatMap { NSImage(data: $0) }
+            if let img = image, img.size.width <= 0 { image = nil }
+            DispatchQueue.main.async {
+                if let image {
+                    self.cache.setObject(image, forKey: url as NSURL)
+                } else {
+                    self.failed.insert(url)
+                }
+                for callback in self.inFlight.removeValue(forKey: url) ?? [] { callback(image) }
+            }
+        }.resume()
+    }
+}
+
 // A compact line-based Markdown → NSAttributedString renderer. Not a full
 // CommonMark implementation — ATX/setext headings, nested lists, task lists,
 // fenced/inline code, blockquotes, pipe tables, rules, images, emphasis,
@@ -125,7 +158,7 @@ enum MarkdownRenderer {
                     markerAttrs[.foregroundColor] = Theme.textDim
                 }
                 out.append(NSAttributedString(string: marker + "\t", attributes: markerAttrs))
-                out.append(inline(content, base: attrs, size: size, textColor: textColor, mono: mono))
+                out.append(inline(content, base: attrs, size: size, textColor: textColor, mono: mono, baseDir: baseDir))
                 out.append(NSAttributedString(string: "\n", attributes: attrs))
                 i = j
                 continue
@@ -141,7 +174,8 @@ enum MarkdownRenderer {
                 continue
             }
 
-            // Block image on its own line (local files only).
+            // Block image on its own line — `![alt](src)` or raw `<img>` tags,
+            // local or remote.
             if let image = imageLine(trimmed, baseDir: baseDir, size: size) {
                 out.append(image)
                 i += 1
@@ -169,7 +203,7 @@ enum MarkdownRenderer {
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: body, .foregroundColor: textColor, .paragraphStyle: para,
             ]
-            out.append(inline(parts.joined(separator: " "), base: attrs, size: size, textColor: textColor, mono: mono))
+            out.append(inline(parts.joined(separator: " "), base: attrs, size: size, textColor: textColor, mono: mono, baseDir: baseDir))
             out.append(NSAttributedString(string: "\n", attributes: attrs))
         }
         return out
@@ -445,50 +479,158 @@ enum MarkdownRenderer {
 
     // MARK: - Images
 
-    // `![alt](src)` alone on a line, when src is a local file → the image
-    // itself, scaled into the column. Remote/missing sources fall through to
-    // the inline link rendering.
+    // Placeholder runs for remote images carry these: the pane fetches the URL
+    // and swaps the run for the bitmap; the optional width (from an <img>
+    // width attribute) caps the swapped-in image.
+    static let remoteImageURLKey = NSAttributedString.Key("suit.markdown.remoteImageURL")
+    static let imageMaxWidthKey = NSAttributedString.Key("suit.markdown.imageMaxWidth")
+
+    // Images never exceed the reading column (720pt minus the code-block gutter).
+    private static let imageColumnWidth: CGFloat = 680
+
+    static func attachmentString(for image: NSImage, maxWidth: CGFloat?) -> NSAttributedString {
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        let cap = min(maxWidth ?? imageColumnWidth, imageColumnWidth)
+        var bounds = image.size
+        if bounds.width > cap {
+            bounds = NSSize(width: cap, height: bounds.height * cap / bounds.width)
+        }
+        attachment.bounds = NSRect(origin: .zero, size: bounds)
+        return NSAttributedString(attachment: attachment)
+    }
+
+    // A line that is nothing but images — `![alt](src)` or HTML starting with
+    // `<` and containing `<img>` tags (the `<p align="center"><img …></p>`
+    // README idiom) → the images as their own block, scaled into the column.
+    // Unresolvable lines fall through to paragraph rendering.
     private static func imageLine(_ trimmed: String, baseDir: String?, size: CGFloat) -> NSAttributedString? {
-        guard trimmed.hasPrefix("!["), trimmed.hasSuffix(")"),
-              let bracket = trimmed.range(of: "](") else { return nil }
-        let rawSrc = String(trimmed[bracket.upperBound..<trimmed.index(before: trimmed.endIndex)])
-            .trimmingCharacters(in: .whitespaces)
-        let src = rawSrc.components(separatedBy: " ").first ?? rawSrc
-        guard !src.isEmpty, !src.contains("://") else { return nil }
+        var fragments: [NSAttributedString] = []
+        if trimmed.hasPrefix("<") {
+            for spec in htmlImageSpecs(trimmed) {
+                if let fragment = imageFragment(alt: spec.alt, src: spec.src, baseDir: baseDir,
+                                                size: size, maxWidth: spec.width, base: [:]) {
+                    fragments.append(fragment)
+                }
+            }
+        } else if trimmed.hasPrefix("!["), trimmed.hasSuffix(")"),
+                  let spec = imageSpec(trimmed), spec.rest.isEmpty,
+                  let fragment = imageFragment(alt: spec.alt, src: spec.src, baseDir: baseDir,
+                                               size: size, maxWidth: nil, base: [:]) {
+            fragments.append(fragment)
+        }
+        guard !fragments.isEmpty else { return nil }
+
+        let para = NSMutableParagraphStyle()
+        para.paragraphSpacingBefore = size * 0.4
+        para.paragraphSpacing = size * 0.8
+        let result = NSMutableAttributedString()
+        for (index, fragment) in fragments.enumerated() {
+            if index > 0 { result.append(NSAttributedString(string: "  ")) }
+            result.append(fragment)
+        }
+        result.append(NSAttributedString(string: "\n"))
+        result.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: result.length))
+        return result
+    }
+
+    // One image reference → its fragment: the bitmap itself when local (or an
+    // already-fetched remote), a dim tagged placeholder when remote, nil when
+    // unusable (missing file, non-http scheme).
+    private static func imageFragment(alt: String, src: String, baseDir: String?, size: CGFloat,
+                                      maxWidth: CGFloat?, base: [NSAttributedString.Key: Any]) -> NSAttributedString? {
+        guard !src.isEmpty else { return nil }
+        if src.contains("://") {
+            guard let url = URL(string: src), let scheme = url.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https" else { return nil }
+            if let cached = MarkdownImageLoader.shared.cached(url) {
+                return attachmentFragment(cached, maxWidth: maxWidth, base: base)
+            }
+            var attrs = base
+            attrs[.font] = italic(NSFont.systemFont(ofSize: max(size - 2, 11)))
+            attrs[.foregroundColor] = Theme.textDim
+            attrs[remoteImageURLKey] = url
+            if let maxWidth { attrs[imageMaxWidthKey] = NSNumber(value: Double(maxWidth)) }
+            let label = alt.isEmpty ? url.lastPathComponent : alt
+            return NSAttributedString(string: "🖼 \(label)", attributes: attrs)
+        }
         let path = src.hasPrefix("/")
             ? src
             : ((baseDir ?? "") as NSString).appendingPathComponent(src)
         let standardized = (path as NSString).standardizingPath
         guard let image = NSImage(contentsOfFile: standardized), image.size.width > 0 else { return nil }
+        return attachmentFragment(image, maxWidth: maxWidth, base: base)
+    }
 
-        let attachment = NSTextAttachment()
-        attachment.image = image
-        let maxWidth: CGFloat = 680
-        var bounds = image.size
-        if bounds.width > maxWidth {
-            bounds = NSSize(width: maxWidth, height: bounds.height * maxWidth / bounds.width)
+    private static func attachmentFragment(_ image: NSImage, maxWidth: CGFloat?,
+                                           base: [NSAttributedString.Key: Any]) -> NSAttributedString {
+        let result = NSMutableAttributedString(attributedString: attachmentString(for: image, maxWidth: maxWidth))
+        var carried: [NSAttributedString.Key: Any] = [:]
+        if let link = base[.link] { carried[.link] = link }
+        if let para = base[.paragraphStyle] { carried[.paragraphStyle] = para }
+        if !carried.isEmpty {
+            result.addAttributes(carried, range: NSRange(location: 0, length: result.length))
         }
-        attachment.bounds = NSRect(origin: .zero, size: bounds)
-
-        let para = NSMutableParagraphStyle()
-        para.paragraphSpacingBefore = size * 0.4
-        para.paragraphSpacing = size * 0.8
-        let result = NSMutableAttributedString(attributedString: NSAttributedString(attachment: attachment))
-        result.append(NSAttributedString(string: "\n"))
-        result.addAttributes(
-            [.paragraphStyle: para],
-            range: NSRange(location: 0, length: result.length)
-        )
         return result
+    }
+
+    // The destination part of an image/link: strip an optional `"title"` and
+    // surrounding whitespace.
+    private static func imageSource(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        return trimmed.components(separatedBy: " ").first ?? trimmed
+    }
+
+    // `![alt](src)` or `![alt](src "title")` at the start of the text →
+    // (alt, src, whatever follows the closing paren).
+    private static func imageSpec(_ text: String) -> (alt: String, src: String, rest: Substring)? {
+        guard text.hasPrefix("!["), let altClose = text.range(of: "](") else { return nil }
+        let alt = String(text[text.index(text.startIndex, offsetBy: 2)..<altClose.lowerBound])
+        guard let parenClose = text.range(of: ")", range: altClose.upperBound..<text.endIndex) else { return nil }
+        let raw = String(text[altClose.upperBound..<parenClose.lowerBound]).trimmingCharacters(in: .whitespaces)
+        let src = raw.components(separatedBy: " ").first ?? raw
+        return (alt, src, text[parenClose.upperBound...])
+    }
+
+    // Every `<img …>` tag in an HTML line → (alt, src, width-attribute).
+    private static func htmlImageSpecs(_ line: String) -> [(alt: String, src: String, width: CGFloat?)] {
+        var specs: [(alt: String, src: String, width: CGFloat?)] = []
+        var search = line.startIndex
+        while let tagStart = line.range(of: "<img", options: .caseInsensitive,
+                                        range: search..<line.endIndex)?.lowerBound {
+            let tagEnd = line.range(of: ">", range: tagStart..<line.endIndex)?.upperBound ?? line.endIndex
+            let tag = String(line[tagStart..<tagEnd])
+            if let src = htmlAttribute("src", in: tag) {
+                let width = htmlAttribute("width", in: tag).flatMap { Double($0) }.map { CGFloat($0) }
+                specs.append((htmlAttribute("alt", in: tag) ?? "", src, width))
+            }
+            search = tagEnd
+        }
+        return specs
+    }
+
+    private static func htmlAttribute(_ name: String, in tag: String) -> String? {
+        guard let attr = tag.range(of: "\(name)=", options: .caseInsensitive) else { return nil }
+        let after = tag[attr.upperBound...]
+        guard let quote = after.first, quote == "\"" || quote == "'" else {
+            // Unquoted value: runs to the next space or tag end.
+            let value = after.prefix { $0 != " " && $0 != ">" && $0 != "/" }
+            return value.isEmpty ? nil : String(value)
+        }
+        let body = after.dropFirst()
+        guard let close = body.firstIndex(of: quote) else { return nil }
+        return String(body[..<close])
     }
 
     // MARK: - Inline
 
     // Inline scan: `code`, **bold**, *italic*/_italic_, ~~strike~~,
-    // [text](url). Non-nested to keep it a single pass — good enough for prose
+    // [text](url), ![alt](src) images, and [![alt](src)](href) linked badges.
+    // Non-nested beyond that to keep it a single pass — good enough for prose
     // and READMEs.
     private static func inline(_ text: String, base: [NSAttributedString.Key: Any],
-                               size: CGFloat, textColor: NSColor, mono: NSFont) -> NSAttributedString {
+                               size: CGFloat, textColor: NSColor, mono: NSFont,
+                               baseDir: String? = nil) -> NSAttributedString {
         let result = NSMutableAttributedString()
         let chars = Array(text)
         var i = 0
@@ -544,6 +686,43 @@ enum MarkdownRenderer {
                 attrs[.foregroundColor] = Theme.textDim
                 result.append(NSAttributedString(string: String(chars[(i + 2)..<close]), attributes: attrs))
                 i = close + 2
+                continue
+            }
+            // Inline image: ![alt](src). Local files land as the bitmap;
+            // remote ones as a tagged placeholder the pane resolves.
+            if c == "!", i + 1 < chars.count, chars[i + 1] == "[",
+               let closeBracket = find(["]"], from: i + 2),
+               closeBracket + 1 < chars.count, chars[closeBracket + 1] == "(",
+               let closeParen = find([")"], from: closeBracket + 2) {
+                let alt = String(chars[(i + 2)..<closeBracket])
+                let src = imageSource(String(chars[(closeBracket + 2)..<closeParen]))
+                if let fragment = imageFragment(alt: alt, src: src, baseDir: baseDir,
+                                                size: size, maxWidth: nil, base: base) {
+                    flush()
+                    result.append(fragment)
+                    i = closeParen + 1
+                    continue
+                }
+            }
+            // Link-wrapped image: [![alt](src)](href) — the badge pattern.
+            if c == "[", i + 2 < chars.count, chars[i + 1] == "!", chars[i + 2] == "[",
+               let altClose = find(["]"], from: i + 3),
+               altClose + 1 < chars.count, chars[altClose + 1] == "(",
+               let srcClose = find([")"], from: altClose + 2),
+               srcClose + 2 < chars.count, chars[srcClose + 1] == "]", chars[srcClose + 2] == "(",
+               let hrefClose = find([")"], from: srcClose + 3) {
+                flush()
+                let alt = String(chars[(i + 3)..<altClose])
+                let src = imageSource(String(chars[(altClose + 2)..<srcClose]))
+                var attrs = base
+                attrs[.link] = String(chars[(srcClose + 3)..<hrefClose])
+                if let fragment = imageFragment(alt: alt, src: src, baseDir: baseDir,
+                                                size: size, maxWidth: nil, base: attrs) {
+                    result.append(fragment)
+                } else {
+                    result.append(NSAttributedString(string: alt, attributes: attrs))
+                }
+                i = hrefClose + 1
                 continue
             }
             if c == "[", let closeBracket = find(["]"], from: i + 1),
