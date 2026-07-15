@@ -18,7 +18,7 @@ extension AutopilotEngine {
         if let last = lastMergePollAt,
            Date().timeIntervalSince(last) < Self.gitPollInterval { return }
         lastMergePollAt = Date()
-        let root = app.autopilotProjectRoot
+        let root = projectRoot
         let confirmOnly = mergeConfirmedPending
         if confirmOnly {
             store.log("merge: re-checking PR #\(prNumber) state")
@@ -42,13 +42,11 @@ extension AutopilotEngine {
             // The conflict feedback names the branch to merge; resolve it
             // here so the main-queue handler never shells out.
             let defaultBranch = mergeError != nil
-                ? (GitHubCLI.defaultBranch(root: root) ?? "main") : "main"
+                ? AutopilotEngine.defaultBranchOrMain(root: root) : "main"
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.endBackgroundJob(job)
-                guard gen == self.generation, case .running = self.state,
-                      let current = self.store.run, current.id == run.id,
-                      AutopilotRunStage(rawValue: current.stage) == .merging else { return }
+                guard let current = self.currentRun(ifGeneration: gen, run: run, stage: .merging) else { return }
                 if let mergeError {
                     self.handleMergeFailure(mergeError, run: current,
                                             prNumber: prNumber, defaultBranch: defaultBranch)
@@ -121,7 +119,7 @@ extension AutopilotEngine {
 
     func maybeStartCleanup(_ run: AutopilotRun) {
         guard !inFlight, let app = appDelegate else { return }
-        let root = app.autopilotProjectRoot
+        let root = projectRoot
         store.log("cleanup: syncing the main checkout and removing the task worktree")
         let job = beginBackgroundJob()
         let gen = generation
@@ -152,9 +150,7 @@ extension AutopilotEngine {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.endBackgroundJob(job)
-                guard gen == self.generation, case .running = self.state,
-                      let current = self.store.run, current.id == run.id,
-                      AutopilotRunStage(rawValue: current.stage) == .cleanup else { return }
+                guard let current = self.currentRun(ifGeneration: gen, run: run, stage: .cleanup) else { return }
                 if let divergedMessage {
                     self.block(.mainDiverged, divergedMessage, phaseId: nil)
                     return

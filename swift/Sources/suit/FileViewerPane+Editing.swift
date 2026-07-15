@@ -23,7 +23,7 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         ruler.updateThickness()
         ruler.needsDisplay = true
 
-        // Dirty flag: repaint the strip + header only on the on/off transition.
+        // Dirty flag: repaint the tab chip + header only on the on/off transition.
         if editState.edited(to: text) {
             tab?.contentDirtyDidChange(editState.isDirty)
             pane?.refreshChrome()

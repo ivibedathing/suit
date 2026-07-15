@@ -5,6 +5,26 @@ import Foundation
 // Next Phase Now, Retry, Pause, Resume, Skip Current Phase, and the settings
 // write-through. Split out of AutopilotEngine.swift.
 extension AutopilotEngine {
+    // MARK: - Lifecycle (manager-driven)
+
+    // Bring this instance online outside of launch — "Start Autopilot Here"
+    // stands up a fresh engine, this seeds its snapshot and reactivates it
+    // (idle with no run → it preflights the repo's next eligible phase).
+    func activate() {
+        adoptOnLaunch()
+    }
+
+    // Dashboard "Stop": park the instance and drop its persisted slot so it
+    // isn't re-adopted next launch. The current run's worktree/branch are left
+    // in place for the user to take over — Skip Current Phase is the path that
+    // tears those down.
+    func deactivateAndForget() {
+        workerTabId = nil
+        resetRunMemory()
+        setState(.off)
+        store.deleteSlot()
+    }
+
     // MARK: - Commands (palette / footer)
 
     // Bypasses the budget gate once. No-op while a run is active; a kept run
@@ -96,7 +116,7 @@ extension AutopilotEngine {
             store.log("Skip Current Phase: no phase run to skip — steer by editing ROADMAP.md")
             return
         }
-        let root = app.autopilotProjectRoot
+        let root = projectRoot
         // The ⏸ mark is load-bearing (without it the next preflight re-picks
         // the same phase), so it goes first and a failure aborts the skip.
         if let error = markPhaseSkipped(run.phaseId, root: root) {
@@ -165,7 +185,7 @@ extension AutopilotEngine {
     // error message, nil on success (including already-marked).
     private func markPhaseSkipped(_ phaseId: Int, root: String) -> String? {
         guard !root.isEmpty else { return "no Autopilot project is configured" }
-        let path = root + "/ROADMAP.md"
+        let path = RoadmapParser.path(inRoot: root)
         guard let content = try? String(contentsOfFile: path, encoding: .utf8) else {
             return "couldn't read \(path)"
         }

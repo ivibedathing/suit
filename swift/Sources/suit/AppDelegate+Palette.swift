@@ -1,5 +1,9 @@
 import Cocoa
 
+// The ⌘K command palette and the one-line sidebar/menu verbs it fronts (show
+// Notes / Git / Bookmarks / inboxes, mark away point, new Claude task, install
+// integration…). showCommandPalette assembles paletteCommands from every
+// subsystem; the theme/transcript/definition pickers ride the same palette UI.
 extension AppDelegate {
     // MARK: - Sidebar & command palette
 
@@ -360,6 +364,7 @@ extension AppDelegate {
             PaletteCommand(title: "Switch Theme…", shortcut: nil) { [weak self] in self?.switchTheme(nil) },
             PaletteCommand(title: "Settings…", shortcut: "⌘,") { [weak self] in self?.showSettings(nil) },
             PaletteCommand(title: "Install Claude Code Integration…", shortcut: nil) { [weak self] in self?.installClaudeIntegration(nil) },
+            PaletteCommand(title: "Check for Updates…", shortcut: nil) { [weak self] in self?.checkForUpdates(nil) },
         ] + autopilotPaletteCommands() + sshHostCommands() + recipeCommands() + promptLibraryCommands()
     }
 

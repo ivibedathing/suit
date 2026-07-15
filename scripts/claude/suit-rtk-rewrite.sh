@@ -16,6 +16,10 @@
 # FAIL OPEN: any missing dependency (jq, rtk), unparseable input, empty command,
 # or an already-wrapped command results in a clean no-op pass-through, so a
 # broken compressor can never break the command Claude was going to run.
+#
+# Bench kill-switch: SUIT_TOKEN_FILTERS=off makes this hook a pure pass-through
+# for the whole process, so an A/B benchmark (scripts/token-bench.sh) can run
+# a filters-off arm without touching ~/.claude/settings.json.
 
 # Never let an error abort into a non-zero exit that would surface to Claude.
 set +e
@@ -37,6 +41,10 @@ fi
 
 INPUT="$(cat)"
 [ -n "$INPUT" ] || pass_through
+
+# Bench kill-switch (checked after the stdin read so the hook's writer never
+# takes a SIGPIPE).
+[ "${SUIT_TOKEN_FILTERS:-on}" = "off" ] && pass_through
 
 CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -n "$CMD" ] || pass_through

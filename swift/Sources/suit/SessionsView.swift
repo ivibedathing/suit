@@ -274,3 +274,17 @@ final class SessionsView: NSView {
         documentView.frame = NSRect(x: 0, y: 0, width: width, height: max(bounds.height, y + 6))
     }
 }
+
+// The session-state dot color, defined UI-side (next to its primary consumer)
+// so ClaudeSessions.swift — the session model + parsers — stays Foundation-only
+// and standalone-compilable, and Theme.swift keeps compiling in the themes
+// harness without the session model. (The ActivityKind.Tone pattern.)
+extension ClaudeSessionState {
+    var color: NSColor {
+        switch self {
+        case .working: return Theme.sessionBusy
+        case .needsInput: return Theme.sessionNeedsInput
+        case .done: return Theme.sessionDone
+        }
+    }
+}

@@ -5,7 +5,7 @@ allowed-tools: Bash(design/render-reference.sh), Bash(./design/render-reference.
 
 Run `design/render-reference.sh` to regenerate `design/phase15-window.png`, the
 committed offscreen render of the design scenario (pinned terminal + shell +
-viewer split). Per CLAUDE.md, re-run and commit this after any window-chrome
+viewer split). Per AGENTS.md, re-run and commit this after any window-chrome
 change so visual drift shows up in review diffs (ROADMAP Phase 15).
 
 After it runs, `git status` the PNG. If it changed, that's expected drift from

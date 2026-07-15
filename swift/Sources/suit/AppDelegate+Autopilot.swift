@@ -1,5 +1,9 @@
 import Cocoa
 
+// Autopilot's app-side wiring: the Settings ▸ Autopilot `…Changed` handlers,
+// the palette commands, run-tab open/focus plumbing, notifications, and the
+// activity-feed records for merged/blocked runs. No scheduling decisions live
+// here — the engine (AutopilotEngine*) makes those.
 extension AppDelegate {
     // MARK: - Autopilot
 
@@ -27,8 +31,8 @@ extension AppDelegate {
         }
         autopilotEnabled = enabled
         saveSettings()
-        AutopilotStore.shared.log(enabled ? "Autopilot enabled" : "Autopilot disabled")
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotStore.logGlobal(enabled ? "Autopilot enabled" : "Autopilot disabled")
+        AutopilotManager.shared.settingsChangedAll()
         return true
     }
 
@@ -40,66 +44,66 @@ extension AppDelegate {
         let expanded = (path as NSString).expandingTildeInPath
         if !expanded.isEmpty {
             guard FileIndex.gitRoot(of: expanded) != nil,
-                  FileManager.default.fileExists(atPath: expanded + "/ROADMAP.md") else { return false }
+                  FileManager.default.fileExists(atPath: RoadmapParser.path(inRoot: expanded)) else { return false }
         }
         autopilotProjectRoot = expanded
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
         return true
     }
 
     func autopilotModeChanged(_ mode: AutopilotBudgetMode) {
         autopilotMode = mode
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     func autopilotNightStartChanged(_ hour: Int) {
         autopilotNightStart = min(23, max(0, hour))
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     func autopilotNightEndChanged(_ hour: Int) {
         autopilotNightEnd = min(23, max(0, hour))
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     func autopilotFiveHourCeilingChanged(_ pct: Int) {
         autopilotFiveHourCeiling = min(100, max(0, pct))
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     func autopilotWeeklyCeilingChanged(_ pct: Int) {
         autopilotWeeklyCeiling = min(100, max(0, pct))
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     func autopilotWeeklyHardStopChanged(_ pct: Int) {
         autopilotWeeklyHardStop = min(100, max(0, pct))
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     func autopilotPaceTargetChanged(_ pct: Int) {
         autopilotPaceTargetPct = min(100, max(1, pct))
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     func autopilotMaxGateAttemptsChanged(_ attempts: Int) {
         autopilotMaxGateAttempts = min(9, max(1, attempts))
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     func autopilotStallMinutesChanged(_ minutes: Int) {
         autopilotStallMinutes = min(24 * 60, max(5, minutes))
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     // Newline-free (the launch path types this into zsh as one line, §2.5).
@@ -109,28 +113,29 @@ extension AppDelegate {
             .replacingOccurrences(of: "\r", with: " ")
             .trimmingCharacters(in: .whitespaces)
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     func autopilotReviewModelChanged(_ model: String) {
         autopilotReviewModel = model.trimmingCharacters(in: .whitespaces)
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     func autopilotPreventSleepChanged(_ enabled: Bool) {
         autopilotPreventSleep = enabled
         saveSettings()
-        AutopilotEngine.shared.settingsChanged()
+        AutopilotManager.shared.settingsChangedAll()
     }
 
     // Footer row / palette "Open Run Tab" / notification click-through: focus
     // the worker tab wherever it lives. The one deliberate focus steal in the
     // Autopilot flow — the user explicitly asked for the run.
-    func focusAutopilotRunTab() {
-        guard let id = AutopilotEngine.shared.workerTabId,
+    func focusAutopilotRunTab(engine: AutopilotEngine? = nil) {
+        let target = engine ?? AutopilotManager.shared.allEngines.first { $0.workerTabId != nil }
+        guard let id = target?.workerTabId,
               let (controller, tab) = controllerAndTab(withId: id) else {
-            AutopilotStore.shared.log("Open Run Tab: no run tab is open")
+            AutopilotStore.logGlobal("Open Run Tab: no run tab is open")
             NSSound.beep()
             return
         }
@@ -141,9 +146,11 @@ extension AppDelegate {
 
     // The engine's tab factory (§2.5 launch stage): the run tab opens in the
     // active window without stealing focus. Nil only when no window exists.
-    func openAutopilotRunTab(directory: String, title: String, continueSession: Bool) -> Tab? {
+    func openAutopilotRunTab(directory: String, title: String, continueSession: Bool,
+                             model: String? = nil, effort: String? = nil) -> Tab? {
         activeWindowController()?.openAutopilotRunTab(
-            directory: directory, title: title, continueSession: continueSession
+            directory: directory, title: title, continueSession: continueSession,
+            model: model, effort: effort
         )
     }
 
@@ -184,10 +191,13 @@ extension AppDelegate {
 
     // "Autopilot: Show Log" / footer click while idle or blocked: the log is a
     // regular file, so it opens as a first-class viewer tab.
-    func openAutopilotLog() {
-        let path = AutopilotStore.shared.logFileURL.path
+    func openAutopilotLog(engine: AutopilotEngine? = nil) {
+        // A specific instance's per-repo log, else the running/primary one,
+        // else the cross-instance global log.
+        let target = engine ?? AutopilotManager.shared.targetEngine()
+        let path = target?.store.logFileURL.path ?? AutopilotStore.globalLogURL.path
         if !FileManager.default.fileExists(atPath: path) {
-            AutopilotStore.shared.log("log created")
+            if let target { target.store.log("log created") } else { AutopilotStore.logGlobal("log created") }
         }
         guard let controller = activeWindowController() else {
             NSSound.beep()
@@ -210,32 +220,105 @@ extension AppDelegate {
             },
         ]
         guard autopilotEnabled else { return commands }
+        // Start a new autopilot on the active tab's repo; open the multi-run
+        // dashboard. These come first — they don't depend on a current run.
+        commands.append(contentsOf: [
+            PaletteCommand(title: "Autopilot: Start Here (active tab's repo)", shortcut: nil) { [weak self] in
+                self?.startAutopilotHere()
+            },
+            PaletteCommand(title: "Autopilot: Dashboard", shortcut: nil) { [weak self] in
+                self?.showAutopilotDashboard()
+            },
+        ])
+        // The run-control verbs act on the "current" instance (running / primary
+        // / first active). Titles reflect its state.
+        let target = AutopilotManager.shared.targetEngine()
         // §2.9: Retry appears only while blocked — it clears the block and
         // re-adopts the kept run (or re-runs preflight when none exists).
-        if case .blocked = AutopilotEngine.shared.state {
+        if let target, case .blocked = target.state {
             commands.append(PaletteCommand(title: "Autopilot: Retry", shortcut: nil) {
-                AutopilotEngine.shared.retryAfterBlock()
+                target.retryAfterBlock()
             })
         }
-        let paused = AutopilotEngine.shared.state == .paused
+        let paused = target.map { $0.state == .paused } ?? false
         commands.append(contentsOf: [
-            PaletteCommand(title: "Autopilot: Run Next Phase Now", shortcut: nil) {
-                AutopilotEngine.shared.runNextPhaseNow()
+            PaletteCommand(title: "Autopilot: Run Next Phase Now", shortcut: nil) { [weak self] in
+                self?.autopilotRunNextPhaseNow()
             },
             PaletteCommand(title: paused ? "Autopilot: Resume" : "Autopilot: Pause After Current Run", shortcut: nil) {
                 if paused {
-                    AutopilotEngine.shared.resume()
+                    target?.resume()
                 } else {
-                    AutopilotEngine.shared.pauseAfterCurrentRun()
+                    target?.pauseAfterCurrentRun()
                 }
             },
             PaletteCommand(title: "Autopilot: Skip Current Phase", shortcut: nil) {
-                AutopilotEngine.shared.skipCurrentPhase()
+                target?.skipCurrentPhase()
             },
             PaletteCommand(title: "Autopilot: Open Run Tab", shortcut: nil) { [weak self] in
                 self?.focusAutopilotRunTab()
             },
         ])
         return commands
+    }
+
+    // "Run Next Phase Now" with no active instance falls back to the configured
+    // primary root, creating its engine on demand.
+    func autopilotRunNextPhaseNow() {
+        if let target = AutopilotManager.shared.targetEngine() {
+            target.runNextPhaseNow()
+            return
+        }
+        let primary = AutopilotManager.normalize(autopilotProjectRoot)
+        guard !primary.isEmpty else {
+            AutopilotStore.logGlobal("Run Next Phase Now ignored — no autopilot is running and no project is configured")
+            NSSound.beep()
+            return
+        }
+        let engine = AutopilotManager.shared.engine(for: primary)
+        engine.store.markActive()
+        engine.activate()
+        engine.runNextPhaseNow()
+    }
+
+    // "Autopilot: Start Here" — resolve the active tab's cwd to its git root and
+    // stand up (or focus) an autopilot for it.
+    func startAutopilotHere() {
+        if !autopilotEnabled {
+            // Run the enable-time checks first; bail if the user declines.
+            guard autopilotEnabledChanged(true) else { return }
+        }
+        guard let controller = activeWindowController(),
+              let directory = controller.activeTabWorkingDirectory() else {
+            let alert = NSAlert()
+            alert.messageText = "No active tab to start Autopilot from"
+            alert.informativeText = "Focus a terminal (or file) tab inside the git repo you want Autopilot to work on, then try again."
+            alert.runModal()
+            return
+        }
+        switch AutopilotManager.shared.startHere(directory: directory) {
+        case .started(let engine):
+            AutopilotStore.logGlobal("Autopilot started on \(engine.projectRoot)")
+            showAutopilotDashboard()
+        case .alreadyRunning(let engine):
+            AutopilotStore.logGlobal("Autopilot already active on \(engine.projectRoot)")
+            showAutopilotDashboard()
+        case .notAGitRepo:
+            let alert = NSAlert()
+            alert.messageText = "That tab isn’t inside a git repository"
+            alert.informativeText = "Autopilot works on a git repo containing a ROADMAP.md. Open a tab inside one and try again."
+            alert.runModal()
+        case .noRoadmap(let root):
+            let alert = NSAlert()
+            alert.messageText = "No ROADMAP.md in \(root)"
+            alert.informativeText = "Autopilot steers off ROADMAP.md. Add one to the repo root, then Start Here."
+            alert.runModal()
+        case .notEnabled:
+            break // handled by the guard above
+        }
+    }
+
+    func showAutopilotDashboard() {
+        autopilotDashboard.show(relativeTo: activeWindowController()?.window)
     }
 }

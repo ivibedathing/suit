@@ -69,6 +69,12 @@ enum Theme {
         pct >= 90 ? failed : pct >= 70 ? sessionBusy : textFaint
     }
 
+    /// Prompt-cache hit rate % — inverted gauge (high is good): neutral from
+    /// 70 up, amber down to 40, red below (misses bill near full price).
+    static func cacheHitLevelColor(_ pct: Double) -> NSColor {
+        pct < 40 ? failed : pct < 70 ? sessionBusy : textFaint
+    }
+
     // MARK: - Metrics
 
     enum Metrics {

@@ -13,10 +13,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     let window: NSWindow
     unowned let appDelegate: AppDelegate
 
-    // Every tab in this window, in strip order. Panes only ever display tabs
+    // Every tab in this window, in order. Panes only ever display tabs
     // from this store.
     let store = TabStore()
-    var strip: TabStripView!
     let tabSwitcher = TabSwitcherController()
 
     private var rootContainer: WindowRootView!
@@ -111,9 +110,6 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         }
 
         rootContainer = WindowRootView(frame: frame)
-
-        strip = TabStripView(frame: NSRect(x: 0, y: 0, width: frame.width, height: TabStripView.height))
-        wireStrip()
 
         paneTreeHost = RootContainerView(frame: frame)
 
@@ -282,6 +278,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.usageFooter.onAutopilotOpenLog = { [weak self] in
             self?.appDelegate.openAutopilotLog()
         }
+        sidebar.usageFooter.onAutopilotOpenDashboard = { [weak self] in
+            self?.appDelegate.showAutopilotDashboard()
+        }
         // Restore a previously pinned root (one key across windows, like
         // sidebarWidth); a vanished directory silently unpins.
         if let pinned = UserDefaults.standard.string(forKey: "sidebarPinnedRoot") {
@@ -301,10 +300,6 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebarSplit.addArrangedSubview(paneTreeHost)
 
         rootContainer.addSubview(sidebarSplit)
-        // The window-level strip is no longer shown (tabs live on each pane's
-        // own tab bar; the sidebar Sessions tab is the overview). `strip` stays
-        // constructed and wired so its harmless no-op methods keep compiling,
-        // but it is never added to the view hierarchy.
         rootContainer.body = sidebarSplit
         rootContainer.layoutParts()
         layoutSidebarSplit()
@@ -364,8 +359,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
             }
         }
 
-        reloadStrip()
-        updateUsageLabel()
+        refreshTabSurfaces()
         startObservingTheme()
     }
 }

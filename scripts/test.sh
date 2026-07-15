@@ -1,7 +1,7 @@
 #!/bin/bash
 # Unified logic-test runner for Suit's UI-free cores.
 #
-# Suit has no XCTest target (there's no SwiftPM / Xcode project — see CLAUDE.md
+# Suit has no XCTest target (there's no SwiftPM / Xcode project — see AGENTS.md
 # "Why no SwiftPM"). Instead, the pure, app-independent logic that phases rest
 # on is verified by standalone harnesses that compile just the relevant
 # Foundation-only sources against a small assertion driver and run it — no app,
@@ -38,11 +38,18 @@ HARNESSES=(
   "command-history|scripts/command-history-test.sh|fast"
   "rtk|scripts/rtk-test.sh|fast"
   "posttool|scripts/posttool-test.sh|fast"
+  "token-ignore|scripts/token-ignore-test.sh|fast"
+  "roadmap-routing|scripts/roadmap-routing-test.sh|fast"
+  "cache-stats|scripts/cache-stats-test.sh|fast"
+  "savings-report|scripts/savings-report-test.sh|fast"
+  "token-savings|scripts/token-savings-test.sh|fast"
+  "token-bench|scripts/token-bench-test.sh|fast"
   "shell-extras|scripts/shell-extras-test.sh|fast"
   "dictation|scripts/dictation-test.sh|fast"
   "themes|scripts/test-themes.sh|fast"
   "notification-sound|scripts/notification-sound-test.sh|fast"
   "claude-api-settings|scripts/claude-api-settings-test.sh|fast"
+  "update-check|scripts/update-check-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 

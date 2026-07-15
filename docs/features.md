@@ -8,7 +8,14 @@ app does.
 
 - [Tabs & panes — tabs live on the pane](#tabs--panes--tabs-live-on-the-pane)
 - [Files, search & navigation](#files-search--navigation)
+  - [Files & sidebar](#files--sidebar) · [File viewer & navigation](#file-viewer--navigation) ·
+    [Git review & inboxes](#git-review--inboxes)
 - [Claude Code cockpit](#claude-code-cockpit)
+  - [Sessions, attention & voice](#sessions-attention--voice) ·
+    [Fleet control & spend](#fleet-control--spend) · [Talking to sessions](#talking-to-sessions) ·
+    [Token-cost filters & meters](#token-cost-filters--meters) ·
+    [Steering & review](#steering--review) · [Transcripts & history](#transcripts--history) ·
+    [Tasks & recipes](#tasks--recipes)
 - [Autopilot](#autopilot)
 - [Appearance & settings](#appearance--settings)
 - [Glassmorphism (transparency & blur)](#glassmorphism-transparency--blur)
@@ -57,6 +64,8 @@ app does.
 
 ## Files, search & navigation
 
+### Files & sidebar
+
 - **Sidebar** (⌘B) — an icon rail with Files, Sessions, SSH Hosts, Notes and Bookmarks. The
   Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
   search / choose-folder / unpin actions, and, inside a repo, a branch-switcher row with the
@@ -78,6 +87,11 @@ app does.
   you can edit it first. A destructive-looking command (curl/wget piped into a shell, `rm -rf`)
   trips the same confirm a risky paste does before it runs. With no history file, it falls back to
   the per-pane commands alone.
+- **Notes** — a free-text scratch tab in the sidebar backed by `~/.suit/notes.txt`;
+  right-click a terminal selection to append it as a note.
+
+### File viewer & navigation
+
 - **File viewer** — files open as tabs (deduped by path) with syntax highlighting, a
   minimap, line numbers, go-to-line (⌘L), and orange marks on lines changed since HEAD.
   Cmd-click a path in any terminal (with optional `:line`) to jump straight to it. Files are
@@ -125,14 +139,20 @@ app does.
   universal-ctags on PATH to enable the index.
 - **Preview tabs** — the viewer routes by extension, so previewing a README or a design asset
   never means a trip to Finder. Markdown (`.md`/`.markdown`) renders as a proper document in a
-  centered reading column (capped at ~720pt, margins grow with the pane, like GitHub/Typora):
+  centered reading column (capped at ~720pt, margins grow with the pane, like GitHub/Typora),
+  set in proportional reading type — at least 16pt with roomy line spacing, scaling up with the
+  pane font (⌘= / ⌘-):
   ATX and setext headings on a GitHub-style scale with hairline rules under H1/H2, hard-wrapped
   source lines joined into flowing paragraphs, nested bullet/ordered lists with hanging indents,
   task-list checkboxes (`- [ ]` / `- [x]`), fenced code as full-width padded cards
   (syntax-colored), blockquotes with a left bar, pipe tables as real grids (header row shaded,
-  `:---:` alignments honored), full-width horizontal rules, local images inline (scaled to the
-  column), and inline bold/italic/strikethrough/code plus clickable links — with a
-  Rendered ↔ Raw toggle. Images (PNG/JPG/GIF/SVG/…) open over a checkerboard backing with a zoom-to-fit /
+  `:---:` alignments honored), full-width horizontal rules, images (scaled to the column), and
+  inline bold/italic/strikethrough/code plus clickable links — with a Rendered ↔ Raw toggle.
+  Images render wherever READMEs put them: local paths and remote `http(s)` sources, block
+  `![alt](src)` lines, inline images and `[![badge](src)](href)` linked badges in prose, and
+  raw `<img>` tags (the `<p align="center"><img …></p>` idiom; a `width` attribute is
+  honored). Remote images fetch asynchronously into a shared per-run cache — the alt text
+  shows as a dim placeholder until the bitmap lands, and stays if the fetch fails. Images (PNG/JPG/GIF/SVG/…) open over a checkerboard backing with a zoom-to-fit /
   actual-size toggle and the pixel dimensions in the header. PDFs open in a PDFKit view with a
   page-thumbnail rail. All three are ordinary tabs, so split, drag, path-dedupe, and state
   restoration (scroll / zoom / page) work unchanged.
@@ -140,6 +160,9 @@ app does.
   shows in the viewer gutter and minimap. The Bookmarks sidebar tab lists them; Enter or
   double-click reopens the file at that line, right-click renames or removes. Saved in
   `~/.suit/bookmarks.json`, shared across windows, dead paths pruned automatically.
+
+### Git review & inboxes
+
 - **Diff view** — `git diff HEAD` as a tab (⌃⌘D), unified or side-by-side with scroll-locked
   halves; review mode walks changed files with n/p and opens the file under review with o.
   A commit ref (from a blame sha or a File History row) opens that commit's per-file diff.
@@ -196,10 +219,9 @@ app does.
   **Comment** — plus an optional overall note; your line comments fold into the review body and it
   posts via `gh pr review`. Right-click ▸ **Open on GitHub** opens the PR page. Palette: **Show PR
   Review Inbox**, **Submit PR Review…**.
-- **Notes** — a free-text scratch tab in the sidebar backed by `~/.suit/notes.txt`;
-  right-click a terminal selection to append it as a note.
-
 ## Claude Code cockpit
+
+### Sessions, attention & voice
 
 - **Session awareness** — an installer (app menu ▸ "Install Claude Code Integration…") wires
   Claude Code's statusline and hooks to `~/.suit`. Panes running Claude sessions show a state
@@ -219,6 +241,9 @@ app does.
   prompts for microphone and speech-recognition access. **Dictate…** in the command palette (and
   View menu) primes that permission and reminds you of the gesture. If holding 🌐 pops the emoji
   picker instead, set *System Settings ▸ Keyboard ▸ Press 🌐 key to* → **Do Nothing**.
+
+### Fleet control & spend
+
 - **Fleet dashboard** — "Show Fleet" (⇧⌘O, or the command palette) opens a floating,
   cross-window panel listing every live Claude session as a row — status dot, current task,
   project · worktree · branch, context %, and cost — sorted needs-you-first, so one glance
@@ -256,6 +281,9 @@ app does.
   (Esc) when a cap is crossed"** to also send Esc into the offending pty and halt it — never
   silently. This is the per-run kill-switch that complements Autopilot's global 5h/weekly start
   gates: an in-flight run that blows a task cap trips here.
+
+### Talking to sessions
+
 - **Talk-back** — send prompts into any session's pty: quick actions (Prompt… / Continue /
   /compact / Interrupt), a floating composer with `@`-completion over repo files, a prompt
   library (`~/.suit/prompts/*.md`), or right-click ▸ "Send Selection to Claude Session" to pipe
@@ -268,6 +296,9 @@ app does.
 - **One-tap /compact** — the pane title bar's context-% meter is a button: click it (or press
   ⌃⌘K, "Compact Focused Session") to send `/compact` into the focused session, so acting on a
   full context window is one tap instead of a typed command.
+
+### Token-cost filters & meters
+
 - **rtk tool-output compression** — a **Settings ▸ Claude** toggle ("Compress tool output with
   rtk"), **off by default**, that installs a Claude Code `PreToolUse` hook running every Bash
   command through [rtk](https://github.com/gglucass/rtk) so its output is filtered down to the
@@ -285,9 +316,11 @@ app does.
 - **Large tool-result compression** — a **Settings ▸ Claude** toggle ("Compress large tool
   results (Read/Grep/Glob/Bash)"), **off by default**, that installs a Claude Code
   `PostToolUse` hook (`suit-posttool-filter.sh`) rewriting a tool's *result* before it reaches
-  the context window via `updatedToolOutput` (requires Claude Code ≥ 2.1.133) — the side of a
-  tool call rtk can't touch, covering the built-in Read/Grep/Glob tools and any Bash output
-  that escaped rtk. Deliberately conservative: results under **~30k characters (≈7.5k tokens)
+  the context window via `updatedToolOutput` — the side of a tool call rtk can't touch,
+  covering the built-in Read/Grep/Glob tools and any Bash output that escaped rtk. The
+  replacement mirrors each tool's own response shape (Bash `{stdout, stderr}`, Read
+  `{file: {content}}`, Grep `{content}`, Glob `{filenames}`); Claude Code silently ignores a
+  mismatched shape, so a bare-string replacement would be a no-op (verified on 2.1.208). Deliberately conservative: results under **~30k characters (≈7.5k tokens)
   are never modified**; larger ones keep their first 200 and last 50 lines (or a byte-based
   head+tail for single-blob output) around a marker telling Claude how to narrow the query
   (`head_limit`, `offset`/`limit`, a tighter pattern). A Bash result's stderr survives the cut,
@@ -311,6 +344,59 @@ app does.
   auto-compact, and Claude Code's own all count, since compaction evicts the content the stub
   points back to) and deleted at `SessionEnd`, with a 48 h sweep for crashed sessions. Same
   fail-open contract: any error means the read passes through untouched.
+- **Token-ignore firewall** — a **Settings ▸ Claude** toggle ("Firewall token-ignored paths"),
+  **off by default**, that keeps a repo's heaviest directories out of the context window
+  entirely. A repo opts in with **`.claude/token-ignore`** at its root: one root-relative path
+  prefix per line (`#` comments allowed) naming what nobody should read wholesale — vendored
+  dependencies (Suit's own lists `swift/Vendor/`), build output, generated code. Two halves,
+  wired by the one toggle: a `PreToolUse` hook (`suit-token-ignore.sh`, matcher `Read`)
+  **denies full-file Reads** under an ignored prefix with a reason that teaches the escape
+  hatches, and the `PostToolUse` dispatcher (`--ignore`) **hides Grep/Glob result lines** there
+  behind a one-line count marker. Deliberate access always works: `offset`/`limit` range reads
+  pass through, as does any search whose `path` explicitly targets the ignored directory, and
+  the ignore list itself is always readable. The ignore file is found by walking up from the
+  target path, so worktrees resolve their own copy. Same contract as the other filters —
+  fail open on any error, `SUIT_TOKEN_FILTERS=off` kill switch, denies and drops logged to the
+  savings meter (kind `ignore`).
+- **Cache hit-rate meter** — prompt-cache misses bill input tokens at near full price (~10× the
+  cached rate) and are invisible in every normal readout. Suit computes each live session's
+  **rolling cache-hit percentage** — cache-read tokens as a share of all input tokens over the
+  last 5 turns, parsed from the transcript's per-turn `usage` blocks (tail-read, at most every
+  15 s and only when the transcript grew) — and shows it on the **fleet dashboard** row next to
+  context % and cost, tinted by an inverted gauge (neutral ≥ 70 %, amber to 40 %, red below).
+  When a session with a full measurement window **collapses under 40 %**, Suit posts one
+  notification naming the usual cause — CLAUDE.md, hook scripts, or MCP config changed
+  mid-session, turning the prompt prefix cold — and suggests finishing or restarting the session.
+  Edge-triggered with hysteresis (re-arms only past 55 % or when the session ends), so a
+  sustained collapse is one banner, not one per heartbeat; early sessions (< 5 measured turns)
+  are never judged, since their first turns legitimately create cache rather than read it.
+- **Token-savings meter & benchmark** — two layers measuring what the filters above actually
+  save. **The meter** (always on with the filters, `SUIT_SAVINGS_LOG=0` to disable): every
+  rewrite the post-tool filter makes appends one JSONL line to `~/.suit/token-savings.jsonl`
+  recording the exact counterfactual it just saw — the chars the original result would have
+  cost vs the chars actually emitted (`{ts, session_id, tool, kind: compress|dedup|ignore,
+  original_chars, emitted_chars}`). `scripts/token-savings-report.sh` aggregates it (totals,
+  by kind / tool / day, `--session SID`, `--today`; token numbers are chars/4 estimates) —
+  zero-variance, real-workload savings with no extra spend. **The benchmark**
+  (`scripts/token-bench.sh`, real API spend, run on demand — not part of `scripts/test.sh`)
+  catches what the meter can't: second-order effects like a dedup stub causing an extra
+  re-read turn. It A/Bs a task suite (`scripts/token-bench/tasks.json`, or `--tasks yours`)
+  through headless `claude -p` with filters **on** (your installed hooks, or a bench-only
+  `--settings` file when none are installed) vs **off** — the off arm sets
+  `SUIT_TOKEN_FILTERS=off`, a kill-switch both hook scripts honor as a per-process
+  pass-through, so `~/.claude/settings.json` is never touched. Arms are interleaved so
+  prompt-cache weather averages out; each run gets a fresh local clone of the repo; medians
+  over `--reps N` (default 3) are reported per task — fresh input tokens (input +
+  cache-creation, the context-growth number the filters target), cache reads, output, turns,
+  cost, wall time, and an `expect_regex` success check, with Δ columns for on-vs-off.
+  `--report FILE` re-aggregates an existing results JSONL without spending anything.
+- **Tokens-saved counter** — the meter, surfaced in the app: a pane whose tab runs a Claude
+  session shows **`↓12k`** in its title bar (left of the context %), the estimated tokens
+  Suit's filters have saved *that session* so far. Hover for the breakdown — the spelled-out
+  estimate, the rewrite count, and how it splits between elisions and read-dedups. The counter
+  reads `~/.suit/token-savings.jsonl` incrementally (only appended lines are parsed), appears
+  after the session's first rewrite, and uses the same chars/4 estimate as the report script.
+  No setting: it's on whenever the filters are producing meter rows.
 - **Shell helpers (run_silent)** — a **Settings ▸ Claude** toggle ("Shell helpers (run_silent)
   in new terminals"), **off by default**. New **zsh** terminals launch through a ZDOTDIR shim
   (the VS Code shell-integration mechanism, installed under `~/.suit/zsh/` — your own dotfiles
@@ -348,6 +434,9 @@ app does.
   and is typed visibly into the session's shell, so each experiment is scoped to that session and
   auditable in the terminal. Applies to Claude sessions started from Suit (the ✦ button / ⌃⌘C,
   worktree tasks, recipes, review passes); Autopilot workers are deliberately unaffected.
+
+### Steering & review
+
 - **Set as Goal** — select code or prose in a file viewer, transcript, or terminal, then
   right-click ▸ "Set as Goal" (or the palette's "Set Selection as Claude Goal") to send
   `/goal <selection>` into a chosen session — turning "this is what I want done" into a
@@ -362,6 +451,9 @@ app does.
   with `Claude: Review Plan…`: the plan renders read-only as numbered steps with **Approve & Run**
   / **Edit** / **Discard** buttons that inject the matching choice into the session. A *Refresh*
   re-parses the latest plan from the transcript.
+
+### Transcripts & history
+
 - **Transcripts** — open a live-tailing, read-only render of any session's transcript; file
   paths in it are clickable like terminal links.
 - **Checkpoint timeline** — "Open Checkpoint Timeline…" shows a session's automatic pre-change
@@ -374,6 +466,9 @@ app does.
   searched with ripgrep. Results are readable snippets — prompts, replies, tool calls — grouped
   by session (name · project · date), and clicking one opens that session's transcript anchored
   to the matching line.
+
+### Tasks & recipes
+
 - **Worktree tasks** — "New Claude Task…" (⌃⌘T) opens a pane running `claude` for a named task;
   finishing the task merges or discards its worktree. The prompt carries an **Isolate in
   worktree** switch — on (the default) spins a dedicated git worktree on a `task/…` branch, off
@@ -396,7 +491,7 @@ app does.
   Background Tasks** (or the palette's **Show Background Tasks**) opens a live list of that shell's
   background jobs — **command**, a status dot (**running** / **done** / **failed**), the
   **listening port** when detectable — over a live tail of the selected task's captured output.
-  A job that **fails** (or crashes) pulses the monitor tab's strip item like a bell and folds a
+  A job that **fails** (or crashes) rings the monitor tab like a bell and folds a
   "N failed" suffix into its header, so a dev server that fell over is noticed without spelunking
   scrollback. Records live in `~/.suit/tasks/` (written by `suit-bg`, atomic, no dependencies) and
   are pruned a day after their process ends. The wrapper ships in the app bundle
@@ -412,9 +507,39 @@ app does.
   and loops to the next phase. Gate failures feed the build-log tail or review findings back
   into the live session for another attempt (capped by the Attempts setting); anything
   unrecoverable blocks Autopilot with a notification, keeping the worktree, branch, PR and
-  logs for inspection (the palette's Retry resumes). One run at a time; merged phases post a
-  notification too. Needs the `gh` CLI (installed and authenticated) and the Claude Code
-  integration.
+  logs for inspection (the palette's Retry resumes). Merged phases post a notification too.
+  Needs the `gh` CLI (installed and authenticated) and the Claude Code integration.
+- **Multiple autopilots at once** — Autopilot is per-repo, and several run concurrently, one
+  per git repository. **`Autopilot: Start Here`** (palette) resolves the active tab's working
+  directory up to its git root, requires a `ROADMAP.md` there, and stands up an autopilot for
+  that repo — so you launch a run from wherever you're looking, no Settings trip needed. The
+  configured project (Settings ▸ Autopilot) still auto-runs on launch as the "primary". Because
+  every worker draws on the *same* Claude budget, only **one instance holds a live run at a
+  time**: the others sit **queued** and take the slot the moment it frees (the budget modes
+  below still decide when the active slot may start a new phase). Each instance keeps its own
+  state, history, and logs, and a running autopilot is re-adopted on the next launch.
+- **Autopilot dashboard** (`Autopilot: Dashboard`, or click the footer row when more than one
+  is active) — a floating panel with one row per running autopilot: the repo, its live status,
+  and per-repo controls — Focus run tab, Pause/Resume, Skip Current Phase, Retry (while
+  blocked), Show Log, and **Stop** (drop that instance without touching its worktree). A
+  **Start Here** button launches a new one on the active tab's repo.
+- **Per-phase model & effort routing** — a phase's `ROADMAP.md` body can carry `model:` and/or
+  `effort:` annotation lines (bare or `- `-led, case-insensitive key, value verbatim — e.g.
+  `model: haiku`, `effort: low`), and Autopilot launches that phase's worker with
+  `ANTHROPIC_MODEL` / `CLAUDE_CODE_EFFORT_LEVEL` set accordingly, so mechanical phases (doc
+  sweeps, renames, migrations) run on a cheaper tier while design-heavy phases keep the session
+  default. The annotations are snapshotted onto the run at spawn (like the spec) and survive
+  `--continue` respawns; the first occurrence per phase wins, and prose mentioning "the model:"
+  mid-sentence never triggers. Deliberately independent of the Settings ▸ Claude API prefix —
+  autonomous runs don't silently inherit interactive experiments; the in-repo annotation is the
+  explicit, versioned opt-in. The review gate's model is separate (the review-gate model field
+  in Settings ▸ Autopilot, empty = default).
+- **Unchanged-diff review skip** — every review verdict records a fingerprint of the exact PR
+  diff it judged; if the next review attempt sees a byte-identical diff (the worker pushed
+  nothing real since the rejection), the headless review is skipped — no API spend — and the
+  worker instead gets told plainly that nothing changed and to address the previous findings.
+  The skip still consumes a review attempt, so a worker that never changes anything runs into
+  the attempts cap rather than looping forever.
 - **Budget modes** — three switchable modes decide when a run may *start* (a run in flight
   always finishes): **Pace to reset** spreads the weekly budget evenly across the rate-limit
   window, **Max out** runs whenever usage is under the ceilings, **Night shift** is max-out
@@ -429,12 +554,17 @@ app does.
   and "Keep the Mac awake during runs".
 - **Status row** — a one-line status in the sidebar footer, above the usage rows: `Autopilot ·
   next run ~03:40`, `⚙ Phase 23 · running 41m`, `⚙ Phase 23 · gate: build`, `⚙ Phase 23 ·
-  merging PR #142`, `⚠ Phase 23 blocked — …`. Clicking it focuses the run tab while a run is
-  active, otherwise opens the log; the tooltip carries the full reason.
+  merging PR #142`, `⚠ Phase 23 blocked — …`, `Autopilot · queued` (waiting behind the active
+  instance). With several autopilots active the row shows the running (or primary) one prefixed
+  with its repo and a `· N autopilots` count. Clicking it opens the dashboard when more than one
+  is active, else focuses the run tab (while running) or the log; the tooltip carries the full
+  reason.
 - **Palette commands** — `Autopilot: Enable`/`Disable` (the title flips) and `Autopilot: Show
-  Log` are always there; while enabled, also `Run Next Phase Now` (bypasses the budget gate
-  once), `Pause After Current Run`/`Resume`, `Skip Current Phase`, and `Open Run Tab`, plus
-  `Retry` while blocked. No new keyboard bindings — palette-reachable is keyboard-complete.
+  Log` are always there; while enabled, also `Start Here (active tab's repo)`, `Dashboard`,
+  `Run Next Phase Now` (bypasses the budget gate once), `Pause After Current Run`/`Resume`,
+  `Skip Current Phase`, and `Open Run Tab`, plus `Retry` while blocked. The run-control verbs
+  act on the current instance (running / primary / first active). No new keyboard bindings —
+  palette-reachable is keyboard-complete.
 - **The run tab** — the worker is an ordinary terminal tab titled `⚙ Phase N — <Title>`,
   opened without stealing focus; watch it, split it, or type into it (the session dot pulses
   on needs-input as usual). A worker exit never auto-closes the tab, so the scrollback
@@ -443,12 +573,15 @@ app does.
   phase heading means shipped, `⏸` means skipped ("Skip Current Phase" appends it — the
   engine's one write to the file). When every phase is shipped or skipped, Autopilot idles
   until the roadmap changes again.
-- **On disk** — `~/.suit/autopilot/` holds `state.json` (the current run — it survives a
-  relaunch, and Autopilot resumes it at the right stage), `history.jsonl` (one row per
-  finished run: outcome, PR URL, attempts, cost), `autopilot.log` (the human-readable event
-  log Show Log opens as a viewer tab), and `logs/<slug>/build-N.log` / `review-N.log` (gate
-  output). A `~/.suit/autopilot-prompt.md`, when present, overrides the worker prompt
-  template.
+- **On disk** — each autopilot owns a per-repo slot under `~/.suit/autopilot/repos/<slug>/`
+  holding `state.json` (its current run — it survives a relaunch, and Autopilot resumes it at
+  the right stage), `history.jsonl` (one row per finished run: outcome, PR URL, attempts,
+  cost), `autopilot.log` (the human-readable event log Show Log opens as a viewer tab), and
+  `logs/<phase-slug>/build-N.log` / `review-N.log` (gate output). Cross-instance events
+  (enable/disable, Start Here, Stop) go to the top-level `~/.suit/autopilot/autopilot.log`. The
+  old single-autopilot layout (files directly under `~/.suit/autopilot/`) is migrated into the
+  primary repo's slot automatically on first launch. A `~/.suit/autopilot-prompt.md`, when
+  present, overrides the worker prompt template.
 
 ## Appearance & settings
 
@@ -460,6 +593,16 @@ app does.
   rtk tool-output compression toggle — see below), **Themes** (swap the whole color palette — see below),
   **Autopilot**, **Budget**, and a read-only
   **Shortcuts** reference. Everything persists across launches.
+- **Update check** — Suit polls the GitHub releases of its own repo (at most one API hit per day,
+  re-evaluated shortly after launch and every 6 h for long uptimes) and, when a release tag newer
+  than the running version ships, posts a notification; clicking it opens the offer dialog with
+  the release notes and **Download** / **Remind Me Later** / **Skip This Version**. Download opens
+  the release's `.dmg` (or the release page when there's no `.dmg` asset) in the browser — you
+  install it yourself by dragging the new app into Applications; Suit never replaces itself.
+  Skipping silences that tag until a newer one appears. **Suit ▸ Check for Updates…** (also in the
+  ⌘K palette) checks immediately, ignoring the throttle and any skipped version, and always
+  answers — offer, "You're up to date", or the error. State (last check, skipped tag) lives in
+  `~/.suit/update-check.json`.
 - **Per-pane looks** — right-click a pane for background presets or a custom color, per-pane
   font size (⌘= / ⌘-), and a decorative ASCII screensaver overlay (waves/stars) with its own
   colors and speed. Terminals ground a step darker than the chrome: "Midnight" (#0E1013) is the

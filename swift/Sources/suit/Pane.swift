@@ -4,9 +4,12 @@ import Cocoa
 // dragging their title bars onto one another. The payload is Pane.dragID,
 // which only resolves within the window controller that owns the pane, so
 // drags across windows/tabs are rejected rather than half-applied.
-// (Tabs travel on .suitTab — see TabStripView — and do work across windows.)
 extension NSPasteboard.PasteboardType {
     static let suitPane = NSPasteboard.PasteboardType("dev.kosych.suit.pane")
+    // A dragged tab, by contrast, travels as Tab.id and resolves through
+    // AppDelegate across every open window, so tabs can be dropped into another
+    // window's panes (the running process travels with them).
+    static let suitTab = NSPasteboard.PasteboardType("dev.kosych.suit.tab")
 }
 
 // Where a dragged pane will land relative to the pane it's dropped on: one of
@@ -48,16 +51,16 @@ protocol PaneHost: AnyObject {
     func paneRequestedFindReferences(symbol: String, fromDirectory directory: String?)
     func paneRequestedShowBackgroundTasks(_ pane: Pane)
     func paneFinishedTask(_ pane: Pane)
-    // Tab-grain drag & drop (browser-tab model): a strip-dragged tab dropped
-    // on this pane — shown in its viewport, or split out onto an edge. The
-    // host owns the store and the tree.
+    // Tab-grain drag & drop (browser-tab model): a tab dragged from a pane's
+    // tab bar and dropped on this pane — shown in its viewport, or split out
+    // onto an edge. The host owns the store and the tree.
     func canDropTab(withId id: String, onto target: Pane) -> Bool
     func dropTab(withId id: String, onto target: Pane, drop: TabDropTarget) -> Bool
 
     // In-pane tab bar (the tabs-on-the-pane model): the pane hosts every tab it
     // owns and switches between them itself, so the host provides the owned list
-    // and receives select/close/context actions. The strip is gone; the sidebar
-    // Sessions tab is the cross-pane overview.
+    // and receives select/close/context actions; the sidebar Sessions tab is
+    // the cross-pane overview.
     func ownedTabs(for pane: Pane) -> [Tab]
     func paneDidSelectOwnedTab(_ pane: Pane, tab: Tab)
     func paneDidCloseOwnedTab(_ pane: Pane, tab: Tab)
@@ -239,6 +242,9 @@ final class Pane: NSObject {
         container.titleBar.exitStatus = tab.exitStatus
         container.titleBar.sessionState = tab.liveSessionState
         container.titleBar.contextPct = tab.exitStatus == nil ? tab.claudeSession?.contextPct : nil
+        container.titleBar.savings = tab.exitStatus == nil
+            ? tab.claudeSession.flatMap { TokenSavingsMonitor.shared.totals(forSessionId: $0.id) }
+            : nil
         container.titleBar.isDirty = tab.isDirty
         refreshTabBar()
     }

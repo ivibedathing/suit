@@ -64,6 +64,18 @@ extension AutopilotEngine {
             setState(.paused)
             return
         }
+        // Only one autopilot may hold an active run at a time — they share the
+        // global Claude budget, so a sibling mid-run makes us wait our turn
+        // (footerStatus reports "queued"; tick() repaints when that text
+        // changes, so no explicit postUpdate is needed here).
+        guard AutopilotManager.shared.mayEngineBeginRun(self) else { return }
+        // A persisted run that was left idle — queued behind another instance,
+        // or re-adopted on launch after the active slot freed — resumes through
+        // adoption, never preflight (which would trip over its own worktree).
+        if store.run != nil {
+            adoptPersistedRun(context: "queued")
+            return
+        }
         let decision = AutopilotScheduler.mayStartRun(
             mode: app.autopilotMode, snapshot: cachedSnapshot,
             now: Date(), config: schedulerConfig
@@ -186,8 +198,9 @@ extension AutopilotEngine {
     }
 
     func roadmapModificationDate() -> Date? {
-        guard let root = appDelegate?.autopilotProjectRoot, !root.isEmpty else { return nil }
-        let attributes = try? FileManager.default.attributesOfItem(atPath: root + "/ROADMAP.md")
+        let root = projectRoot
+        guard !root.isEmpty else { return nil }
+        let attributes = try? FileManager.default.attributesOfItem(atPath: RoadmapParser.path(inRoot: root))
         return attributes?[.modificationDate] as? Date
     }
 }

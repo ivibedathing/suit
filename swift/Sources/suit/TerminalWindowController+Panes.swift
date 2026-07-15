@@ -1,5 +1,8 @@
 import Cocoa
 
+// Pane lifecycle and the window's PaneHost duties: create/collapse panes, the
+// in-pane tab bar callbacks, the footer, pane palette commands, and applying
+// the terminal glass (opacity/blur) to every pane.
 extension TerminalWindowController {
 
     // MARK: - Panes
@@ -43,12 +46,19 @@ extension TerminalWindowController {
         return nil
     }
 
+    // The working directory of the currently active tab — the focused pane's
+    // cwd, falling back to the active tab's content. Used by "Autopilot: Start
+    // Here" to resolve the repo the user is looking at.
+    func activeTabWorkingDirectory() -> String? {
+        focusedPane()?.workingDirectory ?? activeTab?.content.workingDirectory
+    }
+
     func paneTitleChanged(_ pane: Pane) {
         if focusedPane() === pane {
             window.title = pane.displayTitle
             store.touchMRU(pane.tab)
         }
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     // MARK: - In-pane tab bar (PaneHost)
@@ -67,7 +77,7 @@ extension TerminalWindowController {
         }
         focusPane(pane)
         store.touchMRU(tab)
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     // The chip's close box.

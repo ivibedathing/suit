@@ -77,6 +77,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // so it's opt-in (PostToolHook / applyPostToolHook).
     var postToolCompressEnabled = false
     var readDedupEnabled = false
+    // Token-ignore firewall: denies full-file Reads under the prefixes in a
+    // repo's .claude/token-ignore (TokenIgnoreHook, PreToolUse) and hides
+    // Grep/Glob results there via the dispatcher's --ignore flag. Off by
+    // default like the other token filters.
+    var tokenIgnoreEnabled = false
     // Shell helpers (run_silent): launch zsh terminals with the
     // ZDOTDIR shim so suit-shell-extras.zsh loads after the user's own config
     // (ShellInjection). Off by default; applies to new terminals only.
@@ -127,6 +132,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         hosted: { [weak self] id in self?.terminalContent(forSessionId: id) != nil },
         onTrip: { [weak self] trip in self?.handleCompactTrip(trip) }
     )
+    // Cache hit-rate meter: rolling prompt-cache hit rate per
+    // session from the transcript's usage blocks; one notification per
+    // collapse (CacheStats / CacheStatsGuard). The fleet dashboard reads its
+    // per-session rate for the row metrics.
+    lazy var cacheGuard: CacheStatsGuard = CacheStatsGuard(
+        onAlert: { [weak self] alert in self?.handleCacheAlert(alert) }
+    )
     lazy var settingsWindowController = SettingsWindowController(appDelegate: self)
     lazy var commandPalette = CommandPaletteController { [weak self] in
         self?.paletteCommands() ?? []
@@ -135,6 +147,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // Fleet-supervision dashboard: a floating cross-window
     // view of every live Claude session, sorted needs-you-first, with per-row
     // steering routed through the same paths as the palette's session verbs.
+    // Autopilot dashboard: the multi-run supervision panel — one row per active
+    // autopilot instance with its status and per-repo controls (focus / pause /
+    // resume / skip / retry / log / stop).
+    lazy var autopilotDashboard: AutopilotDashboardController = {
+        let controller = AutopilotDashboardController()
+        controller.onFocusRunTab = { [weak self] engine in self?.focusAutopilotRunTab(engine: engine) }
+        controller.onOpenLog = { [weak self] engine in self?.openAutopilotLog(engine: engine) }
+        controller.onStartHere = { [weak self] in self?.startAutopilotHere() }
+        return controller
+    }()
+
     lazy var fleetDashboard: FleetDashboardController = {
         let controller = FleetDashboardController()
         controller.hostedIds = { [weak self] in self?.hostedSessionIds() ?? [] }
@@ -144,6 +167,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         controller.onArchive = { [weak self] id in self?.archiveSession(withId: id) }
         controller.onBroadcast = { [weak self] scope in self?.presentBroadcast(scope: scope) }
         controller.onSetBudget = { [weak self] id in self?.setBudget(forSessionId: id) }
+        controller.cacheRate = { [weak self] id in self?.cacheGuard.hitRatePct(forSession: id) }
         return controller
     }()
     // Fleet activity feed / daily digest: a floating
@@ -188,6 +212,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var sessionRefreshTimer: Timer?
     private var sessionRefreshTick = 0
     var attentionCenter: ClaudeAttentionCenter?
+
+    // GitHub release update check: notification when a newer tag ships, the
+    // App menu's manual Check for Updates…, and the download offer alert.
+    var updateChecker: UpdateChecker?
 
     // The session a goal last went to, so a repeat gesture defaults to it
     // (sorted first in the picker) instead of re-choosing from scratch. Session
@@ -259,7 +287,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             } else {
                 self.remapClaudeSessions()
             }
-            AutopilotEngine.shared.tick()
+            AutopilotManager.shared.tick()
             // Background-task monitor: a job that crashed
             // without the wrapper's exit trap firing changes no record file, so
             // the same heartbeat re-runs the liveness sweep that catches it.
@@ -274,6 +302,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             // Auto-/compact guardrails: /compact a session that
             // idles past the context threshold, once per crossing.
             self.compactGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
+            // Cache hit-rate meter: refresh each session's rolling
+            // prompt-cache hit rate from its transcript tail and alert once
+            // per collapse (misses bill input near full price).
+            self.cacheGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
         }
         attentionCenter = ClaudeAttentionCenter { [weak self] sessionId in
             self?.focusSession(withId: sessionId)
@@ -287,7 +319,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // interesting surface, otherwise the log — the footer row's routing.
         attentionCenter?.onAutopilotEvent = { [weak self] _ in
             guard let self else { return }
-            if AutopilotEngine.shared.workerTabId != nil {
+            if AutopilotManager.shared.allEngines.contains(where: { $0.workerTabId != nil }) {
                 self.focusAutopilotRunTab()
             } else {
                 self.openAutopilotLog()
@@ -303,11 +335,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self?.focusSession(withId: sessionId)
         }
 
+        // Update check: daily GitHub-release poll; a hit posts a notification
+        // whose click presents the download offer.
+        updateChecker = UpdateChecker { [weak self] title, body in
+            self?.attentionCenter?.postUpdateEvent(title: title, body: body)
+        }
+        attentionCenter?.onUpdateEvent = { [weak self] in
+            self?.updateChecker?.presentPendingUpdate()
+        }
+        updateChecker?.startAutomaticChecks()
+
         // Autopilot: the engine hangs off the same 3 s
         // timer (tick added in the closure above) and needs the session
         // monitor, which the observers above have already instantiated.
-        AutopilotEngine.shared.appDelegate = self
-        AutopilotEngine.shared.adoptOnLaunch()
+        AutopilotManager.shared.appDelegate = self
+        AutopilotManager.shared.adoptOnLaunch()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

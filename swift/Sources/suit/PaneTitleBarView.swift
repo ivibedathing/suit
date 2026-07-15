@@ -10,6 +10,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
     private let label = NSTextField(labelWithString: "")
     private let statusDot = NSView(frame: .zero)
     private let contextLabel = NSTextField(labelWithString: "")
+    private let savedLabel = NSTextField(labelWithString: "")
     private let dirtyDot = NSView(frame: .zero)
     private var mouseDownLocation: NSPoint?
 
@@ -39,6 +40,13 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         contextLabel.textColor = Theme.textFaint
         contextLabel.isHidden = true
         addSubview(contextLabel)
+
+        // Tokens Suit's filters saved this session ("↓12k"), left of the
+        // context meter; the tooltip carries the spelled-out estimate.
+        savedLabel.font = Theme.contextFont
+        savedLabel.textColor = Theme.textFaint
+        savedLabel.isHidden = true
+        addSubview(savedLabel)
 
         // Unsaved-edits indicator for the editable viewer: a small
         // accent dot on the right, alongside the session/context chrome.
@@ -103,6 +111,24 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         }
     }
 
+    // Tokens the Suit token filters saved for the Claude session in
+    // this pane, read from the ~/.suit/token-savings.jsonl meter — the "what is
+    // Suit buying me" counter. Hidden until the session's first rewrite lands.
+    var savings: TokenSavings.Totals? {
+        didSet {
+            guard savings != oldValue else { return }
+            if let savings, savings.estSavedTokens > 0 {
+                savedLabel.stringValue = "↓" + TokenSavings.compactCount(savings.estSavedTokens)
+                savedLabel.toolTip = TokenSavings.tooltip(for: savings)
+                savedLabel.isHidden = false
+            } else {
+                savedLabel.isHidden = true
+            }
+            needsLayout = true
+            setFrameSize(frame.size)
+        }
+    }
+
     // The open file has unsaved edits (editable viewer). Shown as an
     // accent dot in the header; the strip carries the same flag on the tab.
     var isDirty: Bool = false {
@@ -122,6 +148,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         iconView.contentTintColor = Theme.textDim
         label.textColor = Theme.textDim
         dirtyDot.layer?.backgroundColor = Theme.accent.cgColor
+        savedLabel.textColor = Theme.textFaint
         if let pct = contextPct {
             contextLabel.textColor = Theme.contextLevelColor(pct)
         }
@@ -170,6 +197,11 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
             let size = contextLabel.intrinsicContentSize
             contextLabel.frame = NSRect(x: right - size.width, y: (bounds.height - size.height) / 2, width: size.width, height: size.height)
             right = contextLabel.frame.minX - 5
+        }
+        if !savedLabel.isHidden {
+            let size = savedLabel.intrinsicContentSize
+            savedLabel.frame = NSRect(x: right - size.width, y: (bounds.height - size.height) / 2, width: size.width, height: size.height)
+            right = savedLabel.frame.minX - 5
         }
         let dotSize: CGFloat = 6
         statusDot.frame = NSRect(x: right - dotSize, y: (bounds.height - dotSize) / 2, width: dotSize, height: dotSize)
@@ -252,6 +284,9 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         bar.exitStatus = tab.exitStatus
         bar.sessionState = tab.liveSessionState
         bar.contextPct = tab.exitStatus == nil ? tab.claudeSession?.contextPct : nil
+        bar.savings = tab.exitStatus == nil
+            ? tab.claudeSession.flatMap { TokenSavingsMonitor.shared.totals(forSessionId: $0.id) }
+            : nil
         bar.isDirty = tab.isDirty
         bar.setFrameSize(bar.frame.size)   // re-run the custom layout after config
         let image = NSImage(size: bar.bounds.size)

@@ -33,6 +33,10 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
     // the notification's userInfo — AppDelegate focuses that pane.
     var onBudgetEvent: ((String) -> Void)?
 
+    // Update check: the "update-available" notification's click routes here —
+    // AppDelegate presents the download offer via UpdateChecker.
+    var onUpdateEvent: (() -> Void)?
+
     init(onFocusSession: @escaping (String) -> Void) {
         self.onFocusSession = onFocusSession
         super.init()
@@ -159,6 +163,23 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
     }
 
+    // Update-available notification: the stable "update-available" identifier
+    // means a re-check replaces the banner instead of piling up. Same
+    // lives-here rationale as postAutopilotEvent.
+    func postUpdateEvent(title: String, body: String) {
+        guard notificationsAvailable else { return }
+        let center = UNUserNotificationCenter.current()
+        if !authorizationRequested {
+            authorizationRequested = true
+            center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        center.add(UNNotificationRequest(identifier: "update-available", content: content, trigger: nil))
+    }
+
     // MARK: - UNUserNotificationCenterDelegate
 
     func userNotificationCenter(
@@ -173,6 +194,8 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
                 self?.onAutopilotEvent?(identifier)
             } else if identifier.hasPrefix("activity-") {
                 self?.onActivityEvent?()
+            } else if identifier.hasPrefix("update-") {
+                self?.onUpdateEvent?()
             } else if identifier.hasPrefix("budget-") || identifier.hasPrefix("compact-") {
                 // Budget trips and auto-compacts both route the click to the
                 // pane hosting the session named in userInfo.
@@ -193,8 +216,11 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        // An available update is news regardless of focus — without the banner
+        // an active-app user would never learn a release shipped.
         if notification.request.identifier == "autopilot-blocked"
-            || notification.request.identifier.hasPrefix("budget-") {
+            || notification.request.identifier.hasPrefix("budget-")
+            || notification.request.identifier.hasPrefix("update-") {
             completionHandler([.banner, .sound])
         } else {
             completionHandler([])

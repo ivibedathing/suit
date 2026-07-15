@@ -16,6 +16,13 @@ struct RoadmapPhase {
     let body: String    // spec text below the heading, up to the next ##/### heading
     let shipped: Bool   // ✅ anywhere in the heading
     let skipped: Bool   // ⏸ anywhere in the heading
+    // Optional per-phase routing annotations (token-cost routing): a body
+    // line of the form "model: haiku" / "effort: low" (optionally "- "-led,
+    // case-insensitive key, value verbatim, first occurrence wins) routes
+    // this phase's worker onto a cheaper model / effort tier via
+    // ANTHROPIC_MODEL / CLAUDE_CODE_EFFORT_LEVEL. nil = session default.
+    let model: String?
+    let effort: String?
 
     // Worktree/branch identity: "phase-<n>-<title>" slugified. The engine
     // hands this to WorktreeTasks.createTask as the task name, so the
@@ -29,6 +36,12 @@ struct RoadmapPhase {
 }
 
 enum RoadmapParser {
+    // The roadmap's one canonical location: <root>/ROADMAP.md. Call sites
+    // never rebuild the path by hand, so the filename can't drift.
+    static func path(inRoot root: String) -> String {
+        root + "/ROADMAP.md"
+    }
+
     // Every well-formed phase section, in document order. A heading must
     // match ^### Phase (\d+) — (.+)$ exactly (ASCII digits, spaced em dash,
     // non-empty title); malformed variants are not phases, though as ##/###
@@ -52,13 +65,16 @@ enum RoadmapParser {
             while let last = bodyLines.last, last.trimmingCharacters(in: .whitespaces).isEmpty {
                 bodyLines.removeLast()
             }
+            let body = bodyLines.joined(separator: "\n")
             phases.append(RoadmapPhase(
                 number: number,
                 title: cleanTitle(rawTitle),
                 heading: String(line),
-                body: bodyLines.joined(separator: "\n"),
+                body: body,
                 shipped: containsMarker(line, shippedScalar),
-                skipped: containsMarker(line, skippedScalar)))
+                skipped: containsMarker(line, skippedScalar),
+                model: annotation("model", in: body),
+                effort: annotation("effort", in: body)))
         }
         return phases
     }
@@ -100,6 +116,24 @@ enum RoadmapParser {
         var result = String(collapsed.prefix(48))
         while result.hasSuffix("-") { result.removeLast() }
         return result
+    }
+
+    // A per-phase routing annotation in a body: the first line that — after
+    // trimming and dropping one leading "- " list marker — starts with
+    // "<key>:" (ASCII case-insensitive) yields its trimmed remainder,
+    // verbatim. Whole-line anchored so prose mentioning "the model: …"
+    // mid-sentence can't trigger it; an empty value is no annotation.
+    static func annotation(_ key: String, in body: String) -> String? {
+        for raw in body.split(separator: "\n", omittingEmptySubsequences: true) {
+            var line = raw.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("- ") { line = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces) }
+            guard line.count > key.count + 1,
+                  line.prefix(key.count).lowercased() == key.lowercased(),
+                  line[line.index(line.startIndex, offsetBy: key.count)] == ":" else { continue }
+            let value = String(line.dropFirst(key.count + 1)).trimmingCharacters(in: .whitespaces)
+            if !value.isEmpty { return value }
+        }
+        return nil
     }
 
     // MARK: - Internals

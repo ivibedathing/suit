@@ -1,5 +1,9 @@
 import Cocoa
 
+// The entire main menu bar, built in code (no nib): every menu, item, and key
+// equivalent, each targeting an action defined in the other AppDelegate /
+// window-controller extensions. Change a shortcut here and in
+// docs/features.md's shortcut table together.
 extension AppDelegate {
     // MARK: - Menu
 
@@ -11,6 +15,8 @@ extension AppDelegate {
         let appMenu = NSMenu()
         let aboutItem = appMenu.addItem(withTitle: "About Suit", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         aboutItem.target = NSApp
+        let checkUpdatesItem = appMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates(_:)), keyEquivalent: "")
+        checkUpdatesItem.target = self
         appMenu.addItem(.separator())
         let settingsItem = appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings(_:)), keyEquivalent: ",")
         settingsItem.target = self
@@ -74,7 +80,7 @@ extension AppDelegate {
 
         editMenuItem.submenu = editMenu
 
-        // The Tabs menu (browser-tab model): one strip per window owns every
+        // The Tabs menu (browser-tab model): one tab list per window owns every
         // tab; these commands operate on it.
         let tabMenuItem = NSMenuItem()
         mainMenu.addItem(tabMenuItem)
@@ -120,7 +126,7 @@ extension AppDelegate {
         cycleBackItem.keyEquivalentModifierMask = [.control, .shift]
         cycleBackItem.target = self
 
-        // ⌘1..9 addresses strip tabs directly; ⌘9 is the last tab (browser rule).
+        // ⌘1..9 addresses the window's tabs by index; ⌘9 is the last (browser rule).
         let goToTabItem = tabMenu.addItem(withTitle: "Go to Tab", action: nil, keyEquivalent: "")
         let goToTabMenu = NSMenu(title: "Go to Tab")
         for i in 1...8 {
@@ -318,5 +324,12 @@ extension AppDelegate {
         NSApp.windowsMenu = windowMenu
 
         NSApp.mainMenu = mainMenu
+    }
+
+    // App menu ▸ Check for Updates… — the manual check; always answers with
+    // an alert (offer / up to date / error), ignoring the daily throttle and
+    // any skipped version.
+    @objc func checkForUpdates(_ sender: Any?) {
+        updateChecker?.checkNow()
     }
 }
