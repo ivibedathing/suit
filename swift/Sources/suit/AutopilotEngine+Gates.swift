@@ -27,9 +27,7 @@ extension AutopilotEngine {
                 guard let self else { return }
                 self.endBackgroundJob(job)
                 if self.activeGateHandle === handle { self.activeGateHandle = nil }
-                guard gen == self.generation, case .running = self.state,
-                      let current = self.store.run, current.id == run.id,
-                      AutopilotRunStage(rawValue: current.stage) == .gatingBuild else { return }
+                guard let current = self.currentRun(ifGeneration: gen, run: run, stage: .gatingBuild) else { return }
                 self.handleBuildGate(outcome, run: current, attempt: attempt,
                                      maxAttempts: maxAttempts, logPath: logURL.path)
             }
@@ -98,9 +96,7 @@ extension AutopilotEngine {
                     guard let self else { return }
                     self.endBackgroundJob(job)
                     if self.activeGateHandle === handle { self.activeGateHandle = nil }
-                    guard gen == self.generation, case .running = self.state,
-                          let current = self.store.run, current.id == run.id,
-                          AutopilotRunStage(rawValue: current.stage) == .gatingReview else { return }
+                    guard let current = self.currentRun(ifGeneration: gen, run: run, stage: .gatingReview) else { return }
                     // A missing binary never consumes a review attempt.
                     self.store.updateRun { $0.reviewAttempts = max(0, $0.reviewAttempts - 1) }
                     self.block(.reviewGateBroken,
@@ -122,9 +118,7 @@ extension AutopilotEngine {
                     guard let self else { return }
                     self.endBackgroundJob(job)
                     if self.activeGateHandle === handle { self.activeGateHandle = nil }
-                    guard gen == self.generation, case .running = self.state,
-                          let current = self.store.run, current.id == run.id,
-                          AutopilotRunStage(rawValue: current.stage) == .gatingReview else { return }
+                    guard let current = self.currentRun(ifGeneration: gen, run: run, stage: .gatingReview) else { return }
                     self.reviewGateFailed(run: current, why: why)
                 }
                 return
@@ -141,9 +135,7 @@ extension AutopilotEngine {
                     guard let self else { return }
                     self.endBackgroundJob(job)
                     if self.activeGateHandle === handle { self.activeGateHandle = nil }
-                    guard gen == self.generation, case .running = self.state,
-                          let current = self.store.run, current.id == run.id,
-                          AutopilotRunStage(rawValue: current.stage) == .gatingReview else { return }
+                    guard let current = self.currentRun(ifGeneration: gen, run: run, stage: .gatingReview) else { return }
                     self.handleUnchangedDiff(run: current, attempt: attempt, maxAttempts: maxAttempts)
                 }
                 return
@@ -164,9 +156,7 @@ extension AutopilotEngine {
                     guard let self else { return }
                     self.endBackgroundJob(job)
                     if self.activeGateHandle === handle { self.activeGateHandle = nil }
-                    guard gen == self.generation, case .running = self.state,
-                          let current = self.store.run, current.id == run.id,
-                          AutopilotRunStage(rawValue: current.stage) == .gatingReview else { return }
+                    guard let current = self.currentRun(ifGeneration: gen, run: run, stage: .gatingReview) else { return }
                     self.handleReviewGate(outcome, output: output, run: current,
                                           attempt: attempt, maxAttempts: maxAttempts,
                                           logPath: logURL.path, diffHash: diffHash)

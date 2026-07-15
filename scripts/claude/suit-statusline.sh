@@ -33,6 +33,9 @@ printf '%s' "$input" | jq --argjson captured_at "$now" '. + {captured_at: $captu
 mv "$tmp" "$out_dir/claude-status.json"
 
 # Per-session enrichment.
+# TWIN: suit-session-state.sh merges the same ~/.suit/sessions/<sid>.json with
+# the same validate → mktemp → conditional-merge → mv idiom; adding a session
+# field usually means updating both.
 sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
 if [ -n "$sid" ]; then
   cwd=$(printf '%s' "$input" | jq -r '.workspace.current_dir // .cwd // empty')

@@ -53,6 +53,9 @@ while [ "$i" -lt 8 ]; do
   i=$((i + 1))
 done
 
+# TWIN: suit-statusline.sh merges the same file with the same validate →
+# mktemp → conditional-merge → mv idiom; adding a session field usually means
+# updating both.
 file="$dir/$sid.json"
 existing="{}"
 [ -f "$file" ] && existing=$(cat "$file" 2>/dev/null || printf '{}')

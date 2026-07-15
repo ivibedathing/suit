@@ -90,9 +90,7 @@ extension AutopilotEngine {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.endBackgroundJob(job)
-                guard gen == self.generation, case .running = self.state,
-                      let current = self.store.run, current.id == run.id,
-                      AutopilotRunStage(rawValue: current.stage) == .working else { return }
+                guard let current = self.currentRun(ifGeneration: gen, run: run, stage: .working) else { return }
                 self.handleVerification(outcome, run: current)
             }
         }

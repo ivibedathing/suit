@@ -64,6 +64,8 @@ esac
 
 # A range read is deliberate and bounded — never firewalled (same rule as the
 # read-dedup filter: offset > 1 or any limit means a partial read).
+# TWIN: the identical jq test lives in suit-posttool-filter.sh (--dedup
+# section); a rule change must land in both or the two filters disagree.
 PARTIAL="$(printf '%s' "$INPUT" | jq -r \
   '.tool_input | if ((has("offset") and ((.offset // 0) > 1)) or has("limit")) then "1" else "0" end' \
   2>/dev/null)"
@@ -71,6 +73,9 @@ PARTIAL="$(printf '%s' "$INPUT" | jq -r \
 
 # Walk up from the file toward / for the nearest .claude/token-ignore; its
 # directory is the root the patterns are relative to. No file → no firewall.
+# TWIN: suit-posttool-filter.sh (--ignore section) parses the same grammar for
+# Grep/Glob results — keep the walk-up, the `%%#*` comment strip, and the
+# absolute-vs-relative prefix rule byte-compatible across both scripts.
 ROOT=""
 DIR="$(dirname "$FILE")"
 while [ -n "$DIR" ] && [ "$DIR" != "/" ]; do
@@ -109,6 +114,9 @@ OUT="$(jq -n --arg reason "$REASON" \
 [ -n "$OUT" ] || pass_through
 
 # Savings meter (best-effort; the counterfactual is the whole file).
+# SCHEMA: one JSONL row shared with log_saving() in suit-posttool-filter.sh,
+# read by TokenSavings.swift and scripts/token-savings-report.sh — change all
+# four together.
 if [ "${SUIT_SAVINGS_LOG:-1}" != "0" ]; then
   SID="$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)"
   mkdir -p "$HOME/.suit" 2>/dev/null

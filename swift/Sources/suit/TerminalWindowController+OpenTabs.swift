@@ -54,6 +54,28 @@ extension TerminalWindowController {
         store.tabs.first { $0.content is DiffPaneContent }?.content as? DiffPaneContent
     }
 
+    // The reuse-or-create policy every window-singleton pane shares (diff,
+    // transcript, commit graph, plan approval, references, checkpoint
+    // timeline): reuse the window's existing tab of that content type, or
+    // create one — then load and activate. One place to change the
+    // focus/dedup behavior for all of them.
+    @discardableResult
+    func reuseOrCreateTab<Content: PaneContent>(_ create: @autoclosure () -> Content,
+                                                load: (Content) -> Void) -> Content {
+        if let tab = store.tabs.first(where: { $0.content is Content }),
+           let existing = tab.content as? Content {
+            load(existing)
+            activate(tab)
+            return existing
+        }
+        let content = create()
+        let tab = Tab(content: content)
+        store.insert(tab)
+        load(content)
+        activate(tab)
+        return content
+    }
+
     // Opens (or reuses, same policy as openFile) the window's diff tab showing
     // a project's uncommitted changes — the focused pane's project unless the
     // caller (the Git tab) names a root explicitly.
@@ -63,16 +85,7 @@ extension TerminalWindowController {
             NSSound.beep()
             return
         }
-        if let tab = store.tabs.first(where: { $0.content is DiffPaneContent }) {
-            (tab.content as? DiffPaneContent)?.loadGitDiff(root: root)
-            activate(tab)
-            return
-        }
-        let content = DiffPaneContent()
-        let tab = Tab(content: content)
-        store.insert(tab)
-        content.loadGitDiff(root: root)
-        activate(tab)
+        reuseOrCreateTab(DiffPaneContent()) { $0.loadGitDiff(root: root) }
     }
 
     // The Git tab's file-scoped variant: the same diff tab, showing only one
@@ -82,21 +95,9 @@ extension TerminalWindowController {
             runProcess("/usr/bin/git", ["-C", root, "diff", "HEAD", "--", file]) ?? ""
         }
         let title = "diff: \((file as NSString).lastPathComponent)"
-        let load = { (content: DiffPaneContent) in
+        reuseOrCreateTab(DiffPaneContent()) { content in
             content.loadDiffText(producer(), title: title, root: root, reload: producer)
         }
-        if let tab = store.tabs.first(where: { $0.content is DiffPaneContent }) {
-            if let content = tab.content as? DiffPaneContent {
-                load(content)
-            }
-            activate(tab)
-            return
-        }
-        let content = DiffPaneContent()
-        let tab = Tab(content: content)
-        store.insert(tab)
-        load(content)
-        activate(tab)
     }
 
     // Open a PR's diff for review: `gh pr diff <n>` into the
@@ -109,17 +110,7 @@ extension TerminalWindowController {
         let title = "PR #\(number)"
         let producer = { GitHubCLI.prDiff(root: root, number: number) }
 
-        let content: DiffPaneContent
-        if let tab = store.tabs.first(where: { $0.content is DiffPaneContent }),
-           let existing = tab.content as? DiffPaneContent {
-            content = existing
-            activate(tab)
-        } else {
-            content = DiffPaneContent()
-            let tab = Tab(content: content)
-            store.insert(tab)
-            activate(tab)
-        }
+        let content = reuseOrCreateTab(DiffPaneContent()) { _ in }
         content.reviewingPR = DiffPaneContent.ReviewingPR(number: number, root: root, title: pr.title)
         content.loadDiffText("Loading \(title)…", title: title, root: root, reload: producer)
         DispatchQueue.global(qos: .userInitiated).async {
@@ -142,21 +133,9 @@ extension TerminalWindowController {
             runProcess("/usr/bin/git", ["-C", root, "show", "--format=", sha, "--", file]) ?? ""
         }
         let title = "diff: \((file as NSString).lastPathComponent) @ \(sha.prefix(8))"
-        let load = { (content: DiffPaneContent) in
+        reuseOrCreateTab(DiffPaneContent()) { content in
             content.loadDiffText(producer(), title: title, root: root, reload: producer)
         }
-        if let tab = store.tabs.first(where: { $0.content is DiffPaneContent }) {
-            if let content = tab.content as? DiffPaneContent {
-                load(content)
-            }
-            activate(tab)
-            return
-        }
-        let content = DiffPaneContent()
-        let tab = Tab(content: content)
-        store.insert(tab)
-        load(content)
-        activate(tab)
     }
 
     // Whole-commit diff: from a commit-graph node click.
@@ -167,19 +146,9 @@ extension TerminalWindowController {
             runProcess("/usr/bin/git", ["-C", root, "show", "--stat", "--patch", sha]) ?? ""
         }
         let title = "commit \(sha.prefix(8))"
-        let load = { (content: DiffPaneContent) in
+        reuseOrCreateTab(DiffPaneContent()) { content in
             content.loadDiffText(producer(), title: title, root: root, reload: producer)
         }
-        if let tab = store.tabs.first(where: { $0.content is DiffPaneContent }) {
-            if let content = tab.content as? DiffPaneContent { load(content) }
-            activate(tab)
-            return
-        }
-        let content = DiffPaneContent()
-        let tab = Tab(content: content)
-        store.insert(tab)
-        load(content)
-        activate(tab)
     }
 
     // The commit-graph pane: one per window, reused like the
@@ -188,16 +157,7 @@ extension TerminalWindowController {
     func openCommitGraph(root explicitRoot: String? = nil) {
         let root = explicitRoot ?? currentFileIndex().root
         guard FileIndex.gitRoot(of: root) != nil else { NSSound.beep(); return }
-        if let tab = store.tabs.first(where: { $0.content is CommitGraphPaneContent }) {
-            (tab.content as? CommitGraphPaneContent)?.load(root: root)
-            activate(tab)
-            return
-        }
-        let content = CommitGraphPaneContent()
-        let tab = Tab(content: content)
-        store.insert(tab)
-        content.load(root: root)
-        activate(tab)
+        reuseOrCreateTab(CommitGraphPaneContent()) { $0.load(root: root) }
     }
 
     // MARK: - "What changed while I was away" markers
@@ -248,64 +208,27 @@ extension TerminalWindowController {
         let composed = MarkerCatchUp.compose(mainRoot: mainRoot, marker: marker, sessionForPath: sessionForPath)
         let title = "Since \(MarkerCatchUp.shortTime(marker.at)) · \(MarkerCatchUp.fileCount(composed.totalFiles)) +\(composed.totalInsertions) \u{2212}\(composed.totalDeletions)"
 
-        let load = { (content: DiffPaneContent) in
+        reuseOrCreateTab(DiffPaneContent()) { content in
             content.loadDiffText(composed.diffText, title: title, root: mainRoot, reload: producer)
         }
-        if let tab = store.tabs.first(where: { $0.content is DiffPaneContent }) {
-            if let content = tab.content as? DiffPaneContent { load(content) }
-            activate(tab)
-            return
-        }
-        let content = DiffPaneContent()
-        let tab = Tab(content: content)
-        store.insert(tab)
-        load(content)
-        activate(tab)
     }
 
     // Opens (or reuses) the window's transcript tab showing a Claude session's
     // conversation.
     func openTranscript(for session: ClaudeSession) {
-        if let tab = store.tabs.first(where: { $0.content is TranscriptPaneContent }) {
-            (tab.content as? TranscriptPaneContent)?.load(session: session)
-            activate(tab)
-            return
-        }
-        let content = TranscriptPaneContent()
-        let tab = Tab(content: content)
-        store.insert(tab)
-        content.load(session: session)
-        activate(tab)
+        reuseOrCreateTab(TranscriptPaneContent()) { $0.load(session: session) }
     }
 
     // Opens (or reuses) the window's plan-approval tab showing a Claude
     // session's proposed plan, reused like the transcript.
     func openPlanApproval(for session: ClaudeSession) {
-        if let tab = store.tabs.first(where: { $0.content is PlanApprovalPaneContent }) {
-            (tab.content as? PlanApprovalPaneContent)?.load(session: session)
-            activate(tab)
-            return
-        }
-        let content = PlanApprovalPaneContent()
-        let tab = Tab(content: content)
-        store.insert(tab)
-        content.load(session: session)
-        activate(tab)
+        reuseOrCreateTab(PlanApprovalPaneContent()) { $0.load(session: session) }
     }
 
     // Opens (or reuses) the window's checkpoint-timeline tab showing a Claude
     // session's change history, reused like the transcript.
     func openCheckpointTimeline(for session: ClaudeSession) {
-        if let tab = store.tabs.first(where: { $0.content is CheckpointTimelinePaneContent }) {
-            (tab.content as? CheckpointTimelinePaneContent)?.load(session: session)
-            activate(tab)
-            return
-        }
-        let content = CheckpointTimelinePaneContent()
-        let tab = Tab(content: content)
-        store.insert(tab)
-        content.load(session: session)
-        activate(tab)
+        reuseOrCreateTab(CheckpointTimelinePaneContent()) { $0.load(session: session) }
     }
 
     // Opens (or reuses) the window's background-task monitor tab,
@@ -335,18 +258,8 @@ extension TerminalWindowController {
     // file — how cross-transcript search jumps to a historical
     // session, anchoring the pane on the matching line.
     func openTranscript(path: String, cwd: String?, title: String, line: Int?) {
-        let content: TranscriptPaneContent
-        if let tab = store.tabs.first(where: { $0.content is TranscriptPaneContent }),
-           let existing = tab.content as? TranscriptPaneContent {
-            content = existing
-            content.load(path: path, cwd: cwd, title: title)
-            activate(tab)
-        } else {
-            content = TranscriptPaneContent()
-            let tab = Tab(content: content)
-            store.insert(tab)
-            content.load(path: path, cwd: cwd, title: title)
-            activate(tab)
+        let content = reuseOrCreateTab(TranscriptPaneContent()) {
+            $0.load(path: path, cwd: cwd, title: title)
         }
         // Defer the jump one turn so the pane has laid out (scrollRangeToVisible
         // needs a real frame after activate).
@@ -400,16 +313,9 @@ extension TerminalWindowController {
 
     // The references pane itself, reused like the diff / transcript panes.
     func openReferences(symbol: String, root: String, fallbackNote: String? = nil) {
-        if let tab = store.tabs.first(where: { $0.content is ReferencesPaneContent }) {
-            (tab.content as? ReferencesPaneContent)?.load(symbol: symbol, root: root, fallbackNote: fallbackNote)
-            activate(tab)
-            return
+        reuseOrCreateTab(ReferencesPaneContent()) {
+            $0.load(symbol: symbol, root: root, fallbackNote: fallbackNote)
         }
-        let content = ReferencesPaneContent()
-        let tab = Tab(content: content)
-        store.insert(tab)
-        content.load(symbol: symbol, root: root, fallbackNote: fallbackNote)
-        activate(tab)
     }
 
     // MARK: - Claude task worktrees
