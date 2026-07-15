@@ -39,8 +39,7 @@ of terminal panes.
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Install & build](#install--build)
 - [Requirements](#requirements)
-- [Project layout](#project-layout)
-- [Contributing](#contributing)
+- [Development & contributing](#development--contributing)
 - [License](#license)
 
 ## Why Suit
@@ -187,10 +186,6 @@ Comment verdict via `gh pr review`.
 
 ## Install & build
 
-There is no Xcode project and no SwiftPM package — Suit is compiled directly with `swiftc` and
-assembled into an app bundle by `build.sh` (see [Requirements](#requirements) and the "Why no
-SwiftPM" note in `AGENTS.md` for the reasoning).
-
 ```sh
 git clone https://github.com/ivibedathing/suit.git
 cd suit
@@ -198,24 +193,9 @@ cd suit
 open build/Suit.app        # launch like a normal Mac app
 ```
 
-To iterate on the UI without assembling the bundle, compile the Swift sources straight to a binary:
-
-```sh
-swiftc -O swift/Sources/suit/*.swift \
-  $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell && /tmp/suit-shell
-```
-
-There is no XCTest target; the pure, UI-free logic is covered by standalone harnesses. Run them
-all with `scripts/test.sh` (fast suite) or `scripts/test.sh --all` (includes the ~4-minute
-Autopilot pipeline harness) — see the "Testing" section in `AGENTS.md`.
-
-Two integrations are wired up from inside the app rather than by hand:
-
-- **Claude Code integration** — app menu ▸ *Install Claude Code Integration…* copies the
-  bundled statusline / hook scripts to `~/.suit` and merges them into `~/.claude/settings.json`
-  (a one-time backup is written first). Required for session awareness and Autopilot.
-- **GitHub CLI (`gh`)** — needed for the Branch → PR actions and Autopilot's PR flow.
-  Everything degrades gracefully when it's missing.
+There is no Xcode project and no SwiftPM package — `build.sh` compiles everything directly with
+`swiftc` and assembles the bundle. The dev loop, testing, integration setup, and project layout
+live in **[docs/development.md](docs/development.md)**.
 
 ## Requirements
 
@@ -224,35 +204,12 @@ Two integrations are wired up from inside the app rather than by hand:
 - **`gh`** (optional) — for PR creation and Autopilot
 - **Claude Code** (optional) — for the Claude cockpit features and Autopilot
 
-## Project layout
+## Development & contributing
 
-| Path | What lives there |
-| --- | --- |
-| `swift/Sources/suit/` | The AppKit app — UI, tabs, sidebar, git / Claude / Autopilot logic |
-| `swift/Vendor/SwiftTerm/` | Vendored SwiftTerm source (no SPM — see `AGENTS.md`) |
-| `scripts/claude/` | Statusline + session-state hook scripts installed into `~/.suit` |
-| `scripts/test.sh` | Runs the standalone logic harnesses (`*-test.sh` / `*-harness.sh`) |
-| `design/` | App icon and the committed reference render used to catch visual drift |
-| `docs/` | Long-form docs — `features.md` is the full feature reference |
-| `Resources/Info.plist` | App bundle metadata and permission usage strings |
-| `build.sh` | Builds everything and assembles `build/Suit.app` |
-| `AGENTS.md` | Full agent & contributor guidance — architecture, file map, workflow rules |
-| `.claude/commands/` | Repo slash commands: `/build`, `/test`, `/find-file`, `/orient`, … |
-| `CLAUDE.md` | Stub pointing Claude Code at `AGENTS.md` |
-
-## Contributing
-
-This is a personal project, but the workflow is documented if you want to hack on it:
-
-- Read `AGENTS.md` for the full architecture, the dev loop, and why the build avoids SwiftPM.
-- Start each change on its own branch in its own git worktree — never work directly in the main
-  checkout — so concurrent Claude Code sessions don't step on each other's edits.
-- Run `scripts/test.sh` before committing non-UI changes, and regenerate the reference render
-  (`design/render-reference.sh`) after chrome edits.
-- After implementing a feature, document the user-facing behavior (shortcuts, settings) in
-  [`docs/features.md`](docs/features.md) so it stays a current description of what the app does.
-  Keep this README lean — update it only when the change belongs in Highlights or the shortcuts
-  table.
+This is a personal project, but the workflow is documented if you want to hack on it: start with
+**[docs/development.md](docs/development.md)** — the build/dev loop, testing, integration setup,
+project layout, and contributing workflow — and `AGENTS.md` for the full architecture, file map,
+and the rules agents follow.
 
 ## License
 
