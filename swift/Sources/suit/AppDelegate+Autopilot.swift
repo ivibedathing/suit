@@ -284,10 +284,6 @@ extension AppDelegate {
     // "Autopilot: Start Here" — resolve the active tab's cwd to its git root and
     // stand up (or focus) an autopilot for it.
     func startAutopilotHere() {
-        if !autopilotEnabled {
-            // Run the enable-time checks first; bail if the user declines.
-            guard autopilotEnabledChanged(true) else { return }
-        }
         guard let controller = activeWindowController(),
               let directory = controller.activeTabWorkingDirectory() else {
             let alert = NSAlert()
@@ -295,6 +291,20 @@ extension AppDelegate {
             alert.informativeText = "Focus a terminal (or file) tab inside the git repo you want Autopilot to work on, then try again."
             alert.runModal()
             return
+        }
+        startAutopilot(inDirectory: directory)
+    }
+
+    // Start on an explicit directory rather than the frontmost tab's — the
+    // terminal context menu acts on the pane under the cursor, which isn't
+    // necessarily the focused one. Shared with startAutopilotHere() so both
+    // routes run the same enable-time checks and report the same failures;
+    // startHere() does the (blocking) git-root resolution, which is why callers
+    // hand it a cwd rather than resolving one themselves.
+    func startAutopilot(inDirectory directory: String) {
+        if !autopilotEnabled {
+            // Run the enable-time checks first; bail if the user declines.
+            guard autopilotEnabledChanged(true) else { return }
         }
         switch AutopilotManager.shared.startHere(directory: directory) {
         case .started(let engine):
@@ -316,6 +326,17 @@ extension AppDelegate {
         case .notEnabled:
             break // handled by the guard above
         }
+    }
+
+    // Stop the autopilot whose repo contains `directory`, if any. Mirrors the
+    // Dashboard's per-row Stop (no confirmation, and the worktree/branch are
+    // deliberately left in place — see AutopilotManager.stop); a no-op when the
+    // pane isn't inside a repo Autopilot is running on, since the menu only
+    // offers this when it is.
+    func stopAutopilot(inDirectory directory: String) {
+        guard let engine = AutopilotManager.shared.engineOwning(directory: directory), engine.isActive else { return }
+        AutopilotStore.logGlobal("Autopilot stopped on \(engine.projectRoot) (terminal menu)")
+        AutopilotManager.shared.stop(engine)
     }
 
     func showAutopilotDashboard() {
