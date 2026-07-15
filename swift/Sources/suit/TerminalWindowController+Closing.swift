@@ -75,7 +75,7 @@ extension TerminalWindowController {
         if !alreadyTerminated {
             tab.content.teardown()
         }
-        reloadStrip(animated: true)
+        refreshTabSurfaces()
     }
 
     func teardownAndClose(alreadyTerminated: Bool = false) {
@@ -119,7 +119,7 @@ extension TerminalWindowController {
         }
         panes.removeAll { $0 === pane }
         updateBorderVisibility()
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     // MARK: - Window closing

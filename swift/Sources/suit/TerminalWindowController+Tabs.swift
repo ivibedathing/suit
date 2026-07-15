@@ -7,21 +7,6 @@ extension TerminalWindowController {
 
     // MARK: - Tab drag & drop
 
-    // Strip drop: same-window reorder (crossing the pin boundary pins), or
-    // adopting a tab dragged over from another window's strip.
-    func handleStripDrop(tabId: String, insertionIndex: Int) -> Bool {
-        if let tab = store.tab(withId: tabId) {
-            store.move(tab, toInsertionIndex: insertionIndex)
-            reloadStrip(animated: true)
-            return true
-        }
-        guard let (source, tab) = appDelegate.controllerAndTab(withId: tabId), source !== self else { return false }
-        source.release(tab)
-        store.insert(tab, at: insertionIndex)
-        activate(tab)
-        return true
-    }
-
     func canDropTab(withId id: String, onto target: Pane) -> Bool {
         guard let (_, tab) = appDelegate.controllerAndTab(withId: id) else { return false }
         if tab.pane !== target { return true }
@@ -41,7 +26,7 @@ extension TerminalWindowController {
             target.display(tab)
             focusPane(target)
             store.touchMRU(tab)
-            reloadStrip()
+            refreshTabSurfaces()
             return true
 
         case .edge(let zone):
@@ -65,7 +50,7 @@ extension TerminalWindowController {
             insert(newPane.container, besides: target.container, orientation: orientation, before: zone == .left || zone == .top)
             focusPane(newPane)
             store.touchMRU(tab)
-            reloadStrip()
+            refreshTabSurfaces()
             return true
         }
     }
@@ -128,7 +113,7 @@ extension TerminalWindowController {
             }
             window.close()
         } else {
-            reloadStrip(animated: true)
+            refreshTabSurfaces()
         }
     }
 
@@ -227,7 +212,7 @@ extension TerminalWindowController {
     // openFile stops replacing it.
     func keepTab(_ tab: Tab) {
         tab.isPreview = false
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     func keepActiveTab() {
@@ -244,10 +229,10 @@ extension TerminalWindowController {
             return
         }
         store.setPinned(!tab.isPinned, for: tab)
-        reloadStrip(animated: true)
+        refreshTabSurfaces()
     }
 
-    // MARK: - Strip context menu
+    // MARK: - Tab context menu
 
     func tabContextMenu(for tab: Tab) -> NSMenu {
         let menu = NSMenu()
@@ -303,7 +288,7 @@ extension TerminalWindowController {
     @objc private func contextTogglePin(_ sender: Any?) {
         guard let tab = contextTab(sender) else { return }
         store.setPinned(!tab.isPinned, for: tab)
-        reloadStrip(animated: true)
+        refreshTabSurfaces()
     }
 
     @objc private func contextRenameTab(_ sender: Any?) {

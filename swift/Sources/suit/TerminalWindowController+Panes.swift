@@ -58,7 +58,7 @@ extension TerminalWindowController {
             window.title = pane.displayTitle
             store.touchMRU(pane.tab)
         }
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     // MARK: - In-pane tab bar (PaneHost)
@@ -77,7 +77,7 @@ extension TerminalWindowController {
         }
         focusPane(pane)
         store.touchMRU(tab)
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     // The chip's close box.

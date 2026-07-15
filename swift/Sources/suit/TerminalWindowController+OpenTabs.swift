@@ -597,7 +597,7 @@ extension TerminalWindowController {
         if wasEmpty {
             activate(tab)
         }
-        reloadStrip(animated: true)
+        refreshTabSurfaces()
         // One short line typed into zsh; the multi-KB instructions arrive
         // separately once the session file appears (§2.5 two-stage delivery,
         // which avoids every shell-quoting hazard). The extra args are kept

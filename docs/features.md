@@ -486,7 +486,7 @@ app does.
   Background Tasks** (or the palette's **Show Background Tasks**) opens a live list of that shell's
   background jobs — **command**, a status dot (**running** / **done** / **failed**), the
   **listening port** when detectable — over a live tail of the selected task's captured output.
-  A job that **fails** (or crashes) pulses the monitor tab's strip item like a bell and folds a
+  A job that **fails** (or crashes) rings the monitor tab like a bell and folds a
   "N failed" suffix into its header, so a dev server that fell over is noticed without spelunking
   scrollback. Records live in `~/.suit/tasks/` (written by `suit-bg`, atomic, no dependencies) and
   are pruned a day after their process ends. The wrapper ships in the app bundle

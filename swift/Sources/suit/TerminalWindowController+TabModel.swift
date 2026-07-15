@@ -5,27 +5,12 @@ import Cocoa
 // that render it — the in-pane tab bars and the Sessions sidebar.
 extension TerminalWindowController {
 
-    // MARK: - Strip wiring
+    // MARK: - Tab surfaces
 
-    func wireStrip() {
-        strip.tabsProvider = { [weak self] in self?.store.tabs ?? [] }
-        strip.activeTabProvider = { [weak self] in self?.activeTab }
-        strip.onSelect = { [weak self] tab in self?.activate(tab) }
-        strip.onClose = { [weak self] tab in self?.closeTab(tab) }
-        strip.onNewTab = { [weak self] in self?.newTerminalTab() }
-        strip.onNewClaudeTab = { [weak self] in self?.newClaudeSessionTab() }
-        strip.onKeep = { [weak self] tab in self?.keepTab(tab) }
-        strip.onRename = { [weak self] tab in self?.renameTab(tab) }
-        strip.contextMenuProvider = { [weak self] tab in self?.tabContextMenu(for: tab) }
-        strip.onDropTab = { [weak self] id, index in self?.handleStripDrop(tabId: id, insertionIndex: index) ?? false }
-        strip.onTearOff = { [weak self] id, point in self?.appDelegate.tearOffTab(withId: id, at: point) }
-    }
-
-    // The window-level strip is gone (its tabs now live on each pane's own tab
-    // bar, and the sidebar's Sessions tab is the cross-pane overview). This name
-    // survives as the single "the tab set changed, refresh its surfaces" call so
-    // its many callers stay untouched.
-    func reloadStrip(animated: Bool = false) {
+    // The single "the tab set changed" repaint: every surface that renders the
+    // store — each pane's own tab bar and the sidebar's Sessions overview —
+    // refreshes together, so no mutation path can leave them disagreeing.
+    func refreshTabSurfaces() {
         for pane in panes {
             pane.refreshTabBar()
         }
@@ -65,7 +50,7 @@ extension TerminalWindowController {
         lastFocusedPane = focused
         window.title = focused.displayTitle
         store.touchMRU(focused.tab)
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     func lastFocusedPaneIfValid() -> Pane? {
@@ -103,7 +88,7 @@ extension TerminalWindowController {
             focusPane(pane)
         }
         store.touchMRU(tab)
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     func focusPane(_ pane: Pane) {
@@ -129,7 +114,7 @@ extension TerminalWindowController {
             target.display(tab)
             focusPane(target)
         }
-        reloadStrip(animated: true)
+        refreshTabSurfaces()
         return tab
     }
 

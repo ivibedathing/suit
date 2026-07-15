@@ -80,7 +80,7 @@ extension AppDelegate {
 
         editMenuItem.submenu = editMenu
 
-        // The Tabs menu (browser-tab model): one strip per window owns every
+        // The Tabs menu (browser-tab model): one tab list per window owns every
         // tab; these commands operate on it.
         let tabMenuItem = NSMenuItem()
         mainMenu.addItem(tabMenuItem)
@@ -126,7 +126,7 @@ extension AppDelegate {
         cycleBackItem.keyEquivalentModifierMask = [.control, .shift]
         cycleBackItem.target = self
 
-        // ⌘1..9 addresses strip tabs directly; ⌘9 is the last tab (browser rule).
+        // ⌘1..9 addresses the window's tabs by index; ⌘9 is the last (browser rule).
         let goToTabItem = tabMenu.addItem(withTitle: "Go to Tab", action: nil, keyEquivalent: "")
         let goToTabMenu = NSMenu(title: "Go to Tab")
         for i in 1...8 {

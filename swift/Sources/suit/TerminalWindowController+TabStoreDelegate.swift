@@ -3,11 +3,11 @@ import Cocoa
 // Conforms TerminalWindowController to TabStoreDelegate: it reacts to tab
 // changes, process exits (closing clean exits, keeping failed ones red, and
 // deferring Autopilot worker tabs to AutopilotEngine), and attention requests
-// by refreshing the strip/chrome and flashing tabs.
+// by refreshing the tab bars and pane chrome.
 extension TerminalWindowController: TabStoreDelegate {
 
     func tabDidChange(_ tab: Tab) {
-        reloadStrip()
+        refreshTabSurfaces()
         tab.pane?.refreshChrome()
         if let pane = tab.pane, focusedPane() === pane {
             window.title = tab.title
@@ -19,7 +19,7 @@ extension TerminalWindowController: TabStoreDelegate {
     // leave the tab on screen with its indicator red, so the user can read
     // whatever the process last printed before closing it themselves (⌘W).
     func tabProcessDidExit(_ tab: Tab) {
-        reloadStrip()
+        refreshTabSurfaces()
         tab.pane?.refreshChrome()
         // Autopilot's worker tab: the engine owns what a
         // death means (§2.7 one --continue respawn, then blocked) and the
@@ -35,7 +35,9 @@ extension TerminalWindowController: TabStoreDelegate {
         }
     }
 
+    // A visible tab's bell flashes its pane (Pane.flashForBell); for a
+    // background tab, repainting the tab surfaces keeps its state dot current.
     func tabWantsAttention(_ tab: Tab) {
-        strip.flashTab(withId: tab.id)
+        refreshTabSurfaces()
     }
 }
