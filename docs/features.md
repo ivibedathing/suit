@@ -27,7 +27,8 @@ app does.
 - **Tabs on the pane** — every terminal, file, diff and transcript is a tab that belongs to a
   pane. When a pane holds more than one tab, an in-pane tab bar appears directly under its
   header to switch between them; a single-tab pane shows no bar. There is no window-level tab
-  strip. ⌘T opens a fresh shell in the focused pane, ⌘W closes the active tab, ⇧⌘T reopens,
+  strip. ⌘T opens a fresh shell in the focused pane, ⌘W closes the active tab (a busy tab
+  confirms first — the dialog's bold headline names the tab being closed), ⇧⌘T reopens,
   ⌘1–9 jump (⌘9 = last), ⌃Tab is a most-recently-used switcher (hold ⌃ to pick, quick tap to
   toggle the last two). Opening a file, diff, or transcript adds a tab to the focused pane's
   group.

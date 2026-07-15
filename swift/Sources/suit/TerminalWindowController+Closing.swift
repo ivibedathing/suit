@@ -29,7 +29,7 @@ extension TerminalWindowController {
             return
         }
         if let name = tab.runningProcessName,
-           !Self.confirmTermination(messageText: "Close Tab?", confirmTitle: "Close", processNames: [name]) {
+           !Self.confirmCloseTab(tabTitle: tab.title, processName: name) {
             return
         }
         forceCloseTab(tab)
@@ -156,7 +156,20 @@ extension TerminalWindowController {
         store.tabs.compactMap { $0.runningProcessName }
     }
 
-    // One confirmation shared by the tab-, window- and app-close paths,
+    // Closing a single busy tab confirms by naming the tab, not just its
+    // process: the title goes in the alert's bold headline so it's obvious
+    // which tab is about to go, with the process name as secondary detail.
+    static func confirmCloseTab(tabTitle: String, processName: String) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Close “\(tabTitle)”?"
+        alert.informativeText = "This will terminate its running process “\(processName)”."
+        alert.addButton(withTitle: "Close")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    // One confirmation shared by the close-other-tabs, window- and app-close paths,
     // naming what's still running since closing terminates it without further
     // warning. Static so AppDelegate can reuse it for Cmd-Q.
     static func confirmTermination(messageText: String, confirmTitle: String, processNames: [String]) -> Bool {
