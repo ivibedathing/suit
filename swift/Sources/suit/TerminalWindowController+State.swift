@@ -1,5 +1,9 @@
 import Cocoa
 
+// This window's slice of state restoration: snapshot its tab list + split tree
+// into StateRestoration's Codable model, replay a saved snapshot on launch or
+// layout-open (dropping tabs whose content can't come back), and re-attach
+// Claude sessions to the restored panes.
 extension TerminalWindowController {
 
     // MARK: - State restoration
@@ -211,27 +215,11 @@ extension TerminalWindowController {
 
     // MARK: - Claude sessions
 
-    func updateUsageLabel() {
-        guard let usage = ClaudeSessionMonitor.shared.usage else {
-            strip.setUsage(text: "", color: Theme.textDim)
-            return
-        }
-        var parts: [String] = []
-        if let five = usage.fiveHourPct {
-            parts.append("5h \(Int(five.rounded()))%")
-        }
-        if let week = usage.sevenDayPct {
-            parts.append("7d \(Int(week.rounded()))%")
-        }
-        let worst = max(usage.fiveHourPct ?? 0, usage.sevenDayPct ?? 0)
-        strip.setUsage(text: parts.joined(separator: " · "), color: Theme.usageLevelColor(worst))
-    }
-
     // Re-maps sessions onto this window's terminal tabs (pid ancestry, cwd
     // fallback — see ClaudeSessionAssigner). Called by AppDelegate on session
     // updates and on a slow heartbeat, since process trees change silently.
     // Every tab carries its own session so background tabs still route
-    // attention (strip dot + pane header when visible).
+    // attention (tab-bar/sessions-list dot + pane header when visible).
     func refreshClaudeSessions(assigner: ClaudeSessionAssigner) {
         var changed = false
         for tab in store.tabs {
@@ -248,12 +236,11 @@ extension TerminalWindowController {
             tab.claudeSession = session
         }
         if changed {
-            reloadStrip()
+            refreshTabSurfaces()
             for pane in panes {
                 pane.refreshChrome()
             }
         }
-        updateUsageLabel()
     }
 
     func runsClaudeSession(withId id: String) -> Bool {

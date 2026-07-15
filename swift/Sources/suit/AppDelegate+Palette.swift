@@ -1,5 +1,9 @@
 import Cocoa
 
+// The ⌘K command palette and the one-line sidebar/menu verbs it fronts (show
+// Notes / Git / Bookmarks / inboxes, mark away point, new Claude task, install
+// integration…). showCommandPalette assembles paletteCommands from every
+// subsystem; the theme/transcript/definition pickers ride the same palette UI.
 extension AppDelegate {
     // MARK: - Sidebar & command palette
 

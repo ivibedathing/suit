@@ -90,9 +90,7 @@ extension AutopilotEngine {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.endBackgroundJob(job)
-                guard gen == self.generation, case .running = self.state,
-                      let current = self.store.run, current.id == run.id,
-                      AutopilotRunStage(rawValue: current.stage) == .working else { return }
+                guard let current = self.currentRun(ifGeneration: gen, run: run, stage: .working) else { return }
                 self.handleVerification(outcome, run: current)
             }
         }
@@ -103,7 +101,7 @@ extension AutopilotEngine {
     static func runCompletionVerification(root: String, run: AutopilotRun) -> VerificationOutcome {
         var missing: [String] = []
         let worktree = run.worktreePath
-        let defaultBranch = GitHubCLI.defaultBranch(root: root) ?? "main"
+        let defaultBranch = AutopilotEngine.defaultBranchOrMain(root: root)
 
         // 1. Commits ahead of the default branch.
         var aheadCount = 0
@@ -155,7 +153,7 @@ extension AutopilotEngine {
 
         // 5. The worktree's ROADMAP.md marks this phase shipped.
         var marked = false
-        if let roadmap = try? String(contentsOfFile: worktree + "/ROADMAP.md", encoding: .utf8),
+        if let roadmap = try? String(contentsOfFile: RoadmapParser.path(inRoot: worktree), encoding: .utf8),
            let phase = RoadmapParser.phase(numbered: run.phaseId, in: roadmap) {
             marked = phase.shipped
         }

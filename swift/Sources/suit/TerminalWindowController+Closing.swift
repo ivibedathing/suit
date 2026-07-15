@@ -1,5 +1,8 @@
 import Cocoa
 
+// Closing semantics: ⌘W closes the active tab and falls back to a tab the
+// same pane owns (collapsing the pane when none is left), plus the window-level
+// close path and its running-process confirmations.
 extension TerminalWindowController {
 
     // MARK: - Closing
@@ -72,7 +75,7 @@ extension TerminalWindowController {
         if !alreadyTerminated {
             tab.content.teardown()
         }
-        reloadStrip(animated: true)
+        refreshTabSurfaces()
     }
 
     func teardownAndClose(alreadyTerminated: Bool = false) {
@@ -116,7 +119,7 @@ extension TerminalWindowController {
         }
         panes.removeAll { $0 === pane }
         updateBorderVisibility()
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     // MARK: - Window closing

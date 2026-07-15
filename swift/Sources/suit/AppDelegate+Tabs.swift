@@ -1,5 +1,9 @@
 import Cocoa
 
+// Cross-window tab plumbing for the browser-tab model: resolve a dragged tab
+// id to whichever window owns it, tear a tab off into its own window, open new
+// windows / tabs / Claude sessions (⌘N, ⌘T), reopen closed tabs, and track
+// window-controller lifecycle.
 extension AppDelegate {
     // MARK: - Cross-window tab plumbing (browser-tab model)
 

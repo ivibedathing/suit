@@ -1,5 +1,8 @@
 import Cocoa
 
+// The window's sidebar half: build/toggle the icon rail and its tabs, route
+// sidebar events into the window (file clicks become viewer tabs), and pin the
+// Files tab to a folder.
 extension TerminalWindowController {
 
     // MARK: - Sidebar

@@ -87,6 +87,9 @@ command -v jq >/dev/null 2>&1 || pass_through
 
 # Savings meter: log_saving <kind> <original_chars> <emitted_chars> appends one
 # JSONL counterfactual line. Best-effort — never lets a failure escape.
+# SCHEMA: the same row is written inline by suit-token-ignore.sh and read by
+# TokenSavings.swift + scripts/token-savings-report.sh — change all four
+# together.
 log_saving() {
   [ "${SUIT_SAVINGS_LOG:-1}" = "0" ] && return 0
   mkdir -p "$HOME/.suit" 2>/dev/null
@@ -208,6 +211,8 @@ if [ "$IGNORE" = "1" ] && { [ "$TOOL" = "Grep" ] || [ "$TOOL" = "Glob" ]; } && [
   START="${TPATH:-$HOOK_CWD}"
   [ -d "$START" ] || START="$(dirname "$START" 2>/dev/null)"
   # Walk up for the nearest .claude/token-ignore; none → nothing to filter.
+  # TWIN: suit-token-ignore.sh walks and parses the same file for Read denies —
+  # keep the walk-up, comment strip, and prefix rules byte-compatible.
   IGN_ROOT=""
   DIR="$START"
   while [ -n "$DIR" ] && [ "$DIR" != "/" ] && [ "$DIR" != "." ]; do
@@ -281,6 +286,7 @@ if [ "$DEDUP" = "1" ] && [ "$TOOL" = "Read" ] && [ -n "$SID" ]; then
   FILE="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)"
   # Only full-file reads participate: an offset past the top or any limit is a
   # deliberate range read — pass it through and never track it.
+  # TWIN: the identical jq test lives in suit-token-ignore.sh; change both.
   PARTIAL="$(printf '%s' "$INPUT" | jq -r \
     '.tool_input | if ((has("offset") and ((.offset // 0) > 1)) or has("limit")) then "1" else "0" end' \
     2>/dev/null)"

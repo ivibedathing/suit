@@ -183,6 +183,24 @@ extension AutopilotEngine {
 
     // MARK: - Worker-run helpers
 
+    // The one home for the default-branch fallback: gh's answer, else "main".
+    static func defaultBranchOrMain(root: String) -> String {
+        GitHubCLI.defaultBranch(root: root) ?? "main"
+    }
+
+    // The staleness guard every background-job completion runs on the main
+    // queue: act only if the engine wasn't stopped or restarted since the job
+    // began (generation), is still running, and the store still holds the same
+    // run at the expected stage. Returns the current run re-read from the
+    // store — the callback's captured copy may be stale — or nil to drop the
+    // callback.
+    func currentRun(ifGeneration gen: Int, run: AutopilotRun, stage: AutopilotRunStage) -> AutopilotRun? {
+        guard gen == generation, case .running = state,
+              let current = store.run, current.id == run.id,
+              AutopilotRunStage(rawValue: current.stage) == stage else { return nil }
+        return current
+    }
+
     // Whether the engine owns this tab (the tabProcessDidExit intercept).
     func ownsTab(withId id: String) -> Bool {
         workerTabId == id

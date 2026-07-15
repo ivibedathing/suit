@@ -1,5 +1,8 @@
 import Cocoa
 
+// Pane lifecycle and the window's PaneHost duties: create/collapse panes, the
+// in-pane tab bar callbacks, the footer, pane palette commands, and applying
+// the terminal glass (opacity/blur) to every pane.
 extension TerminalWindowController {
 
     // MARK: - Panes
@@ -55,7 +58,7 @@ extension TerminalWindowController {
             window.title = pane.displayTitle
             store.touchMRU(pane.tab)
         }
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     // MARK: - In-pane tab bar (PaneHost)
@@ -74,7 +77,7 @@ extension TerminalWindowController {
         }
         focusPane(pane)
         store.touchMRU(tab)
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     // The chip's close box.

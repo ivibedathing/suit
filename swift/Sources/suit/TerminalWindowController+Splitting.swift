@@ -1,5 +1,8 @@
 import Cocoa
 
+// Tab-first split screen: ⌘D (and the drag/menu paths) carve a new pane beside
+// the active one and hand it a tab; also unsplit (⌥⌘W), walking splits
+// (⌥⌘arrows), and the NSSplitViewDelegate sizing rules.
 extension TerminalWindowController {
 
     // MARK: - Split Screen (tab-first)
@@ -21,7 +24,7 @@ extension TerminalWindowController {
         equalizeSplits()
         focusPane(newPane)
         store.touchMRU(tab)
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     // A forced orientation is honored only if the pane has room along that axis;
@@ -82,7 +85,7 @@ extension TerminalWindowController {
         // background tabs) folds into a surviving pane — dissolvePane absorbs.
         dissolvePane(pane)
         equalizeSplits()
-        reloadStrip()
+        refreshTabSurfaces()
     }
 
     // N screens share the space equally: every divider apportions its axis by
@@ -130,7 +133,7 @@ extension TerminalWindowController {
             dissolvePane(pane, absorbInto: keep)
         }
         focusPane(keep)
-        reloadStrip(animated: true)
+        refreshTabSurfaces()
     }
 
     // Wraps `target`'s slot in the tree (its parent split's arranged position, or

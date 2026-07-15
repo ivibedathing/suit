@@ -3,10 +3,11 @@ import Cocoa
 // The browser-tab model: one window-level ordered list of tabs owns every
 // open thing — terminals, file viewers, diffs, transcripts. Panes are just
 // viewports that display at most one tab each (see Pane.display); tabs not
-// shown in any pane run on in the background. The strip (TabStripView)
-// renders this store; TerminalWindowController orchestrates both.
+// shown in any pane run on in the background. The in-pane tab bars and the
+// sidebar's Sessions list render this store; TerminalWindowController
+// orchestrates both.
 
-// What kind of content a tab holds — drives the strip/header icon. New
+// What kind of content a tab holds — drives the tab/header icon. New
 // PaneContent kinds get a case here and nothing else changes.
 enum TabKind {
     case terminal
@@ -69,15 +70,15 @@ final class Tab {
     // for the next file instead of stacking tabs. "Keep" (double-click) pins
     // its content in place. At most one per window, enforced by the store.
     var isPreview = false
-    // Pinned tabs render icon-only, stay in the strip's left prefix, and have
+    // Pinned tabs render icon-only, stay in the tab bar's left prefix, and have
     // no close box — for the daemon shell or claude session you never close.
     var isPinned = false
     // The Claude session running in this tab's terminal, if any — kept per
-    // tab so attention routes through background tabs (strip dot pulses).
+    // tab so background tabs still surface their state dots.
     var claudeSession: ClaudeSession?
     // Unsaved edits in an editable viewer tab: drives the dirty dot
-    // in the strip + pane header and the warn-before-close/quit guards. Set via
-    // contentDirtyDidChange so a backgrounded tab still repaints the strip.
+    // in the tab chip + pane header and the warn-before-close/quit guards. Set
+    // via contentDirtyDidChange so a backgrounded tab still repaints.
     var isDirty = false
 
     init(content: PaneContent) {

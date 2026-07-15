@@ -1,5 +1,10 @@
 import Cocoa
 
+// App-level verbs over live Claude sessions: focus/steer a session (quick
+// actions typed into its pty), the fleet dashboard and broadcast entry points,
+// the prompt composer, review / PR-review submission into a session, feedback
+// routing, plan approval, and "Set as Goal". Session discovery and state live
+// in ClaudeSessions.swift; this file only acts on what the monitor reports.
 extension AppDelegate {
     // MARK: - Claude sessions
 
@@ -380,20 +385,35 @@ extension AppDelegate {
         }
     }
 
-    private func withSession(placeholder: String, _ body: @escaping (ClaudeSession) -> Void) {
-        let sessions = ClaudeSessionMonitor.shared.sessions.filter { terminalContent(forSessionId: $0.id) != nil }
+    // The one session picker every palette verb goes through: 0 eligible
+    // sessions beep, 1 runs `body` directly, several open a palette of
+    // "name — state · project" rows. `preferring` (Set as Goal's last target)
+    // floats that session to the top with a ⟲ marker so Enter repeats it;
+    // `hostedOnly: false` includes sessions no pane hosts (plan review reads
+    // the transcript, not the pty).
+    private func withSession(placeholder: String, hostedOnly: Bool = true,
+                             preferring preferredId: String? = nil,
+                             _ body: @escaping (ClaudeSession) -> Void) {
+        var sessions = ClaudeSessionMonitor.shared.sessions
+        if hostedOnly {
+            sessions = sessions.filter { terminalContent(forSessionId: $0.id) != nil }
+        }
         switch sessions.count {
         case 0:
             NSSound.beep()
         case 1:
             body(sessions[0])
         default:
+            if let preferredId, let idx = sessions.firstIndex(where: { $0.id == preferredId }), idx != 0 {
+                sessions.insert(sessions.remove(at: idx), at: 0)
+            }
             paletteFileIndex = nil
             commandPalette.show(
                 relativeTo: activeWindowController()?.window,
                 commands: sessions.map { session in
                     let project = (session.cwd as NSString?)?.lastPathComponent ?? ""
-                    return PaletteCommand(title: "\(session.displayName) — \(session.state.label) · \(project)", shortcut: nil) {
+                    let marker = session.id == preferredId ? " ⟲" : ""
+                    return PaletteCommand(title: "\(session.displayName) — \(session.state.label) · \(project)\(marker)", shortcut: nil) {
                         body(session)
                     }
                 },
@@ -441,24 +461,8 @@ extension AppDelegate {
     // several go through the picker, exactly like Open Claude Transcript.
     @objc func openPlanForReview(_ sender: Any?) {
         guard let controller = activeWindowController() else { return }
-        let sessions = ClaudeSessionMonitor.shared.sessions
-        switch sessions.count {
-        case 0:
-            NSSound.beep()
-        case 1:
-            controller.openPlanApproval(for: sessions[0])
-        default:
-            paletteFileIndex = nil
-            commandPalette.show(
-                relativeTo: controller.window,
-                commands: sessions.map { session in
-                    let project = (session.cwd as NSString?)?.lastPathComponent ?? ""
-                    return PaletteCommand(title: "\(session.displayName) — \(session.state.label) · \(project)", shortcut: nil) { [weak controller] in
-                        controller?.openPlanApproval(for: session)
-                    }
-                },
-                placeholder: "Open plan for session…"
-            )
+        withSession(placeholder: "Open plan for session…", hostedOnly: false) { [weak controller] session in
+            controller?.openPlanApproval(for: session)
         }
     }
 
@@ -485,7 +489,7 @@ extension AppDelegate {
             selection: selection, file: file, startLine: startLine, endLine: endLine,
             includeProvenance: goalPrependProvenanceEnabled
         ) else { NSSound.beep(); return }
-        withGoalSession { [weak self] session in
+        withSession(placeholder: "Set as goal in session…", preferring: lastGoalSessionId) { [weak self] session in
             guard let self, let terminal = self.terminalContent(forSessionId: session.id) else {
                 NSSound.beep()
                 return
@@ -523,34 +527,6 @@ extension AppDelegate {
             setSelectionAsGoal(text)
         } else {
             NSSound.beep()
-        }
-    }
-
-    // Like withSession, but orders the last-targeted session first so the
-    // picker's default (Enter) repeats it.
-    private func withGoalSession(_ body: @escaping (ClaudeSession) -> Void) {
-        var sessions = ClaudeSessionMonitor.shared.sessions.filter { terminalContent(forSessionId: $0.id) != nil }
-        switch sessions.count {
-        case 0:
-            NSSound.beep()
-        case 1:
-            body(sessions[0])
-        default:
-            if let idx = sessions.firstIndex(where: { $0.id == lastGoalSessionId }), idx != 0 {
-                sessions.insert(sessions.remove(at: idx), at: 0)
-            }
-            paletteFileIndex = nil
-            commandPalette.show(
-                relativeTo: activeWindowController()?.window,
-                commands: sessions.map { session in
-                    let project = (session.cwd as NSString?)?.lastPathComponent ?? ""
-                    let marker = session.id == lastGoalSessionId ? " ⟲" : ""
-                    return PaletteCommand(title: "\(session.displayName) — \(session.state.label) · \(project)\(marker)", shortcut: nil) {
-                        body(session)
-                    }
-                },
-                placeholder: "Set as goal in session…"
-            )
         }
     }
 

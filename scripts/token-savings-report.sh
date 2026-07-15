@@ -9,7 +9,8 @@
 # stub) — that's scripts/token-bench.sh's job.
 #
 # Token numbers are chars/4 ESTIMATES (the meter keeps counts, not text, so
-# exact tokenization isn't possible after the fact).
+# exact tokenization isn't possible after the fact). TWIN: the in-app counter
+# (TokenSavings.swift estSavedTokens) uses the same formula — change both.
 #
 # Usage:
 #   scripts/token-savings-report.sh [--session SID] [--today] [file]

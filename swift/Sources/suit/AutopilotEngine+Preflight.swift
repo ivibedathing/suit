@@ -145,7 +145,7 @@ extension AutopilotEngine {
             return .blocked(.noProject, "\(root) is not a git repository.")
         }
         // 2. ROADMAP.md exists and still has an eligible phase.
-        guard let roadmap = try? String(contentsOfFile: root + "/ROADMAP.md", encoding: .utf8) else {
+        guard let roadmap = try? String(contentsOfFile: RoadmapParser.path(inRoot: root), encoding: .utf8) else {
             return .blocked(.noProject, "ROADMAP.md not found in \(root).")
         }
         guard let phase = RoadmapParser.eligiblePhase(in: roadmap) else {
