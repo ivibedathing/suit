@@ -68,31 +68,9 @@ extension AppDelegate {
         if defaults.object(forKey: "goalPrependProvenanceEnabled") != nil {
             goalPrependProvenanceEnabled = defaults.bool(forKey: "goalPrependProvenanceEnabled")
         }
-        if defaults.object(forKey: "rtkCompressionEnabled") != nil {
-            rtkCompressionEnabled = defaults.bool(forKey: "rtkCompressionEnabled")
-        }
-        postToolCompressEnabled = defaults.bool(forKey: "postToolCompressEnabled")
-        shellExtrasEnabled = defaults.bool(forKey: "shellExtrasEnabled")
-        readDedupEnabled = defaults.bool(forKey: "readDedupEnabled")
-        tokenIgnoreEnabled = defaults.bool(forKey: "tokenIgnoreEnabled")
         if let args = defaults.string(forKey: "claudeSessionArgs") {
             claudeSessionArgs = args
         }
-        // Claude API tuning: one bare camelCase key per knob, absent = default.
-        if let model = defaults.string(forKey: "claudeAPIModel") { claudeAPI.model = model }
-        if let model = defaults.string(forKey: "claudeAPISubagentModel") { claudeAPI.subagentModel = model }
-        if let effort = defaults.string(forKey: "claudeAPIEffort") { claudeAPI.effort = effort }
-        if defaults.object(forKey: "claudeAPIThinkingTokens") != nil {
-            claudeAPI.thinkingTokens = defaults.integer(forKey: "claudeAPIThinkingTokens")
-        }
-        if defaults.object(forKey: "claudeAPIMaxOutputTokens") != nil {
-            claudeAPI.maxOutputTokens = defaults.integer(forKey: "claudeAPIMaxOutputTokens")
-        }
-        if defaults.object(forKey: "claudeAPIPromptCachingEnabled") != nil {
-            claudeAPI.promptCachingEnabled = defaults.bool(forKey: "claudeAPIPromptCachingEnabled")
-        }
-        if let headers = defaults.string(forKey: "claudeAPICustomHeaders") { claudeAPI.customHeaders = headers }
-        if let env = defaults.string(forKey: "claudeAPIExtraEnv") { claudeAPI.extraEnv = env }
         if defaults.object(forKey: "taskIsolateByDefault") != nil {
             taskIsolateByDefault = defaults.bool(forKey: "taskIsolateByDefault")
         }
@@ -149,14 +127,6 @@ extension AppDelegate {
         if let raw = defaults.dictionary(forKey: "budgetPerSession") {
             budgetPerSession = raw.compactMapValues { ($0 as? NSNumber)?.doubleValue }
         }
-        // Auto-/compact guardrails.
-        autoCompactEnabled = defaults.bool(forKey: "autoCompactEnabled")
-        if defaults.object(forKey: "autoCompactThreshold") != nil {
-            autoCompactThreshold = defaults.integer(forKey: "autoCompactThreshold")
-        }
-        if let instructions = defaults.string(forKey: "autoCompactInstructions") {
-            autoCompactInstructions = instructions
-        }
     }
 
     func saveSettings() {
@@ -185,20 +155,7 @@ extension AppDelegate {
         defaults.set(taskDoneSoundName, forKey: "taskDoneSoundName")
         defaults.set(needsInputSoundName, forKey: "needsInputSoundName")
         defaults.set(goalPrependProvenanceEnabled, forKey: "goalPrependProvenanceEnabled")
-        defaults.set(rtkCompressionEnabled, forKey: "rtkCompressionEnabled")
-        defaults.set(postToolCompressEnabled, forKey: "postToolCompressEnabled")
-        defaults.set(shellExtrasEnabled, forKey: "shellExtrasEnabled")
-        defaults.set(readDedupEnabled, forKey: "readDedupEnabled")
-        defaults.set(tokenIgnoreEnabled, forKey: "tokenIgnoreEnabled")
         defaults.set(claudeSessionArgs, forKey: "claudeSessionArgs")
-        defaults.set(claudeAPI.model, forKey: "claudeAPIModel")
-        defaults.set(claudeAPI.subagentModel, forKey: "claudeAPISubagentModel")
-        defaults.set(claudeAPI.effort, forKey: "claudeAPIEffort")
-        defaults.set(claudeAPI.thinkingTokens, forKey: "claudeAPIThinkingTokens")
-        defaults.set(claudeAPI.maxOutputTokens, forKey: "claudeAPIMaxOutputTokens")
-        defaults.set(claudeAPI.promptCachingEnabled, forKey: "claudeAPIPromptCachingEnabled")
-        defaults.set(claudeAPI.customHeaders, forKey: "claudeAPICustomHeaders")
-        defaults.set(claudeAPI.extraEnv, forKey: "claudeAPIExtraEnv")
         defaults.set(taskIsolateByDefault, forKey: "taskIsolateByDefault")
         defaults.set(autopilotEnabled, forKey: "autopilotEnabled")
         defaults.set(autopilotProjectRoot, forKey: "autopilotProjectRoot")
@@ -218,9 +175,6 @@ extension AppDelegate {
         defaults.set(budgetTaskCap, forKey: "budgetTaskCap")
         defaults.set(budgetAutoInterrupt, forKey: "budgetAutoInterrupt")
         defaults.set(budgetPerSession, forKey: "budgetPerSession")
-        defaults.set(autoCompactEnabled, forKey: "autoCompactEnabled")
-        defaults.set(autoCompactThreshold, forKey: "autoCompactThreshold")
-        defaults.set(autoCompactInstructions, forKey: "autoCompactInstructions")
     }
 }
 

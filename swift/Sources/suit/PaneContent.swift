@@ -132,17 +132,7 @@ class TerminalPaneContent: PaneContent, LocalProcessTerminalViewDelegate {
         // The flags fit bash/fish the same way, so the settings-window shell
         // override reuses them as-is.
         let shell = appDelegate?.shellPath ?? "/bin/zsh"
-        // Shell helpers (run_silent): when the toggle is on and the shell is
-        // zsh, launch with the ZDOTDIR shim env (ShellInjection). nil keeps
-        // today's behavior byte-for-byte — SwiftTerm builds its own defaults —
-        // so a custom array must start from that same default set.
-        let environment = ShellInjection.environment(
-            base: Terminal.getEnvironmentVariables(termName: "xterm-256color"),
-            enabled: appDelegate?.shellExtrasEnabled ?? false,
-            shellPath: shell,
-            home: NSHomeDirectory()
-        )
-        terminalView.startProcess(executable: shell, args: ["-l", "-i"], environment: environment, execName: nil, currentDirectory: directory)
+        terminalView.startProcess(executable: shell, args: ["-l", "-i"], environment: nil, execName: nil, currentDirectory: directory)
         if let style = appDelegate?.cursorStyle {
             applyCursorStyle(style)
         }
