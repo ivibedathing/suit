@@ -242,9 +242,6 @@ final class Pane: NSObject {
         container.titleBar.exitStatus = tab.exitStatus
         container.titleBar.sessionState = tab.liveSessionState
         container.titleBar.contextPct = tab.exitStatus == nil ? tab.claudeSession?.contextPct : nil
-        container.titleBar.savings = tab.exitStatus == nil
-            ? tab.claudeSession.flatMap { TokenSavingsMonitor.shared.totals(forSessionId: $0.id) }
-            : nil
         container.titleBar.isDirty = tab.isDirty
         refreshTabBar()
     }
@@ -331,6 +328,20 @@ final class Pane: NSObject {
     // Open the background-task monitor for this pane's shell.
     @objc func showBackgroundTasks(_ sender: Any?) {
         host?.paneRequestedShowBackgroundTasks(self)
+    }
+
+    // Start/stop Autopilot on the repo this pane's shell is sitting in. One
+    // item that flips, so the state is re-read here rather than trusted from
+    // the title the menu was built with — a run can end (or a sibling pane can
+    // start one) while the menu is open.
+    @objc func toggleAutopilot(_ sender: Any?) {
+        guard let directory = workingDirectory else { return }
+        let app = NSApp.delegate as? AppDelegate
+        if AutopilotManager.shared.engineOwning(directory: directory)?.isActive == true {
+            app?.stopAutopilot(inDirectory: directory)
+        } else {
+            app?.startAutopilot(inDirectory: directory)
+        }
     }
 
     // Finish this pane's task worktree: merge or discard the

@@ -39,11 +39,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // (the strip's ✦ button, ⌃⌘C, the palette) — e.g. "--continue" or
     // "--model opus". A raw string handed to the shell, not validated.
     var claudeSessionArgs = ""
-    // Claude API tuning (Settings → Claude API): per-launch Anthropic env
-    // overrides (model, effort, thinking budget, caching, …) composed onto the
-    // typed `claude` command by ClaudeAPISettings.launchCommand(base:). All
-    // defaults = no change to the command line.
-    var claudeAPI = ClaudeAPISettings()
     // New Claude Task isolation default: whether the
     // "New Claude Task" prompt's "Isolate in worktree" switch starts on. On
     // reproduces the always-a-worktree behavior; off runs claude in the
@@ -64,28 +59,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // the goal carries where the selection came from. Off by default — the
     // selection alone is usually the directive.
     var goalPrependProvenanceEnabled = false
-    // rtk output compression: when on, Suit installs a Claude Code PreToolUse
-    // hook that runs Bash commands through rtk so their output is compressed
-    // before it reaches the context window. Off by default — the hook rewrites
-    // the commands Claude runs, so it's opt-in (RtkHook / rtkCompressionChanged).
-    var rtkCompressionEnabled = false
-    // PostToolUse output filtering: one dispatcher hook + script
-    // (suit-posttool-filter.sh) serving two toggles — compress elides giant
-    // Read/Grep/Glob/Bash results via updatedToolOutput (the side of a tool
-    // call rtk can't reach); dedup (read-once) stubs re-reads of unchanged
-    // files. Both off by default — the hook rewrites what Claude reads back,
-    // so it's opt-in (PostToolHook / applyPostToolHook).
-    var postToolCompressEnabled = false
-    var readDedupEnabled = false
-    // Token-ignore firewall: denies full-file Reads under the prefixes in a
-    // repo's .claude/token-ignore (TokenIgnoreHook, PreToolUse) and hides
-    // Grep/Glob results there via the dispatcher's --ignore flag. Off by
-    // default like the other token filters.
-    var tokenIgnoreEnabled = false
-    // Shell helpers (run_silent): launch zsh terminals with the
-    // ZDOTDIR shim so suit-shell-extras.zsh loads after the user's own config
-    // (ShellInjection). Off by default; applies to new terminals only.
-    var shellExtrasEnabled = false
     // Autopilot — the §2.9 config table. The engine reads
     // these live through its weak appDelegate reference; the Settings window's
     // Autopilot section writes them through autopilotXChanged(...).
@@ -117,28 +90,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         autoInterrupt: { [weak self] in self?.budgetAutoInterrupt ?? false },
         onTrip: { [weak self] trip in self?.handleBudgetTrip(trip) }
     )
-    // Auto-/compact guardrails: when a session idles past the
-    // context threshold, type `/compact <instructions>` into it — reclaim
-    // context on the user's terms before Claude Code's own late, generic
-    // auto-compact has to. Off by default (it types into the pty, so opt-in);
-    // the instructions replace Claude Code's default summarization focus.
-    var autoCompactEnabled = false
-    var autoCompactThreshold = 70             // %, context_pct that trips
-    var autoCompactInstructions =
-        "Preserve the current task, recent decisions, exact file paths, and next steps."
-    lazy var compactGuard: CompactGuard = CompactGuard(
-        enabled: { [weak self] in self?.autoCompactEnabled ?? false },
-        threshold: { [weak self] in self?.autoCompactThreshold ?? 70 },
-        hosted: { [weak self] id in self?.terminalContent(forSessionId: id) != nil },
-        onTrip: { [weak self] trip in self?.handleCompactTrip(trip) }
-    )
-    // Cache hit-rate meter: rolling prompt-cache hit rate per
-    // session from the transcript's usage blocks; one notification per
-    // collapse (CacheStats / CacheStatsGuard). The fleet dashboard reads its
-    // per-session rate for the row metrics.
-    lazy var cacheGuard: CacheStatsGuard = CacheStatsGuard(
-        onAlert: { [weak self] alert in self?.handleCacheAlert(alert) }
-    )
     lazy var settingsWindowController = SettingsWindowController(appDelegate: self)
     lazy var commandPalette = CommandPaletteController { [weak self] in
         self?.paletteCommands() ?? []
@@ -167,7 +118,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         controller.onArchive = { [weak self] id in self?.archiveSession(withId: id) }
         controller.onBroadcast = { [weak self] scope in self?.presentBroadcast(scope: scope) }
         controller.onSetBudget = { [weak self] id in self?.setBudget(forSessionId: id) }
-        controller.cacheRate = { [weak self] id in self?.cacheGuard.hitRatePct(forSession: id) }
         return controller
     }()
     // Fleet activity feed / daily digest: a floating
@@ -299,13 +249,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             // session's cost against its cap and trip (warn / interrupt) once
             // on a crossing.
             self.budgetGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
-            // Auto-/compact guardrails: /compact a session that
-            // idles past the context threshold, once per crossing.
-            self.compactGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
-            // Cache hit-rate meter: refresh each session's rolling
-            // prompt-cache hit rate from its transcript tail and alert once
-            // per collapse (misses bill input near full price).
-            self.cacheGuard.tick(sessions: ClaudeSessionMonitor.shared.sessions)
         }
         attentionCenter = ClaudeAttentionCenter { [weak self] sessionId in
             self?.focusSession(withId: sessionId)

@@ -125,6 +125,23 @@ final class PaneTerminalView: LocalProcessTerminalView {
             finishItem.target = pane
         }
 
+        // Autopilot for the repo this pane sits in: one item that flips, the
+        // way the ⌘K palette flips Enable/Disable and Pause/Resume. The lookup
+        // is a path match against the engines that already exist — no
+        // `git rev-parse` on this path, which runs on every right-click; the
+        // root gets resolved for real when Start is actually clicked.
+        if let directory = pane?.workingDirectory {
+            menu.addItem(.separator())
+            let running = AutopilotManager.shared.engineOwning(directory: directory).flatMap { $0.isActive ? $0 : nil }
+            let autopilotItem = menu.addItem(
+                withTitle: running.map { "Stop Autopilot (\($0.displayName))" } ?? "Start Autopilot Here",
+                action: #selector(Pane.toggleAutopilot(_:)),
+                keyEquivalent: "")
+            autopilotItem.target = pane
+            autopilotItem.toolTip = running.map { "Stop the Autopilot running on \($0.projectRoot). Its worktree and branch are left in place." }
+                ?? "Start Autopilot on this shell's repo — it steers off the repo's ROADMAP.md."
+        }
+
         menu.addItem(.separator())
 
         let backgroundItem = NSMenuItem(title: "Background Color", action: nil, keyEquivalent: "")

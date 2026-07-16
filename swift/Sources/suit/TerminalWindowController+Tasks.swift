@@ -31,8 +31,7 @@ extension TerminalWindowController {
     }
 
     // The launch shape all three manual verbs share: a terminal tab titled for
-    // the task, `claude` typed in once zsh is ready to read it (the Claude API
-    // pane's env overrides prefix the command, session-scoped), and an
+    // the task, `claude` typed in once zsh is ready to read it, and an
     // optional prompt sent after a beat, once claude's TUI is up.
     private func launchClaudeTab(in directory: String, title: String, prompt: String? = nil) {
         let content = TerminalPaneContent()
@@ -41,7 +40,7 @@ extension TerminalWindowController {
         store.insert(tab)
         content.start(in: directory)
         activate(tab)
-        let command = appDelegate.claudeAPI.launchCommand(base: "claude")
+        let command = "claude"
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak content] in
             content?.terminalView.send(txt: command + "\r")
         }
@@ -142,9 +141,7 @@ extension TerminalWindowController {
     // phase's routing annotations (ROADMAP.md "model:"/"effort:" body lines,
     // snapshotted on the run): they prefix the command with ANTHROPIC_MODEL /
     // CLAUDE_CODE_EFFORT_LEVEL so a mechanical phase can run on a cheaper
-    // tier. Deliberately independent of the Settings ▸ Claude API prefix —
-    // autonomous runs must not silently inherit interactive experiments
-    // (see ClaudeAPISettings); the roadmap annotation is the explicit opt-in.
+    // tier; the roadmap annotation is the explicit opt-in.
     @discardableResult
     func openAutopilotRunTab(directory: String, title: String, continueSession: Bool = false,
                              model: String? = nil, effort: String? = nil) -> Tab {
@@ -169,11 +166,11 @@ extension TerminalWindowController {
         var command = "claude --dangerously-skip-permissions"
         if continueSession { command += " --continue" }
         var envPrefix = ""
-        if let model = model.map(ClaudeAPISettings.sanitize), !model.isEmpty {
-            envPrefix += "ANTHROPIC_MODEL=\(ClaudeAPISettings.shellQuote(model)) "
+        if let model = model.map(Self.sanitizeEnvValue), !model.isEmpty {
+            envPrefix += "ANTHROPIC_MODEL=\(Self.shellQuote(model)) "
         }
-        if let effort = effort.map(ClaudeAPISettings.sanitize), !effort.isEmpty {
-            envPrefix += "CLAUDE_CODE_EFFORT_LEVEL=\(ClaudeAPISettings.shellQuote(effort)) "
+        if let effort = effort.map(Self.sanitizeEnvValue), !effort.isEmpty {
+            envPrefix += "CLAUDE_CODE_EFFORT_LEVEL=\(Self.shellQuote(effort)) "
         }
         command = envPrefix + command
         let extraArgs = appDelegate.autopilotExtraArgs
@@ -186,5 +183,18 @@ extension TerminalWindowController {
             content?.terminalView.send(txt: command + "\n")
         }
         return tab
+    }
+
+    /// Newlines would submit a truncated pty command line; strip them and trim.
+    private static func sanitizeEnvValue(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Single-quote a value for the zsh command line ('…' with embedded quotes escaped).
+    private static func shellQuote(_ value: String) -> String {
+        "'" + sanitizeEnvValue(value).replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }

@@ -124,15 +124,6 @@ Everything lives in `swift/Sources/suit/` unless noted. Roughly by area:
   `TaskLaunch.swift` / `SubagentTree.swift`, `Activity.swift` / `ActivityRecorder.swift` /
   `ActivityFeedController.swift`, `Dictation.swift` / `DictationText.swift` (push-to-talk
   dictation), `NotificationSounds.swift` / `NotificationSoundCore.swift` (attention sounds).
-- **Token cost & hooks**: the token-cost campaign's pure cores, each paired with a hook or
-  bench script — `RtkHook.swift` (rtk Bash-output compression rewrite), `PostToolHook.swift`
-  (PostToolUse compress/dedup filter, `scripts/claude/suit-posttool-filter.sh`),
-  `TokenIgnoreHook.swift` (`.claude/token-ignore` read firewall,
-  `scripts/claude/suit-token-ignore.sh`), `TokenSavings.swift` (savings ledger + meter),
-  `CacheStats.swift` / `CacheStatsGuard.swift` (prompt-cache hit-rate meter),
-  `CompactGuardrails.swift` / `CompactGuard.swift` (auto-/compact guardrails),
-  `ShellInjection.swift` (run_silent shell helpers), `ClaudeAPISettings.swift` (per-launch
-  API env tuning); benchmarks in `scripts/token-*.sh` / `scripts/rtk-bench.sh`.
 - **Autopilot & fleet**: `AutopilotEngine.swift` + `AutopilotEngine+*.swift`,
   `AutopilotScheduler.swift`, `RoadmapParser.swift`, `AutopilotStore.swift`, `AutopilotGates.swift`,
   `AutopilotPrompts.swift`, `AutopilotEngineTypes.swift`, `BudgetGuardrails.swift` +

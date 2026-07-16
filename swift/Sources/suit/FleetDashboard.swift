@@ -117,24 +117,7 @@ private final class FleetRowView: NSView {
         var metrics: [String] = []
         if let ctx = row.contextPct { metrics.append(String(format: "%.0f%% ctx", ctx)) }
         if let cost = row.costUSD, cost > 0 { metrics.append(String(format: "$%.2f", cost)) }
-        // The cache hit-rate readout rides the same label, tinted by its own
-        // inverted gauge (low = paying full price) — attributed so only the
-        // cache segment carries the warning color.
-        let plain = metrics.joined(separator: "   ")
-        if let cache = row.cacheHitPct {
-            let text = NSMutableAttributedString(
-                string: plain.isEmpty ? "" : plain + "   ",
-                attributes: [.foregroundColor: Theme.textDim, .font: Theme.contextFont]
-            )
-            text.append(NSAttributedString(
-                string: String(format: "%.0f%% cache", cache),
-                attributes: [.foregroundColor: Theme.cacheHitLevelColor(cache),
-                             .font: Theme.contextFont]
-            ))
-            metricsLabel.attributedStringValue = text
-        } else {
-            metricsLabel.stringValue = plain
-        }
+        metricsLabel.stringValue = metrics.joined(separator: "   ")
 
         // A bare worktree has no session to steer; hide its buttons entirely.
         // Otherwise only a hosted session's pty can be written to (Focus also
@@ -283,9 +266,6 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     // Cost budget guardrails: "Set Budget…" on a row — a
     // per-session dollar override.
     var onSetBudget: ((String) -> Void)?
-    // Cache hit-rate readout for the row metrics
-    // (CacheStatsGuard.hitRatePct), wired by the AppDelegate.
-    var cacheRate: ((String) -> Double?)?
     // The set of session ids some pane currently hosts (steerable rows).
     var hostedIds: (() -> Set<String>)?
 
@@ -469,8 +449,7 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
         let sessions = ClaudeSessionMonitor.shared.sessions
         let hosted = hostedIds?() ?? []
         let sessionRows = FleetModel.rows(
-            sessions: sessions, hostedIds: hosted,
-            cacheRate: { [weak self] id in self?.cacheRate?(id) }
+            sessions: sessions, hostedIds: hosted
         ) { [weak self] cwd in
             self?.branch(forCwd: cwd)
         }

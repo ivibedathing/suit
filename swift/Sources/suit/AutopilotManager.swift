@@ -29,17 +29,12 @@ final class AutopilotManager {
 
     // MARK: - Root normalization
 
-    // Collapse the common spellings of one repo path (tilde, trailing slash) to
-    // a single key so the same repo doesn't spawn two engines or two store
-    // slots. Deliberately does NOT run through URL.standardizedFileURL: on macOS
-    // that rewrites the `/private` symlink (`/private/tmp` → `/tmp`), which
-    // would make run.worktreePath disagree with the worker shell's resolved cwd
-    // and break session pinning. The root is otherwise used verbatim, exactly
-    // as the old single-autopilot path did with autopilotProjectRoot.
+    // The one spelling of a repo path (see AutopilotPaths.normalize for why it
+    // deliberately avoids URL.standardizedFileURL). Re-exported here because
+    // every call site already says AutopilotManager.normalize; the rule itself
+    // lives in the pure file so a harness can pin it.
     static func normalize(_ root: String) -> String {
-        var expanded = (root as NSString).expandingTildeInPath
-        while expanded.count > 1 && expanded.hasSuffix("/") { expanded = String(expanded.dropLast()) }
-        return expanded
+        AutopilotPaths.normalize(root)
     }
 
     // MARK: - Instance registry
@@ -57,6 +52,17 @@ final class AutopilotManager {
 
     func existingEngine(for root: String) -> AutopilotEngine? {
         engines[Self.normalize(root)]
+    }
+
+    // The engine whose repo contains `directory`, if one exists — the lookup a
+    // pane's context menu needs, given only that pane's cwd. Path-only by
+    // design: no `git rev-parse`, so it's safe to call while building a menu.
+    // Unlike targetEngine(), this never falls back to "some other repo's
+    // engine" — a terminal action must act on the repo under the cursor or on
+    // nothing at all.
+    func engineOwning(directory: String) -> AutopilotEngine? {
+        guard let root = AutopilotPaths.bestRoot(for: directory, among: Array(engines.keys)) else { return nil }
+        return engines[root]
     }
 
     // All engines, ordered for a stable dashboard/list display.
