@@ -75,6 +75,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     var autopilotStallMinutes = 60            // needs-input stall before blocking
     var autopilotExtraArgs = ""               // appended to the worker's claude
     var autopilotReviewModel = ""             // review gate --model; empty = default
+    // Model routing: ask haiku which tier each unannotated phase deserves,
+    // instead of running everything on the session default. A roadmap
+    // `model:` annotation and a non-empty autopilotReviewModel both outrank
+    // it; off restores the pick-nothing behaviour. See ModelRouting.swift.
+    var autopilotModelRouting = true
     var autopilotPreventSleep = true          // hold .idleSystemSleepDisabled across runs
     // Cost budget guardrails: per-session / per-task spend
     // ceilings in dollars (0 = no ceiling), whether crossing one auto-interrupts

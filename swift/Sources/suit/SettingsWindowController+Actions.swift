@@ -247,6 +247,11 @@ extension SettingsWindowController {
         }
     }
 
+    @objc func autopilotModelRoutingChanged(_ sender: NSButton) {
+        appDelegate?.autopilotModelRouting = sender.state == .on
+        appDelegate?.saveSettings()
+    }
+
     @objc func autopilotKeepAwakeChanged(_ sender: NSButton) {
         appDelegate?.autopilotPreventSleepChanged(sender.state == .on)
     }

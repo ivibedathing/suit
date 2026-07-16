@@ -57,6 +57,7 @@ extension AutopilotEngine {
     private func spawnRun(for phase: RoadmapPhase) {
         guard !inFlight, let app = appDelegate else { return }
         let root = projectRoot
+        let routingEnabled = app.autopilotModelRouting
         let job = beginBackgroundJob()
         // §2.9: the sleep hold spans spawning…cleanup. Spawning happens while
         // the state is still `idle`, so it's taken explicitly here;
@@ -68,6 +69,16 @@ extension AutopilotEngine {
             // createTask re-slugs the name it is given; RoadmapPhase.slug is a
             // fixed point of that function, so worktree/branch match the run.
             let result = WorktreeTasks.createTask(projectRoot: root, name: phase.slug)
+            // Routing rides this same background hop rather than adding a
+            // stage: it's the same queue, the same generation check on the way
+            // back, and a classifier call is short next to the `git worktree
+            // add` checkout that just ran. Skipped when the worktree failed —
+            // there's no run to route.
+            var routing: ModelRoutingDecision?
+            if case .success = result {
+                routing = AutopilotEngine.routeModel(
+                    for: phase, root: root, routingEnabled: routingEnabled)
+            }
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.endBackgroundJob(job)
@@ -78,24 +89,52 @@ extension AutopilotEngine {
                                "Couldn't create the task worktree for “\(phase.slug)”: \(error.message)",
                                phaseId: phase.number)
                 case .success(let directory):
-                    self.startRun(phase: phase, worktreePath: directory)
+                    self.startRun(phase: phase, worktreePath: directory, routing: routing)
                 }
             }
         }
     }
 
-    private func startRun(phase: RoadmapPhase, worktreePath: String) {
+    // Which model tier this phase's worker should run on. Background-queue
+    // only — it can shell out to the classifier and block for seconds.
+    //
+    // nil means "say nothing about the model", i.e. today's behaviour: no
+    // ANTHROPIC_MODEL prefix, claude picks. That's what routing-off returns,
+    // so the toggle is a true no-op rather than a different default.
+    static func routeModel(for phase: RoadmapPhase, root: String,
+                           routingEnabled: Bool) -> ModelRoutingDecision? {
+        // An explicit `model:` annotation is the roadmap author's decision.
+        // Resolve it (so it still gets logged and still pins the reviewer's
+        // tier) but never pay a classifier to second-guess it.
+        if let annotation = phase.model, !annotation.isEmpty {
+            return ModelRouting.resolve(annotation: annotation,
+                                        classifierVerdict: nil,
+                                        request: phase.specText)
+        }
+        guard routingEnabled else { return nil }
+        let verdict = ModelRouter.classify(request: phase.specText, cwd: root)
+        return ModelRouting.resolve(annotation: nil, classifierVerdict: verdict,
+                                    request: phase.specText)
+    }
+
+    private func startRun(phase: RoadmapPhase, worktreePath: String,
+                          routing: ModelRoutingDecision?) {
         // The spec snapshot makes the run immune to concurrent ROADMAP.md
-        // edits — worker and review gate judge against the same artifact.
+        // edits — worker and review gate judge against the same artifact. The
+        // routed model is snapshotted with it for the same reason, and because
+        // the review gate later reads it back to pick its own tier.
+        let model = routing.map { ModelRouting.modelValue(for: $0, annotation: phase.model) }
+            ?? phase.model
         let run = AutopilotRun(
             phaseId: phase.number, title: phase.title, slug: phase.slug,
             branch: phase.branch, worktreePath: worktreePath,
             stage: AutopilotRunStage.working.rawValue,
             startedAt: Date().timeIntervalSince1970,
             specSnapshot: phase.specText,
-            model: phase.model, effort: phase.effort
+            model: model, effort: phase.effort
         )
         store.setRun(run)
+        if let routing { store.log(routing.logLine) }
         respawnCount = 0
         reviewGateBrokenCount = 0
         mergeConfirmedPending = false

@@ -82,8 +82,15 @@ extension AutopilotEngine {
         store.updateRun { $0.reviewAttempts = attempt }
         let logURL = store.reviewLogURL(slug: run.slug, attempt: attempt)
         let root = projectRoot
-        let model = app.autopilotReviewModel
-        store.log("review gate: attempt \(attempt)/\(maxAttempts) — headless claude review of \(run.branch)")
+        // The reviewer follows the tier the work was routed to (floored at
+        // sonnet — see ModelRouting.reviewFloor), so a cheap phase gets a
+        // cheap review without a second classifier call. An explicit Settings
+        // "Reviewer" value still wins.
+        let model = ModelRouting.reviewModel(setting: app.autopilotReviewModel,
+                                             workerModel: run.model,
+                                             enabled: app.autopilotModelRouting)
+        store.log("review gate: attempt \(attempt)/\(maxAttempts) — headless claude review of \(run.branch)"
+                  + (model.map { " on \($0)" } ?? ""))
         let job = beginBackgroundJob()
         let gen = generation
         let handle = AutopilotGateHandle()
@@ -149,7 +156,7 @@ extension AutopilotEngine {
             )
             AutopilotReviewGate.run(
                 worktree: run.worktreePath, prompt: prompt,
-                model: model.isEmpty ? nil : model, logPath: logURL.path,
+                model: model, logPath: logURL.path,
                 handle: handle
             ) { outcome, output in
                 DispatchQueue.main.async {

@@ -389,6 +389,11 @@ extension SettingsWindowController {
         autopilotReviewModelField.widthAnchor.constraint(equalToConstant: 220).isActive = true
         let autopilotReviewModelRow = row(label: "Reviewer:", controls: [autopilotReviewModelField])
 
+        autopilotModelRoutingCheckbox.target = self
+        autopilotModelRoutingCheckbox.action = #selector(autopilotModelRoutingChanged)
+        let autopilotModelRoutingRow = row(label: "", controls: [autopilotModelRoutingCheckbox])
+        let autopilotModelRoutingHintRow = hintRow("Asks haiku which tier each phase needs. A roadmap “model:” line, or a Reviewer above, wins.")
+
         autopilotKeepAwakeCheckbox.target = self
         autopilotKeepAwakeCheckbox.action = #selector(autopilotKeepAwakeChanged)
         let autopilotKeepAwakeRow = row(label: "", controls: [autopilotKeepAwakeCheckbox])
@@ -399,9 +404,12 @@ extension SettingsWindowController {
             autopilotFiveHourRow, autopilotWeeklyRow, autopilotHardStopRow, autopilotPaceRow,
             autopilotAttemptsRow, autopilotStallRow,
             autopilotArgsRow, autopilotArgsHintRow,
-            autopilotReviewModelRow, autopilotKeepAwakeRow,
+            autopilotReviewModelRow,
+            autopilotModelRoutingRow, autopilotModelRoutingHintRow,
+            autopilotKeepAwakeRow,
         ])
         stack.setCustomSpacing(4, after: autopilotArgsRow)
+        stack.setCustomSpacing(4, after: autopilotModelRoutingRow)
         return stack
     }
 

@@ -113,6 +113,9 @@ extension AppDelegate {
         if let model = defaults.string(forKey: "autopilotReviewModel") {
             autopilotReviewModel = model
         }
+        if defaults.object(forKey: "autopilotModelRouting") != nil {
+            autopilotModelRouting = defaults.bool(forKey: "autopilotModelRouting")
+        }
         if defaults.object(forKey: "autopilotPreventSleep") != nil {
             autopilotPreventSleep = defaults.bool(forKey: "autopilotPreventSleep")
         }
@@ -170,6 +173,7 @@ extension AppDelegate {
         defaults.set(autopilotStallMinutes, forKey: "autopilotStallMinutes")
         defaults.set(autopilotExtraArgs, forKey: "autopilotExtraArgs")
         defaults.set(autopilotReviewModel, forKey: "autopilotReviewModel")
+        defaults.set(autopilotModelRouting, forKey: "autopilotModelRouting")
         defaults.set(autopilotPreventSleep, forKey: "autopilotPreventSleep")
         defaults.set(budgetSessionCap, forKey: "budgetSessionCap")
         defaults.set(budgetTaskCap, forKey: "budgetTaskCap")
