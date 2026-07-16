@@ -379,6 +379,15 @@ app does.
   time**: the others sit **queued** and take the slot the moment it frees (the budget modes
   below still decide when the active slot may start a new phase). Each instance keeps its own
   state, history, and logs, and a running autopilot is re-adopted on the next launch.
+- **Start/stop from the terminal** — a terminal pane's right-click menu carries one Autopilot
+  item that flips with the state of the repo that pane's shell is sitting in: **Start Autopilot
+  Here** when nothing is running on it, **Stop Autopilot (<repo>)** when something is. Start is
+  the palette's `Autopilot: Start Here` aimed at *that pane's* working directory rather than the
+  focused tab's, so it runs the same enable-time checks and reports the same problems (not a git
+  repo, no `ROADMAP.md`); Stop matches the dashboard's — the instance goes away, its worktree and
+  branch stay put. A pane inside a worker's own worktree (`.claude/worktrees/…`) counts as inside
+  the project driving it, so you can stop a run from the shell you're watching it in. The menu
+  answers from paths alone and never shells out to `git`, so right-click stays instant.
 - **Autopilot dashboard** (`Autopilot: Dashboard`, or click the footer row when more than one
   is active) — a floating panel with one row per running autopilot: the repo, its live status,
   and per-repo controls — Focus run tab, Pause/Resume, Skip Current Phase, Retry (while

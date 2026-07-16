@@ -330,6 +330,20 @@ final class Pane: NSObject {
         host?.paneRequestedShowBackgroundTasks(self)
     }
 
+    // Start/stop Autopilot on the repo this pane's shell is sitting in. One
+    // item that flips, so the state is re-read here rather than trusted from
+    // the title the menu was built with — a run can end (or a sibling pane can
+    // start one) while the menu is open.
+    @objc func toggleAutopilot(_ sender: Any?) {
+        guard let directory = workingDirectory else { return }
+        let app = NSApp.delegate as? AppDelegate
+        if AutopilotManager.shared.engineOwning(directory: directory)?.isActive == true {
+            app?.stopAutopilot(inDirectory: directory)
+        } else {
+            app?.startAutopilot(inDirectory: directory)
+        }
+    }
+
     // Finish this pane's task worktree: merge or discard the
     // branch, remove the worktree, and close the pane.
     @objc func finishClaudeTask(_ sender: Any?) {
