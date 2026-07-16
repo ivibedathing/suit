@@ -55,20 +55,6 @@ extension AppDelegate {
         ))
     }
 
-    // A prompt-cache collapse (CacheStatsGuard): notify once per crossing —
-    // the monitor already edge-triggered with hysteresis. Warn-only: unlike a
-    // budget trip there is nothing safe to interrupt automatically; the
-    // detail names the likely cause (a mid-session prefix invalidation) and
-    // the way out (finish or restart the session).
-    func handleCacheAlert(_ alert: CacheAlert) {
-        attentionCenter?.postBudgetEvent(
-            title: "Prompt cache went cold · \(alert.title)",
-            body: alert.detail,
-            identifier: alert.id,
-            sessionId: alert.sessionId
-        )
-    }
-
     // "Set Budget…": a per-session dollar override, surfaced
     // on a fleet row and in the palette. An empty / 0 entry clears it (falls
     // back to the default session cap). Persists like the other defaults, and

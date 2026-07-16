@@ -15,13 +15,14 @@ import Foundation
 // scripts/model-routing-test.sh compiles it standalone (the
 // RoadmapParser/FeedbackRouting pattern). ModelRouter.swift is the IO half.
 //
-// Load-bearing invariant, stated twice elsewhere in this codebase
-// (ClaudeAPISettings.swift and TerminalWindowController+Tasks.swift): an
-// autonomous Autopilot run must never silently inherit a model choice. The
-// roadmap's `model:` annotation is the author's explicit opt-in, so routing is
-// what happens in its *absence* — `resolve` short-circuits on an annotation
-// and never overrides one. Routing is likewise advisory-only: every failure
-// path lands on a tier rather than blocking a run.
+// Load-bearing invariant, also stated at openAutopilotRunTab
+// (TerminalWindowController+Tasks.swift): an autonomous Autopilot run's model
+// is always an explicit choice, never something silently inherited. The
+// roadmap's `model:` annotation is the author's opt-in, so routing is what
+// happens in its *absence* — `resolve` short-circuits on an annotation and
+// never overrides one — and the decision is logged with the source that made
+// it. Routing is likewise advisory-only: every failure path lands on a tier
+// rather than blocking a run.
 
 // The tiers a request can be routed onto, cheapest first.
 //

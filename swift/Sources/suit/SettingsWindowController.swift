@@ -45,7 +45,6 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         ("Terminal", "terminal"),
         ("File Viewer", "doc.text"),
         ("Claude", "sparkles"),
-        ("Claude API", "cpu"),
         ("Autopilot", "airplane"),
         ("Budget", "dollarsign.circle"),
         ("Themes", "swatchpalette"),
@@ -77,29 +76,6 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let soundPreviewPlayer = NotificationSoundPlayer()
     let taskIsolateCheckbox = NSButton(checkboxWithTitle: "Isolate new tasks in a worktree by default", target: nil, action: nil)
     let goalProvenanceCheckbox = NSButton(checkboxWithTitle: "Prepend source location to goals (From file:lines:)", target: nil, action: nil)
-    let rtkCompressionCheckbox = NSButton(checkboxWithTitle: "Compress tool output with rtk", target: nil, action: nil)
-    let postToolCompressCheckbox = NSButton(checkboxWithTitle: "Compress large tool results (Read/Grep/Glob/Bash)", target: nil, action: nil)
-    let readDedupCheckbox = NSButton(checkboxWithTitle: "Skip re-reading unchanged files (read-once)", target: nil, action: nil)
-    let tokenIgnoreCheckbox = NSButton(checkboxWithTitle: "Firewall token-ignored paths (.claude/token-ignore)", target: nil, action: nil)
-    let shellExtrasCheckbox = NSButton(checkboxWithTitle: "Shell helpers (run_silent) in new terminals", target: nil, action: nil)
-    // Auto-/compact guardrails: threshold stepper disabled while
-    // the toggle is off; the instructions field commits on Enter/focus-loss.
-    let autoCompactCheckbox = NSButton(checkboxWithTitle: "Send /compact when an idle session crosses", target: nil, action: nil)
-    let autoCompactThresholdStepper = LabeledStepper(min: 50, max: 90, suffix: "%")
-    let autoCompactInstructionsField = NSTextField(string: "")
-
-    // Claude API pane: per-launch Anthropic env overrides (ClaudeAPISettings).
-    // Text fields commit through controlTextDidEndEditing; the popup/checkbox
-    // fire immediately. All write through appDelegate.claudeAPIChanged(...).
-    let apiModelField = NSTextField(string: "")
-    let apiSubagentModelField = NSTextField(string: "")
-    let apiEffortPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    let apiThinkingTokensField = NSTextField(string: "")
-    let apiMaxOutputTokensField = NSTextField(string: "")
-    let apiPromptCachingCheckbox = NSButton(checkboxWithTitle: "Use prompt caching (uncheck to A/B full-price tokens)", target: nil, action: nil)
-    let apiCustomHeadersField = NSTextField(string: "")
-    let apiExtraEnvField = NSTextField(string: "")
-    let apiPreviewLabel = NSTextField(labelWithString: "")
 
     // Autopilot: every control writes through
     // appDelegate.autopilotXChanged(...) and is re-read in show().
@@ -193,16 +169,6 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             needsInputSoundPopup.selectItem(withTitle: appDelegate.needsInputSoundName)
             taskIsolateCheckbox.state = appDelegate.taskIsolateByDefault ? .on : .off
             goalProvenanceCheckbox.state = appDelegate.goalPrependProvenanceEnabled ? .on : .off
-            rtkCompressionCheckbox.state = appDelegate.rtkCompressionEnabled ? .on : .off
-            postToolCompressCheckbox.state = appDelegate.postToolCompressEnabled ? .on : .off
-            readDedupCheckbox.state = appDelegate.readDedupEnabled ? .on : .off
-            tokenIgnoreCheckbox.state = appDelegate.tokenIgnoreEnabled ? .on : .off
-            shellExtrasCheckbox.state = appDelegate.shellExtrasEnabled ? .on : .off
-            autoCompactCheckbox.state = appDelegate.autoCompactEnabled ? .on : .off
-            autoCompactThresholdStepper.intValue = appDelegate.autoCompactThreshold
-            autoCompactThresholdStepper.isEnabled = appDelegate.autoCompactEnabled
-            autoCompactInstructionsField.stringValue = appDelegate.autoCompactInstructions
-            reloadClaudeAPIControls()
             autopilotEnabledCheckbox.state = appDelegate.autopilotEnabled ? .on : .off
             autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot
             if let index = AutopilotBudgetMode.allCases.firstIndex(of: appDelegate.autopilotMode) {

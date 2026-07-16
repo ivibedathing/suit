@@ -13,7 +13,6 @@ app does.
 - [Claude Code cockpit](#claude-code-cockpit)
   - [Sessions, attention & voice](#sessions-attention--voice) ·
     [Fleet control & spend](#fleet-control--spend) · [Talking to sessions](#talking-to-sessions) ·
-    [Token-cost filters & meters](#token-cost-filters--meters) ·
     [Steering & review](#steering--review) · [Transcripts & history](#transcripts--history) ·
     [Tasks & recipes](#tasks--recipes)
 - [Autopilot](#autopilot)
@@ -297,144 +296,6 @@ app does.
   ⌃⌘K, "Compact Focused Session") to send `/compact` into the focused session, so acting on a
   full context window is one tap instead of a typed command.
 
-### Token-cost filters & meters
-
-- **rtk tool-output compression** — a **Settings ▸ Claude** toggle ("Compress tool output with
-  rtk"), **off by default**, that installs a Claude Code `PreToolUse` hook running every Bash
-  command through [rtk](https://github.com/gglucass/rtk) so its output is filtered down to the
-  salient part (test failures only, build errors only, trimmed git/ls/grep) before it reaches
-  the context window — cutting the tokens each session burns. Enabling merges the hook into
-  `~/.claude/settings.json` (a one-time backup is written first, other hooks preserved) and, if
-  the app bundled rtk, installs it alongside the hook; disabling strips just Suit's hook and
-  leaves everything else intact. The hook **fails open** — if rtk (or `jq`) is missing or the
-  command already runs through rtk, the command runs unchanged — so compression can never break
-  a command. Enabling the toggle when rtk can't be found (bundled, installed, or on `PATH`)
-  warns you plainly that commands run unchanged until you install it. **Per-command bypass:**
-  when you need full, unfiltered output for one command, opt it out without flipping the toggle
-  — prefix it with `NO_RTK=1` or add a `# nortk` marker and it runs unchanged. rtk ships in the
-  bundle when present at build time, otherwise the hook falls back to `rtk` on your `PATH`.
-- **Large tool-result compression** — a **Settings ▸ Claude** toggle ("Compress large tool
-  results (Read/Grep/Glob/Bash)"), **off by default**, that installs a Claude Code
-  `PostToolUse` hook (`suit-posttool-filter.sh`) rewriting a tool's *result* before it reaches
-  the context window via `updatedToolOutput` — the side of a tool call rtk can't touch,
-  covering the built-in Read/Grep/Glob tools and any Bash output that escaped rtk. The
-  replacement mirrors each tool's own response shape (Bash `{stdout, stderr}`, Read
-  `{file: {content}}`, Grep `{content}`, Glob `{filenames}`); Claude Code silently ignores a
-  mismatched shape, so a bare-string replacement would be a no-op (verified on 2.1.208). Deliberately conservative: results under **~30k characters (≈7.5k tokens)
-  are never modified**; larger ones keep their first 200 and last 50 lines (or a byte-based
-  head+tail for single-blob output) around a marker telling Claude how to narrow the query
-  (`head_limit`, `offset`/`limit`, a tighter pattern). A Bash result's stderr survives the cut,
-  rtk-wrapped commands are skipped (no double-processing), and the `NO_RTK=1` / `# nortk`
-  bypasses opt a command out of this filter too. Enabling merges the hook into
-  `~/.claude/settings.json` (same one-time backup, other hooks preserved); the script **fails
-  open** on any error — missing `jq`, unrecognized result shape, an elision that wouldn't
-  shrink — the result passes through untouched. `SUIT_POSTTOOL_DEBUG=1` tees each raw hook
-  payload to `~/.suit/posttool-debug.jsonl` for inspection.
-- **Read-dedup (read-once)** — a **Settings ▸ Claude** toggle ("Skip re-reading unchanged
-  files"), **off by default**, sharing the same `PostToolUse` dispatcher hook (`--dedup`):
-  published session audits put 40–60% of Read-tool tokens on redundant re-reads of files
-  already in the conversation, so a repeat **full-file** Read of a file that hasn't changed
-  returns a one-line stub — naming the file, when it was last read, and its line/byte count —
-  instead of the whole content. Correctness guards: entries key on the file's current
-  **mtime + size**, so any edit re-reads fully; `offset`/`limit` range reads never participate
-  and never touch the cache; a **second consecutive** re-read passes the full content through
-  (re-reading twice signals the content genuinely fell out of context) and re-arms the entry;
-  entries expire after 2 h. The per-session cache lives in `~/.suit/read-cache/<session>.json`,
-  is **cleared by every compaction** (a `PreCompact` hook — manual `/compact`, Suit's
-  auto-compact, and Claude Code's own all count, since compaction evicts the content the stub
-  points back to) and deleted at `SessionEnd`, with a 48 h sweep for crashed sessions. Same
-  fail-open contract: any error means the read passes through untouched.
-- **Token-ignore firewall** — a **Settings ▸ Claude** toggle ("Firewall token-ignored paths"),
-  **off by default**, that keeps a repo's heaviest directories out of the context window
-  entirely. A repo opts in with **`.claude/token-ignore`** at its root: one root-relative path
-  prefix per line (`#` comments allowed) naming what nobody should read wholesale — vendored
-  dependencies (Suit's own lists `swift/Vendor/`), build output, generated code. Two halves,
-  wired by the one toggle: a `PreToolUse` hook (`suit-token-ignore.sh`, matcher `Read`)
-  **denies full-file Reads** under an ignored prefix with a reason that teaches the escape
-  hatches, and the `PostToolUse` dispatcher (`--ignore`) **hides Grep/Glob result lines** there
-  behind a one-line count marker. Deliberate access always works: `offset`/`limit` range reads
-  pass through, as does any search whose `path` explicitly targets the ignored directory, and
-  the ignore list itself is always readable. The ignore file is found by walking up from the
-  target path, so worktrees resolve their own copy. Same contract as the other filters —
-  fail open on any error, `SUIT_TOKEN_FILTERS=off` kill switch, denies and drops logged to the
-  savings meter (kind `ignore`).
-- **Cache hit-rate meter** — prompt-cache misses bill input tokens at near full price (~10× the
-  cached rate) and are invisible in every normal readout. Suit computes each live session's
-  **rolling cache-hit percentage** — cache-read tokens as a share of all input tokens over the
-  last 5 turns, parsed from the transcript's per-turn `usage` blocks (tail-read, at most every
-  15 s and only when the transcript grew) — and shows it on the **fleet dashboard** row next to
-  context % and cost, tinted by an inverted gauge (neutral ≥ 70 %, amber to 40 %, red below).
-  When a session with a full measurement window **collapses under 40 %**, Suit posts one
-  notification naming the usual cause — CLAUDE.md, hook scripts, or MCP config changed
-  mid-session, turning the prompt prefix cold — and suggests finishing or restarting the session.
-  Edge-triggered with hysteresis (re-arms only past 55 % or when the session ends), so a
-  sustained collapse is one banner, not one per heartbeat; early sessions (< 5 measured turns)
-  are never judged, since their first turns legitimately create cache rather than read it.
-- **Token-savings meter & benchmark** — two layers measuring what the filters above actually
-  save. **The meter** (always on with the filters, `SUIT_SAVINGS_LOG=0` to disable): every
-  rewrite the post-tool filter makes appends one JSONL line to `~/.suit/token-savings.jsonl`
-  recording the exact counterfactual it just saw — the chars the original result would have
-  cost vs the chars actually emitted (`{ts, session_id, tool, kind: compress|dedup|ignore,
-  original_chars, emitted_chars}`). `scripts/token-savings-report.sh` aggregates it (totals,
-  by kind / tool / day, `--session SID`, `--today`; token numbers are chars/4 estimates) —
-  zero-variance, real-workload savings with no extra spend. **The benchmark**
-  (`scripts/token-bench.sh`, real API spend, run on demand — not part of `scripts/test.sh`)
-  catches what the meter can't: second-order effects like a dedup stub causing an extra
-  re-read turn. It A/Bs a task suite (`scripts/token-bench/tasks.json`, or `--tasks yours`)
-  through headless `claude -p` with filters **on** (your installed hooks, or a bench-only
-  `--settings` file when none are installed) vs **off** — the off arm sets
-  `SUIT_TOKEN_FILTERS=off`, a kill-switch both hook scripts honor as a per-process
-  pass-through, so `~/.claude/settings.json` is never touched. Arms are interleaved so
-  prompt-cache weather averages out; each run gets a fresh local clone of the repo; medians
-  over `--reps N` (default 3) are reported per task — fresh input tokens (input +
-  cache-creation, the context-growth number the filters target), cache reads, output, turns,
-  cost, wall time, and an `expect_regex` success check, with Δ columns for on-vs-off.
-  `--report FILE` re-aggregates an existing results JSONL without spending anything.
-- **Tokens-saved counter** — the meter, surfaced in the app: a pane whose tab runs a Claude
-  session shows **`↓12k`** in its title bar (left of the context %), the estimated tokens
-  Suit's filters have saved *that session* so far. Hover for the breakdown — the spelled-out
-  estimate, the rewrite count, and how it splits between elisions and read-dedups. The counter
-  reads `~/.suit/token-savings.jsonl` incrementally (only appended lines are parsed), appears
-  after the session's first rewrite, and uses the same chars/4 estimate as the report script.
-  No setting: it's on whenever the filters are producing meter rows.
-- **Shell helpers (run_silent)** — a **Settings ▸ Claude** toggle ("Shell helpers (run_silent)
-  in new terminals"), **off by default**. New **zsh** terminals launch through a ZDOTDIR shim
-  (the VS Code shell-integration mechanism, installed under `~/.suit/zsh/` — your own dotfiles
-  are **never edited**, and other shells launch exactly as before): each shim file sources your
-  real config first (including a `.zshenv` that re-points `ZDOTDIR`, the oh-my-zsh/p10k
-  pattern), then loads `suit-shell-extras.zsh`, which defines **`run_silent <command>`** — the
-  command's output is buffered and a passing run prints only `✓ <command> (Ns)`, while a
-  failing run prints everything plus `✗ (exit N)` and propagates the code. That's the
-  token-saving shape for builds and tests in a Claude session: green runs cost one line
-  instead of hundreds. Purely additive (no prompt/option changes); fails open (no temp file →
-  the command just runs normally); applies to terminals opened after the toggle. Suit never
-  edits CLAUDE.md files — `~/.suit/scripts/SUIT-SHELL-EXTRAS.md` holds a copy-paste snippet
-  that tells Claude the helper exists.
-- **Auto-/compact threshold** — a **Settings ▸ Claude** toggle ("Send /compact when an idle
-  session crosses"), **off by default**, with a threshold stepper (50–90%, default **70%**) and
-  an editable focus-instructions field. When a live session's context meter crosses the
-  threshold, Suit types `/compact <your instructions>` into its pty — earlier and more focused
-  than Claude Code's own late, generic auto-compact, so the summary keeps what you care about
-  (default: "Preserve the current task, recent decisions, exact file paths, and next steps.";
-  empty = plain `/compact`). It only fires at an **idle prompt** — never mid-response, never
-  while Claude is waiting on a question or permission prompt, never into a session no pane
-  hosts — and only **once per crossing**: the guard re-arms after the pct falls 5 points below
-  the threshold, with a 10-minute per-session cooldown so a compact that doesn't lower the
-  meter can't retype itself. Each fire posts a quiet notification (banner only while Suit is in
-  the background; click focuses the session) and an activity-feed row ("Auto-compacted").
-- **Claude API tuning** — a **Settings ▸ Claude API** pane (⌘,) exposing the Anthropic
-  cost/behavior knobs as per-launch environment overrides: main **Model** and **Subagents**
-  model, reasoning **Effort** (`low`–`max`, Claude Code's `CLAUDE_CODE_EFFORT_LEVEL`),
-  **Thinking** budget (`MAX_THINKING_TOKENS`), **Max Output** tokens, a **prompt caching**
-  toggle (off sends `DISABLE_PROMPT_CACHING=1` — full-price tokens, for cost A/B only),
-  **Headers** (`ANTHROPIC_CUSTOM_HEADERS`, e.g. an `anthropic-beta:` line), and a free-form
-  **Extra Env** field (`KEY=VALUE` pairs, appended last so they can override the knobs above).
-  Everything defaults to *unset* — the launch command is untouched until you change something.
-  The composed prefix is shown live in the pane ("Launch as: `ANTHROPIC_MODEL='opus' claude …`")
-  and is typed visibly into the session's shell, so each experiment is scoped to that session and
-  auditable in the terminal. Applies to Claude sessions started from Suit (the ✦ button / ⌃⌘C,
-  worktree tasks, recipes, review passes); Autopilot workers are deliberately unaffected.
-
 ### Steering & review
 
 - **Set as Goal** — select code or prose in a file viewer, transcript, or terminal, then
@@ -539,9 +400,8 @@ app does.
   sweeps, renames, migrations) run on a cheaper tier while design-heavy phases keep the session
   default. The annotations are snapshotted onto the run at spawn (like the spec) and survive
   `--continue` respawns; the first occurrence per phase wins, and prose mentioning "the model:"
-  mid-sentence never triggers. Deliberately independent of the Settings ▸ Claude API prefix —
-  autonomous runs don't silently inherit interactive experiments; the in-repo annotation is the
-  explicit, versioned opt-in. A phase with no annotation is routed automatically — see below.
+  mid-sentence never triggers. The in-repo annotation is the explicit, versioned opt-in. A phase
+  with no annotation is routed automatically — see below.
 - **Automatic model routing** — a phase with no `model:` annotation is routed by asking **haiku**
   which tier the work deserves: it reads the phase's spec text and answers `HAIKU` (mechanical and
   local — a typo, a rename, a version bump), `SONNET` (ordinary feature work following patterns the
@@ -618,8 +478,8 @@ app does.
   so only the settings you're changing are on screen: **Appearance** (font and default size,
   text color, default pane background, opacity (⌘] / ⌘[), blur (⇧⌘B)), **Terminal** (the shell
   new tabs run, cursor shape and blinking, bell responses — pane flash, Dock bounce),
-  **File Viewer** (word wrap), **Claude** (session arguments, "Set as Goal" provenance, and the
-  rtk tool-output compression toggle — see below), **Themes** (swap the whole color palette — see below),
+  **File Viewer** (word wrap), **Claude** (session arguments, "Set as Goal" provenance, and
+  notification sounds), **Themes** (swap the whole color palette — see below),
   **Autopilot**, **Budget**, and a read-only
   **Shortcuts** reference. Everything persists across launches.
 - **Update check** — Suit polls the GitHub releases of its own repo (at most one API hit per day,
