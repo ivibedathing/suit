@@ -116,6 +116,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let autopilotStallStepper = LabeledStepper(min: 5, max: 240, suffix: " min")
     let autopilotExtraArgsField = NSTextField(string: "")
     let autopilotReviewModelField = NSTextField(string: "")
+    let autopilotModelRoutingCheckbox = NSButton(checkboxWithTitle: "Route each phase to a model tier", target: nil, action: nil)
     let autopilotKeepAwakeCheckbox = NSButton(checkboxWithTitle: "Keep the Mac awake during runs", target: nil, action: nil)
 
     // Cost budget guardrails: per-session / per-task dollar
@@ -217,6 +218,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             autopilotStallStepper.intValue = appDelegate.autopilotStallMinutes
             autopilotExtraArgsField.stringValue = appDelegate.autopilotExtraArgs
             autopilotReviewModelField.stringValue = appDelegate.autopilotReviewModel
+            autopilotModelRoutingCheckbox.state = appDelegate.autopilotModelRouting ? .on : .off
             autopilotKeepAwakeCheckbox.state = appDelegate.autopilotPreventSleep ? .on : .off
             budgetSessionCapField.stringValue = Self.dollarString(appDelegate.budgetSessionCap)
             budgetTaskCapField.stringValue = Self.dollarString(appDelegate.budgetTaskCap)

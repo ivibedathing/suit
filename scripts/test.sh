@@ -40,6 +40,7 @@ HARNESSES=(
   "posttool|scripts/posttool-test.sh|fast"
   "token-ignore|scripts/token-ignore-test.sh|fast"
   "roadmap-routing|scripts/roadmap-routing-test.sh|fast"
+  "model-routing|scripts/model-routing-test.sh|fast"
   "autopilot-paths|scripts/autopilot-paths-test.sh|fast"
   "cache-stats|scripts/cache-stats-test.sh|fast"
   "savings-report|scripts/savings-report-test.sh|fast"

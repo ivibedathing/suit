@@ -541,8 +541,28 @@ app does.
   `--continue` respawns; the first occurrence per phase wins, and prose mentioning "the model:"
   mid-sentence never triggers. Deliberately independent of the Settings ▸ Claude API prefix —
   autonomous runs don't silently inherit interactive experiments; the in-repo annotation is the
-  explicit, versioned opt-in. The review gate's model is separate (the review-gate model field
-  in Settings ▸ Autopilot, empty = default).
+  explicit, versioned opt-in. A phase with no annotation is routed automatically — see below.
+- **Automatic model routing** — a phase with no `model:` annotation is routed by asking **haiku**
+  which tier the work deserves: it reads the phase's spec text and answers `HAIKU` (mechanical and
+  local — a typo, a rename, a version bump), `SONNET` (ordinary feature work following patterns the
+  codebase already has), or `OPUS` (design decisions, concurrency, migrations, cross-cutting
+  refactors, or a goal stated without a method). The classifier costs a fraction of a cent and runs
+  during the worktree checkout the spawn was already waiting on, so it adds no perceptible delay.
+  Ties break upward on purpose: a rejected review gate costs more than the model ever saved. The
+  decision and its source land in the Autopilot log (`model routing: opus (haiku classifier)`).
+  Precedence is **roadmap `model:` annotation → classifier → heuristic**: an annotation is never
+  overridden or second-guessed (and never pays for a classifier), and if the classifier can't
+  answer — no `claude` binary, a timeout, unparseable output — a local keyword/breadth heuristic
+  picks instead, biased upward and never below `sonnet` unless the request is unmistakably
+  mechanical. Routing is advisory: every failure path lands on a tier, none can block a run.
+  Toggle it with **Settings ▸ Autopilot ▸ "Route each phase to a model tier"** (on by default);
+  off restores the previous behaviour of letting claude pick.
+- **Routed review gate** — the review gate follows the tier the phase's work was routed to, so a
+  haiku-routed typo isn't reviewed by opus, without spending a second classifier call. It never
+  drops below **sonnet**, however cheap the phase was: the review gate is a correctness gate, and a
+  reviewer that rubber-stamps is worse than no gate because it launders a bad change into a merge.
+  An explicit **Reviewer** value in Settings ▸ Autopilot is a standing decision and outranks
+  routing entirely (empty = routed, or claude's default when routing is off).
 - **Unchanged-diff review skip** — every review verdict records a fingerprint of the exact PR
   diff it judged; if the next review attempt sees a byte-identical diff (the worker pushed
   nothing real since the rejection), the headless review is skipped — no API spend — and the
