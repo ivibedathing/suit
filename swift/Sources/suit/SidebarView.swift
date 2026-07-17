@@ -1,9 +1,12 @@
 import Cocoa
 
-// The window's left rail, toggled with Cmd-B: Files / Sessions / SSH Hosts /
-// Notes / Bookmarks (in that order — see `railOrder`), picked via an icon rail
-// (text segments don't scale in a 180–420pt sidebar; restyled to the mockup's
-// flat hover-square icons in the fidelity work). The Files tab is the
+// The window's left panel, toggled with Cmd-B: Files / Sessions / SSH Hosts /
+// Notes / Bookmarks (in that order — see `railOrder`), picked from the
+// ActivityBarView strip to its left. The icons used to be a horizontal rail
+// inside this view's own top edge; they moved out to the activity bar so they
+// survive a Cmd-B collapse, but the tab *model* stayed here — this view still
+// owns the enum, the rail order and the persisted selection, and the bar is a
+// dumb renderer of `selectedTab`. The Files tab is the
 // SearchView with its search input on top and the FileBrowserView filling the
 // area below until a pattern is typed — then results take that space. Sessions
 // hosts the SessionsView (the open-tabs overview), SSH the SSHHostsView,
@@ -24,17 +27,17 @@ final class SidebarView: NSView {
         case bookmarks
         case sessions
 
-        // The rail's left-to-right icon order, independent of rawValue.
+        // The activity bar's top-to-bottom icon order, independent of rawValue.
         // Files leads (the primary surface), then Sessions (the open-tabs list,
         // the replacement for the removed top tab strip), SSH, Notes, Bookmarks.
         // Git is intentionally absent — its changes/worktrees no longer get a
-        // dedicated rail tab; the branch/worktree switcher lives on the Files
+        // dedicated icon; the branch/worktree switcher lives on the Files
         // footer, and the diff / file-history / feedback / PR-inbox surfaces
         // are reached on demand through the palette (which still shows the
         // GitView via showGit()).
         static let railOrder: [Tab] = [.files, .sessions, .ssh, .notes, .bookmarks]
 
-        // Tooltip / accessibility label; the rail shows only the icon.
+        // Tooltip / accessibility label; the activity bar shows only the icon.
         var label: String {
             switch self {
             case .files: return "Files"
@@ -59,14 +62,20 @@ final class SidebarView: NSView {
 
         var icon: NSImage {
             let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: label)?
-                .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 12, weight: .medium))
+                .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 20, weight: .medium))
             image?.isTemplate = true
             return image ?? NSImage()
         }
     }
 
-    private var railIcons: [RailIconView] = []
-    private var selectedTab: Tab = .files
+    // Read by the controller to seed the activity bar's initial highlight: the
+    // restore below sets this directly rather than through select(tab:), so
+    // onTabChange never fires for it and the bar can't learn it any other way.
+    private(set) var selectedTab: Tab = .files
+
+    // Fired on every select(tab:) so the activity bar can follow. Not fired for
+    // the init-time restore — see selectedTab.
+    var onTabChange: ((Tab) -> Void)?
     let fileBrowser = FileBrowserView(frame: .zero)
     let searchView = SearchView(frame: .zero)
     let notesView = NotesView(frame: .zero)
@@ -85,15 +94,9 @@ final class SidebarView: NSView {
         wantsLayer = true
         layer?.backgroundColor = Theme.barChrome.cgColor
 
-        for tab in Tab.railOrder {
-            let icon = RailIconView(tab: tab)
-            icon.onClick = { [weak self] tab in self?.select(tab: tab) }
-            railIcons.append(icon)
-            addSubview(icon)
-        }
         // A stale persisted value (e.g. from a build with more tabs, or the
-        // now-railless Git tab) falls back to Files rather than landing on a
-        // tab with no icon in the rail to switch back from.
+        // icon-less Git tab) falls back to Files rather than landing on a
+        // tab with no icon in the activity bar to switch back from.
         let saved = UserDefaults.standard.integer(forKey: "sidebarTab")
         let restored = Tab(rawValue: saved) ?? .files
         selectedTab = Tab.railOrder.contains(restored) ? restored : .files
@@ -131,14 +134,15 @@ final class SidebarView: NSView {
         selectedTab = tab
         UserDefaults.standard.set(tab.rawValue, forKey: "sidebarTab")
         updateTabContent()
+        onTabChange?(tab)
     }
 
-    // Live theme switch: re-set the flat rail ground baked in at init and
-    // re-tint each rail icon; the rest of the sidebar's draw-based chrome is
-    // repainted by the controller's recursive needsDisplay sweep.
+    // Live theme switch: re-set the flat ground baked in at init; the rest of
+    // the sidebar's draw-based chrome is repainted by the controller's
+    // recursive needsDisplay sweep. The activity bar re-tints its own icons —
+    // applyTheme() calls it alongside this.
     func reapplyTheme() {
         layer?.backgroundColor = Theme.barChrome.cgColor
-        for icon in railIcons { icon.reapplyTheme() }
     }
 
     required init?(coder: NSCoder) {
@@ -153,24 +157,18 @@ final class SidebarView: NSView {
     // Manual layout, consistent with the pane tree around it (Auto Layout and
     // NSSplitView's frame management don't mix well — see SettingsWindowController).
     private func layoutContents() {
-        let padding: CGFloat = 10
-        let railSize = RailIconView.size
-        let gap: CGFloat = 4
-        var x = padding
-        for icon in railIcons {
-            icon.frame = NSRect(x: x, y: bounds.height - railSize - padding, width: railSize, height: railSize)
-            x += railSize + gap
-        }
         let usageHeight = usageFooter.desiredHeight
         usageFooter.frame = NSRect(x: 0, y: 0, width: bounds.width, height: usageHeight)
         let foldersHeight = recentFolders.isHidden ? 0 : recentFolders.desiredHeight
         recentFolders.frame = NSRect(x: 0, y: usageHeight, width: bounds.width, height: foldersHeight)
         let footerHeight = usageHeight + foldersHeight
+        // Tab content now runs to the top edge: the icons that used to reserve
+        // a band up there live in the activity bar beside this view.
         let contentFrame = NSRect(
             x: 0,
             y: footerHeight,
             width: bounds.width,
-            height: max(0, bounds.height - railSize - padding * 2 - footerHeight)
+            height: max(0, bounds.height - footerHeight)
         )
         searchView.frame = contentFrame
         notesView.frame = contentFrame
@@ -181,9 +179,6 @@ final class SidebarView: NSView {
     }
 
     private func updateTabContent() {
-        for icon in railIcons {
-            icon.isSelected = icon.tab == selectedTab
-        }
         searchView.isHidden = selectedTab != .files
         notesView.isHidden = selectedTab != .notes
         gitView.isHidden = selectedTab != .git

@@ -13,6 +13,23 @@ extension TerminalWindowController {
         UserDefaults.standard.set(!sidebar.isHidden, forKey: "sidebarVisible")
     }
 
+    // An activity-bar icon click, following VS Code: clicking the tab you're
+    // already looking at collapses the sidebar, and clicking any icon while it's
+    // collapsed brings the sidebar back on that tab — the icon of the selected
+    // tab included, which is why the hidden case is checked first rather than
+    // falling into the same-tab toggle and hiding an already-hidden sidebar.
+    // Routed through toggleSidebar() so `sidebarVisible` is persisted in one place.
+    func activateSidebarTab(_ tab: SidebarView.Tab) {
+        if sidebar.isHidden {
+            sidebar.select(tab: tab)
+            toggleSidebar()
+        } else if sidebar.selectedTab == tab {
+            toggleSidebar()
+        } else {
+            sidebar.select(tab: tab)
+        }
+    }
+
     // Cmd-Shift-F: reveal the sidebar's Files tab and put the cursor in the
     // search field above the file tree.
     func focusProjectSearch() {
