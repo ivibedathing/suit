@@ -35,6 +35,7 @@ HARNESSES=(
   "file-time-travel|scripts/file-time-travel-test.sh|fast"
   "budget|scripts/budget-test.sh|fast"
   "command-history|scripts/command-history-test.sh|fast"
+  "markdown-html|scripts/markdown-html-test.sh|fast"
   "roadmap-routing|scripts/roadmap-routing-test.sh|fast"
   "model-routing|scripts/model-routing-test.sh|fast"
   "autopilot-paths|scripts/autopilot-paths-test.sh|fast"

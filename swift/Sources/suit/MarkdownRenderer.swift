@@ -174,8 +174,19 @@ enum MarkdownRenderer {
                 continue
             }
 
-            // Block image on its own line — `![alt](src)` or raw `<img>` tags,
-            // local or remote.
+            // Raw HTML block — the `<p align="center"><img …></p>` README
+            // idiom, centered headings, `<a href><img></a>` badge rows. The
+            // parser owns every `<`-led line and fails closed: anything outside
+            // its whitelist returns nil and falls through to the literal
+            // paragraph rendering below, exactly as before.
+            if MarkdownHTML.opensBlock(trimmed),
+               let (htmlBlock, lineCount) = MarkdownHTML.block(in: lines, at: i) {
+                out.append(html(htmlBlock, size: size, textColor: textColor, mono: mono, baseDir: baseDir))
+                i += lineCount
+                continue
+            }
+
+            // Block image on its own line — `![alt](src)`, local or remote.
             if let image = imageLine(trimmed, baseDir: baseDir, size: size) {
                 out.append(image)
                 i += 1
@@ -477,6 +488,90 @@ enum MarkdownRenderer {
         return out
     }
 
+    // MARK: - Raw HTML
+
+    // A parsed HTML block → its attributed form. MarkdownHTML did the parsing
+    // (Foundation-only, harness-covered); this only maps its nodes onto fonts,
+    // alignment and image fragments.
+    private static func html(_ block: MarkdownHTML.Block, size: CGFloat, textColor: NSColor,
+                             mono: NSFont, baseDir: String?) -> NSAttributedString {
+        // A fresh style per block: sharing one instance would let a later
+        // block's mutation restyle earlier ones through the attributed
+        // reference they still hold.
+        let para = NSMutableParagraphStyle()
+        para.alignment = textAlignment(block.alignment)
+
+        var font = NSFont.systemFont(ofSize: size)
+        var color = textColor
+        switch block.kind {
+        case .paragraph:
+            para.lineSpacing = size * 0.4
+            para.paragraphSpacing = size * 0.7
+        case .heading(let level):
+            // Same type scale as the ATX path, so `<h1 align="center">` and
+            // `# Heading` are the same heading.
+            let scale: CGFloat = [2.0, 1.5, 1.25, 1.05, 0.95, 0.85][min(level - 1, 5)]
+            font = NSFont.systemFont(ofSize: round(size * scale), weight: level <= 2 ? .bold : .semibold)
+            para.paragraphSpacingBefore = size * (level <= 2 ? 1.2 : 1.0)
+            para.paragraphSpacing = level <= 2 ? size * 0.3 : size * 0.5
+            if level == 6 { color = Theme.textDim }
+        }
+
+        let base: [NSAttributedString.Key: Any] = [
+            .font: font, .foregroundColor: color, .paragraphStyle: para,
+        ]
+        let out = NSMutableAttributedString()
+        for node in block.nodes {
+            switch node {
+            case .lineBreak:
+                // U+2028 breaks the line without ending the paragraph. A `\n`
+                // here would start a new one, so `<br>` would pick up the full
+                // paragraphSpacing and read as a paragraph split.
+                out.append(NSAttributedString(string: "\u{2028}", attributes: base))
+            case .text(let text, let isBold, let isItalic, let isCode, let href):
+                var attrs = base
+                var runFont = font
+                if isBold { runFont = bold(runFont) }
+                if isItalic { runFont = italic(runFont) }
+                if isCode {
+                    runFont = mono
+                    attrs[.backgroundColor] = Theme.raised
+                }
+                attrs[.font] = runFont
+                if let href { attrs[.link] = href }
+                out.append(NSAttributedString(string: text, attributes: attrs))
+            case .image(let alt, let src, let width, let href):
+                var attrs = base
+                if let href { attrs[.link] = href }
+                if let fragment = imageFragment(alt: alt, src: src, baseDir: baseDir, size: size,
+                                                maxWidth: width.map { CGFloat($0) }, base: attrs) {
+                    out.append(fragment)
+                } else if !alt.isEmpty {
+                    // An unresolvable image still says what it was.
+                    out.append(NSAttributedString(string: alt, attributes: attrs))
+                }
+            }
+        }
+        out.append(NSAttributedString(string: "\n", attributes: base))
+        // The style goes over the whole block, trailing newline included:
+        // TextKit takes a paragraph's attributes from its first character, so a
+        // leading run that lost them — an image fragment, or a bitmap swapped in
+        // over a remote placeholder — would silently drop the block's centering.
+        out.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: out.length))
+        if case .heading(let level) = block.kind, level <= 2 {
+            out.append(rule(spacingBefore: 0, spacingAfter: size * 0.7))
+        }
+        return out
+    }
+
+    private static func textAlignment(_ alignment: MarkdownHTML.Alignment) -> NSTextAlignment {
+        switch alignment {
+        case .leading: return .natural
+        case .center: return .center
+        case .trailing: return .right
+        }
+    }
+
     // MARK: - Images
 
     // Placeholder runs for remote images carry these: the pane fetches the URL
@@ -500,35 +595,21 @@ enum MarkdownRenderer {
         return NSAttributedString(attachment: attachment)
     }
 
-    // A line that is nothing but images — `![alt](src)` or HTML starting with
-    // `<` and containing `<img>` tags (the `<p align="center"><img …></p>`
-    // README idiom) → the images as their own block, scaled into the column.
+    // A line that is nothing but a `![alt](src)` image → the image as its own
+    // block, scaled into the column. Raw `<img>` HTML used to land here too;
+    // MarkdownHTML owns that now, so the two parsers can't disagree about a
+    // line — the old one dropped `align` and the `<a href>` around a badge.
     // Unresolvable lines fall through to paragraph rendering.
     private static func imageLine(_ trimmed: String, baseDir: String?, size: CGFloat) -> NSAttributedString? {
-        var fragments: [NSAttributedString] = []
-        if trimmed.hasPrefix("<") {
-            for spec in htmlImageSpecs(trimmed) {
-                if let fragment = imageFragment(alt: spec.alt, src: spec.src, baseDir: baseDir,
-                                                size: size, maxWidth: spec.width, base: [:]) {
-                    fragments.append(fragment)
-                }
-            }
-        } else if trimmed.hasPrefix("!["), trimmed.hasSuffix(")"),
-                  let spec = imageSpec(trimmed), spec.rest.isEmpty,
-                  let fragment = imageFragment(alt: spec.alt, src: spec.src, baseDir: baseDir,
-                                               size: size, maxWidth: nil, base: [:]) {
-            fragments.append(fragment)
-        }
-        guard !fragments.isEmpty else { return nil }
+        guard trimmed.hasPrefix("!["), trimmed.hasSuffix(")"),
+              let spec = imageSpec(trimmed), spec.rest.isEmpty,
+              let fragment = imageFragment(alt: spec.alt, src: spec.src, baseDir: baseDir,
+                                           size: size, maxWidth: nil, base: [:]) else { return nil }
 
         let para = NSMutableParagraphStyle()
         para.paragraphSpacingBefore = size * 0.4
         para.paragraphSpacing = size * 0.8
-        let result = NSMutableAttributedString()
-        for (index, fragment) in fragments.enumerated() {
-            if index > 0 { result.append(NSAttributedString(string: "  ")) }
-            result.append(fragment)
-        }
+        let result = NSMutableAttributedString(attributedString: fragment)
         result.append(NSAttributedString(string: "\n"))
         result.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: result.length))
         return result
@@ -590,36 +671,6 @@ enum MarkdownRenderer {
         let raw = String(text[altClose.upperBound..<parenClose.lowerBound]).trimmingCharacters(in: .whitespaces)
         let src = raw.components(separatedBy: " ").first ?? raw
         return (alt, src, text[parenClose.upperBound...])
-    }
-
-    // Every `<img …>` tag in an HTML line → (alt, src, width-attribute).
-    private static func htmlImageSpecs(_ line: String) -> [(alt: String, src: String, width: CGFloat?)] {
-        var specs: [(alt: String, src: String, width: CGFloat?)] = []
-        var search = line.startIndex
-        while let tagStart = line.range(of: "<img", options: .caseInsensitive,
-                                        range: search..<line.endIndex)?.lowerBound {
-            let tagEnd = line.range(of: ">", range: tagStart..<line.endIndex)?.upperBound ?? line.endIndex
-            let tag = String(line[tagStart..<tagEnd])
-            if let src = htmlAttribute("src", in: tag) {
-                let width = htmlAttribute("width", in: tag).flatMap { Double($0) }.map { CGFloat($0) }
-                specs.append((htmlAttribute("alt", in: tag) ?? "", src, width))
-            }
-            search = tagEnd
-        }
-        return specs
-    }
-
-    private static func htmlAttribute(_ name: String, in tag: String) -> String? {
-        guard let attr = tag.range(of: "\(name)=", options: .caseInsensitive) else { return nil }
-        let after = tag[attr.upperBound...]
-        guard let quote = after.first, quote == "\"" || quote == "'" else {
-            // Unquoted value: runs to the next space or tag end.
-            let value = after.prefix { $0 != " " && $0 != ">" && $0 != "/" }
-            return value.isEmpty ? nil : String(value)
-        }
-        let body = after.dropFirst()
-        guard let close = body.firstIndex(of: quote) else { return nil }
-        return String(body[..<close])
     }
 
     // MARK: - Inline
