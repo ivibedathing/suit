@@ -1,10 +1,12 @@
 import Cocoa
 
-// One icon in the sidebar's tab rail: a flat hover-square in the artifact
+// One icon in the window's activity bar: a flat hover-square in the artifact
 // language (hover #262A31, amber-tinted selection, accent icon when selected)
 // — the native NSSegmentedControl read as aqua chrome, not the mockup's rail.
+// Sized for the 48pt bar (see ActivityBarView.width); the square and its glyph
+// scale together, so changing `size` alone leaves the icon small and centered.
 final class RailIconView: NSView {
-    static let size: CGFloat = 26
+    static let size: CGFloat = 40
 
     let tab: SidebarView.Tab
     var onClick: ((SidebarView.Tab) -> Void)?
@@ -27,7 +29,7 @@ final class RailIconView: NSView {
         toolTip = tab.label
         iconView.image = tab.icon
         iconView.contentTintColor = Theme.textDim
-        let iconSize: CGFloat = 16
+        let iconSize: CGFloat = 24
         iconView.frame = NSRect(
             x: (Self.size - iconSize) / 2, y: (Self.size - iconSize) / 2,
             width: iconSize, height: iconSize
@@ -50,7 +52,7 @@ final class RailIconView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         guard isSelected || isHovered else { return }
-        let path = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
+        let path = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
         (isSelected ? Theme.selection : Theme.hover).setFill()
         path.fill()
     }

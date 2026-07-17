@@ -31,7 +31,7 @@ app does.
   ⌘1–9 jump (⌘9 = last), ⌃Tab is a most-recently-used switcher (hold ⌃ to pick, quick tap to
   toggle the last two). Opening a file, diff, or transcript adds a tab to the focused pane's
   group.
-- **Sessions sidebar** — the sidebar's Sessions tab (second in the rail, after Files) lists every
+- **Sessions sidebar** — the sidebar's Sessions tab (second in the activity bar, after Files) lists every
   open tab in the window, grouped by the pane (screen) that owns it — the cross-pane overview that
   replaces the old strip. Click a row to bring that tab forward in its pane; its close box
   shuts it. Session dots (busy / pulsing needs-input / done) and red failure dots show right
@@ -65,7 +65,11 @@ app does.
 
 ### Files & sidebar
 
-- **Sidebar** (⌘B) — an icon rail with Files, Sessions, SSH Hosts, Notes and Bookmarks. The
+- **Activity bar** — a full-height icon strip pinned to the window's far-left edge, holding the
+  sidebar's tabs: Files, Sessions, SSH Hosts, Notes and Bookmarks, top to bottom. It stays put
+  when the sidebar is collapsed, so clicking any icon reopens the sidebar on that tab. Clicking
+  the icon of the tab you're already on collapses the sidebar again (as ⌘B does).
+- **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. The
   Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
   search / choose-folder / unpin actions, and, inside a repo, a branch-switcher row with the
   repo's branch/worktree counts — and gives the rest of the tab to the tree. The tree is
@@ -194,7 +198,7 @@ app does.
   under the new worktree (same relative subpath when it exists there, otherwise the worktree root),
   so the terminal you're looking at actually lands on the new branch. Terminals mid-job (running
   `claude`, a build, `vim`) are left alone.
-- **Git surface** — the git review surface no longer has its own sidebar rail tab; reach it with
+- **Git surface** — the git review surface has no activity-bar icon; reach it with
   **Show Git** in the command palette. It shows staged / changed files (click to open the scoped
   diff) and, below them, a **Branches** list: every local branch with its ahead/behind vs
   upstream (green ↑ / amber ↓), a worktree glyph, and a dirty dot; the current branch is

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Unified logic-test runner for Suit's UI-free cores.
 #
-# Suit has no XCTest target (there's no SwiftPM / Xcode project — see AGENTS.md
+# Suit has no XCTest target (there's no SwiftPM / Xcode project — see CLAUDE.md
 # "Why no SwiftPM"). Instead, the pure, app-independent logic that phases rest
 # on is verified by standalone harnesses that compile just the relevant
 # Foundation-only sources against a small assertion driver and run it — no app,
