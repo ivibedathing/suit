@@ -13,11 +13,43 @@ import Cocoa
 // the viewer. Deliberately read-only.
 
 final class MarkdownTextView: NSTextView {
+    /// Called with a `<details>` id when its summary line is clicked.
+    var onDetailsToggle: ((Int) -> Void)?
+
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
         let copyItem = menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "")
         copyItem.isEnabled = selectedRange().length > 0
         return menu
+    }
+
+    // A click on a summary line toggles its disclosure instead of starting a
+    // selection. Hit-testing goes through the glyph's own rect — the plain
+    // character-index lookup snaps to the nearest glyph, so clicking the empty
+    // space beside a summary would toggle it from across the column.
+    override func mouseDown(with event: NSEvent) {
+        guard let id = detailsID(at: event) else {
+            super.mouseDown(with: event)
+            return
+        }
+        onDetailsToggle?(id)
+    }
+
+    private func detailsID(at event: NSEvent) -> Int? {
+        guard let layoutManager, let textContainer, let storage = textStorage, storage.length > 0
+        else { return nil }
+        var point = convert(event.locationInWindow, from: nil)
+        point.x -= textContainerOrigin.x
+        point.y -= textContainerOrigin.y
+        var fraction: CGFloat = 0
+        let glyph = layoutManager.glyphIndex(for: point, in: textContainer,
+                                             fractionOfDistanceThroughGlyph: &fraction)
+        let rect = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1),
+                                              in: textContainer)
+        guard rect.contains(point) else { return nil }
+        let index = layoutManager.characterIndexForGlyph(at: glyph)
+        guard index < storage.length else { return nil }
+        return storage.attribute(MarkdownRenderer.detailsIDKey, at: index, effectiveRange: nil) as? Int
     }
 }
 
@@ -39,6 +71,11 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
     private(set) var filePath: String?
     private var source = ""
     private var rawMode = false
+    // `<details>` ids the reader has toggled away from their `open` default,
+    // keyed by the source line of the tag. Kept on the pane rather than in the
+    // text storage, so the re-render behind a theme or font change — which
+    // rebuilds the storage from the same source — preserves expansion for free.
+    private var flippedDetails: Set<Int> = []
     private var baseFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
     private var baseTextColor: NSColor = Theme.textPrimary
     private var background = Theme.bg
@@ -81,6 +118,7 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
             .cursor: NSCursor.pointingHand,
         ]
         textView.delegate = self
+        textView.onDetailsToggle = { [weak self] id in self?.toggleDetails(id) }
 
         scrollView.documentView = textView
         scrollView.hasVerticalScroller = true
@@ -103,6 +141,9 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
 
     func load(path: String, line: Int?) {
         let standardized = (path as NSString).standardizingPath
+        // Expansion is keyed by source line, so it means nothing once the
+        // source changes.
+        if standardized != filePath { flippedDetails.removeAll() }
         filePath = standardized
         if let data = FileManager.default.contents(atPath: standardized) {
             source = String(decoding: data, as: UTF8.self)
@@ -118,6 +159,20 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
         rerender()
     }
 
+    // Toggling re-renders the whole document — a README is milliseconds, and it
+    // avoids surgery on a live text storage. Hold the scroll position across it
+    // so expanding something below the fold doesn't jump the reader.
+    private func toggleDetails(_ id: Int) {
+        if flippedDetails.contains(id) {
+            flippedDetails.remove(id)
+        } else {
+            flippedDetails.insert(id)
+        }
+        let fraction = scrollFraction
+        rerender()
+        restore(scrollFraction: fraction)
+    }
+
     private func rerender() {
         let attributed: NSAttributedString
         if rawMode {
@@ -126,7 +181,8 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
             )
         } else {
             attributed = MarkdownRenderer.render(
-                source, baseFont: baseFont, textColor: baseTextColor, baseDir: workingDirectory
+                source, baseFont: baseFont, textColor: baseTextColor, baseDir: workingDirectory,
+                flippedDetails: flippedDetails
             )
         }
         textView.textStorage?.setAttributedString(attributed)

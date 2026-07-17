@@ -42,6 +42,22 @@ enum MarkdownHTML {
         var nodes: [Node]
     }
 
+    // A `<details>` disclosure. Its body stays *source lines* rather than
+    // parsed nodes: README bodies are markdown (headings, pipe tables), so the
+    // renderer has to feed them back through its own block loop — parsing them
+    // here would mean reimplementing markdown inside the HTML parser.
+    struct Details: Equatable {
+        var summary: [Node]
+        /// The `open` attribute — whether it starts expanded.
+        var isOpen: Bool
+        /// Body line range in the array passed to `details(in:at:)`, exclusive
+        /// of `</details>`.
+        var bodyStart: Int
+        var bodyEnd: Int
+        /// Lines from the `<details>` tag through `</details>`, inclusive.
+        var lineCount: Int
+    }
+
     // Tags that open a block. `div` earns its place: `<div align="center">` is
     // as common a README idiom as `<p>`. A bare `<img>`/`<a>` line opens an
     // implicit leading-aligned paragraph — that case used to be handled by
@@ -97,11 +113,61 @@ enum MarkdownHTML {
         return (block, max(1, end - start))
     }
 
+    /// Whether `trimmed` opens a `<details>` disclosure.
+    static func opensDetails(_ trimmed: String) -> Bool {
+        trimmed.hasPrefix("<") && tagName(trimmed) == "details"
+    }
+
+    /// Parse a `<details>` block beginning at `lines[start]`, or nil when it is
+    /// malformed (no `</details>`, no `<summary>`) — the caller then renders it
+    /// verbatim, as before.
+    static func details(in lines: [String], at start: Int) -> Details? {
+        guard start < lines.count, opensDetails(lines[start].trimmingCharacters(in: .whitespaces)) else {
+            return nil
+        }
+        // Unlike an inline HTML block, a blank line can't terminate this: the
+        // body is markdown and blank lines are how markdown separates blocks.
+        // So `</details>` is the only terminator, and an unclosed `<details>`
+        // fails rather than swallowing the rest of the document.
+        var depth = 0
+        var end: Int?
+        for index in start..<lines.count {
+            depth += occurrences(of: "<details", in: lines[index], requireTagBoundary: true)
+            depth -= occurrences(of: "</details", in: lines[index], requireTagBoundary: true)
+            if depth <= 0 { end = index; break }
+        }
+        guard let closeLine = end else { return nil }
+
+        let isOpen = hasFlag("open", in: lines[start]) || attribute("open", in: lines[start]) != nil
+
+        // The summary may sit on the `<details>` line or its own, and may wrap.
+        let head = lines[start...closeLine].joined(separator: "\n")
+        guard let openRange = head.range(of: "<summary", options: .caseInsensitive),
+              let openEnd = head.range(of: ">", range: openRange.upperBound..<head.endIndex),
+              let closeRange = head.range(of: "</summary>", options: .caseInsensitive,
+                                          range: openEnd.upperBound..<head.endIndex),
+              let summary = inlineNodes(String(head[openEnd.upperBound..<closeRange.lowerBound])),
+              !summary.isEmpty else { return nil }
+
+        // The body starts on the line after the one `</summary>` closes on.
+        let consumedThroughSummary = head[head.startIndex..<closeRange.upperBound]
+            .components(separatedBy: "\n").count
+        let bodyStart = min(start + consumedThroughSummary, closeLine)
+        return Details(summary: summary, isOpen: isOpen, bodyStart: bodyStart,
+                       bodyEnd: closeLine, lineCount: closeLine - start + 1)
+    }
+
     // MARK: - Parsing
+
+    /// The inline nodes of an HTML fragment (a `<summary>`'s contents), or nil
+    /// if it holds anything outside the inline whitelist.
+    static func inlineNodes(_ source: String) -> [Node]? {
+        parse(source, allowBlockTags: false)?.nodes
+    }
 
     // Walk the block as a token stream: text runs between tags, tags mutating a
     // small style state. Anything unexpected → nil, whole block.
-    private static func parse(_ source: String) -> Block? {
+    private static func parse(_ source: String, allowBlockTags: Bool = true) -> Block? {
         var kind: Kind = .paragraph
         var alignment: Alignment = .leading
         var sawBlockTag = false
@@ -141,6 +207,7 @@ enum MarkdownHTML {
             let isClosing = raw.hasPrefix("</")
 
             if blockTags.contains(name) {
+                guard allowBlockTags else { return nil }
                 // A block tag nested inside the block (e.g. `<div><p>`) is past
                 // this parser's remit.
                 if !isClosing {
@@ -242,6 +309,24 @@ enum MarkdownHTML {
         case "left": return .leading
         default: return nil
         }
+    }
+
+    /// A valueless boolean attribute (`<details open>`) — the `name="name"`
+    /// spelling goes through `attribute` instead.
+    static func hasFlag(_ name: String, in tag: String) -> Bool {
+        let lower = tag.lowercased()
+        var search = lower.startIndex
+        while let range = lower.range(of: name, range: search..<lower.endIndex) {
+            search = range.upperBound
+            let before = range.lowerBound == lower.startIndex
+                ? " "
+                : lower[lower.index(before: range.lowerBound)]
+            let after = range.upperBound == lower.endIndex ? ">" : lower[range.upperBound]
+            if (before == " " || before == "\t") && (after == " " || after == ">" || after == "/") {
+                return true
+            }
+        }
+        return false
     }
 
     /// An attribute's value from a tag: quoted or bare, case-insensitive name.

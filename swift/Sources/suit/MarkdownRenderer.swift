@@ -54,7 +54,18 @@ enum MarkdownRenderer {
         return result
     }
 
-    static func render(_ text: String, baseFont: NSFont, textColor: NSColor, baseDir: String? = nil) -> NSAttributedString {
+    // Summary runs carry the source line of their `<details>` tag; the pane
+    // hit-tests this on click to toggle, and keys its state by it. The source
+    // line is stable across re-renders (the source doesn't change), so a theme
+    // or font change can't disturb what the reader has expanded.
+    static let detailsIDKey = NSAttributedString.Key("suit.markdown.detailsID")
+
+    /// - Parameter flippedDetails: the `<details>` IDs the reader has toggled
+    ///   *away from* their `open` default. Storing the flip rather than the
+    ///   state means the pane never has to pre-scan the source to learn which
+    ///   disclosures start open.
+    static func render(_ text: String, baseFont: NSFont, textColor: NSColor, baseDir: String? = nil,
+                       flippedDetails: Set<Int> = []) -> NSAttributedString {
         // Reading size: prose renders larger than the terminal font it
         // inherits, the way documentation surfaces do, and never below a 16pt
         // floor — the default 13pt terminal font should still yield
@@ -65,10 +76,35 @@ enum MarkdownRenderer {
         let out = NSMutableAttributedString()
 
         let lines = text.components(separatedBy: "\n")
+        // Lines holding a `</details>` whose body we spliced into this loop —
+        // the body renders as ordinary markdown, so only the closing tag itself
+        // needs skipping when we reach it.
+        var detailsEnds: Set<Int> = []
         var i = 0
         while i < lines.count {
+            if detailsEnds.contains(i) {
+                i += 1
+                continue
+            }
             let line = lines[i]
             let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            // A `<details>` disclosure. The summary is always drawn; the body
+            // is spliced back into this loop when expanded, because it is
+            // markdown (the README's is pipe tables) and has to go through the
+            // same block handling as anything else.
+            if MarkdownHTML.opensDetails(trimmed), let found = MarkdownHTML.details(in: lines, at: i) {
+                let expanded = found.isOpen != flippedDetails.contains(i)
+                out.append(summary(found, id: i, expanded: expanded, size: size,
+                                   textColor: textColor, mono: mono, baseDir: baseDir))
+                if expanded, found.bodyStart < found.bodyEnd {
+                    detailsEnds.insert(found.bodyEnd)
+                    i = found.bodyStart
+                } else {
+                    i += found.lineCount
+                }
+                continue
+            }
 
             // Fenced code block.
             if trimmed.hasPrefix("```") {
@@ -493,20 +529,27 @@ enum MarkdownRenderer {
     // A parsed HTML block → its attributed form. MarkdownHTML did the parsing
     // (Foundation-only, harness-covered); this only maps its nodes onto fonts,
     // alignment and image fragments.
+    /// - Parameters:
+    ///   - terminated: false when the caller is embedding these nodes in a line
+    ///     it owns (a `<details>` summary), so the block must not close itself.
+    ///   - style: the caller's paragraph style, when it has one.
     private static func html(_ block: MarkdownHTML.Block, size: CGFloat, textColor: NSColor,
-                             mono: NSFont, baseDir: String?) -> NSAttributedString {
+                             mono: NSFont, baseDir: String?, terminated: Bool = true,
+                             style: NSMutableParagraphStyle? = nil) -> NSAttributedString {
         // A fresh style per block: sharing one instance would let a later
         // block's mutation restyle earlier ones through the attributed
         // reference they still hold.
-        let para = NSMutableParagraphStyle()
-        para.alignment = textAlignment(block.alignment)
+        let para = style ?? NSMutableParagraphStyle()
+        if style == nil { para.alignment = textAlignment(block.alignment) }
 
         var font = NSFont.systemFont(ofSize: size)
         var color = textColor
         switch block.kind {
         case .paragraph:
-            para.lineSpacing = size * 0.4
-            para.paragraphSpacing = size * 0.7
+            if style == nil {
+                para.lineSpacing = size * 0.4
+                para.paragraphSpacing = size * 0.7
+            }
         case .heading(let level):
             // Same type scale as the ATX path, so `<h1 align="center">` and
             // `# Heading` are the same heading.
@@ -552,15 +595,46 @@ enum MarkdownRenderer {
                 }
             }
         }
-        out.append(NSAttributedString(string: "\n", attributes: base))
+        if terminated { out.append(NSAttributedString(string: "\n", attributes: base)) }
         // The style goes over the whole block, trailing newline included:
         // TextKit takes a paragraph's attributes from its first character, so a
         // leading run that lost them — an image fragment, or a bitmap swapped in
         // over a remote placeholder — would silently drop the block's centering.
         out.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: out.length))
-        if case .heading(let level) = block.kind, level <= 2 {
+        if terminated, case .heading(let level) = block.kind, level <= 2 {
             out.append(rule(spacingBefore: 0, spacingAfter: size * 0.7))
         }
+        return out
+    }
+
+    // A `<details>`'s clickable summary line: a disclosure triangle plus the
+    // summary's own inline content. Tagged with detailsIDKey over the whole
+    // line so the pane can hit-test a click anywhere along it.
+    private static func summary(_ details: MarkdownHTML.Details, id: Int, expanded: Bool,
+                                size: CGFloat, textColor: NSColor, mono: NSFont,
+                                baseDir: String?) -> NSAttributedString {
+        let para = NSMutableParagraphStyle()
+        para.paragraphSpacingBefore = size * 0.6
+        para.paragraphSpacing = size * 0.4
+        para.lineSpacing = size * 0.3
+        let base: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: size),
+            .foregroundColor: textColor,
+            .paragraphStyle: para,
+        ]
+
+        let out = NSMutableAttributedString()
+        var markerAttrs = base
+        markerAttrs[.foregroundColor] = Theme.textDim
+        out.append(NSAttributedString(string: expanded ? "▾  " : "▸  ", attributes: markerAttrs))
+        out.append(html(MarkdownHTML.Block(kind: .paragraph, alignment: .leading, nodes: details.summary),
+                        size: size, textColor: textColor, mono: mono, baseDir: baseDir,
+                        terminated: false, style: para))
+        out.append(NSAttributedString(string: "\n", attributes: base))
+        out.addAttributes(
+            [.paragraphStyle: para, detailsIDKey: id, .cursor: NSCursor.pointingHand],
+            range: NSRange(location: 0, length: out.length)
+        )
         return out
     }
 

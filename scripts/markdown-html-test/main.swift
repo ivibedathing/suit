@@ -132,7 +132,8 @@ check(parse("<p>hi</p>")?.block.alignment == .leading, "no align attribute means
 
 print("== fail closed ==")
 check(parse("<table><tr><td>x</td></tr></table>") == nil, "a non-whitelisted tag rejects the whole block")
-check(parse("<details><summary>x</summary></details>") == nil, "<details> is out of scope for now")
+check(parse("<details><summary>x</summary></details>") == nil,
+      "<details> is not an inline block — MarkdownHTML.details owns it")
 check(parse("<p>text <video src=\"x.mp4\"></video></p>") == nil,
       "one unknown tag rejects the block rather than partially rendering it")
 check(parse("<p><div>nested</div></p>") == nil, "a nested block tag is past this parser's remit")
@@ -184,6 +185,63 @@ if let (block, _) = parse("<p>&amp;lt;</p>"), case .text(let text, _, _, _, _)? 
     check(text == "&lt;", "&amp; decodes last, so &amp;lt; is not double-decoded into <")
 } else {
     check(false, "the double-encoding case parses")
+}
+
+// MARK: - <details> disclosures
+
+print("== details ==")
+// README.md's shortcuts section: a markdown body (headings + pipe tables) that
+// has to flow back through the renderer's own block loop, and blank lines that
+// must not terminate the block the way they do an inline HTML block.
+let shortcuts = [
+    "<details>",
+    "<summary><strong>Show all shortcuts</strong></summary>",
+    "",
+    "### Tabs",
+    "",
+    "| Shortcut | Action |",
+    "| --- | --- |",
+    "| ⌘T | New tab |",
+    "",
+    "</details>",
+    "",
+    "After the disclosure.",
+]
+if let found = MarkdownHTML.details(in: shortcuts, at: 0) {
+    check(found.lineCount == 10, "the block runs from <details> through </details>")
+    check(!found.isOpen, "no `open` attribute means it starts collapsed")
+    check(found.bodyStart == 2, "the body starts after the </summary> line")
+    check(found.bodyEnd == 9, "…and ends at </details>, exclusive")
+    check(found.summary == [.text("Show all shortcuts", bold: true, italic: false, code: false, href: nil)],
+          "the summary's <strong> is parsed as inline nodes")
+} else {
+    check(false, "the README's shortcuts disclosure parses")
+}
+
+check(MarkdownHTML.details(in: ["<details open>", "<summary>s</summary>", "</details>"], at: 0)?.isOpen == true,
+      "a bare `open` attribute starts it expanded")
+check(MarkdownHTML.details(in: ["<details open=\"open\">", "<summary>s</summary>", "</details>"], at: 0)?.isOpen == true,
+      "…as does open=\"open\"")
+check(MarkdownHTML.details(in: ["<details class=\"opener\">", "<summary>s</summary>", "</details>"], at: 0)?.isOpen == false,
+      "a word merely containing `open` is not the open flag")
+check(MarkdownHTML.details(in: ["<details><summary>All on one line</summary>body</details>"], at: 0)?.lineCount == 1,
+      "a single-line disclosure parses")
+
+print("== details fails closed ==")
+check(MarkdownHTML.details(in: ["<details>", "<summary>s</summary>", "body"], at: 0) == nil,
+      "an unclosed <details> yields nothing rather than swallowing the document")
+check(MarkdownHTML.details(in: ["<details>", "body", "</details>"], at: 0) == nil,
+      "a <details> with no <summary> is not a disclosure")
+check(MarkdownHTML.details(in: ["<p>not a disclosure</p>"], at: 0) == nil,
+      "a non-<details> line opens no disclosure")
+let nested = ["<details>", "<summary>outer</summary>", "<details>", "<summary>in</summary>",
+              "</details>", "</details>"]
+if let found = MarkdownHTML.details(in: nested, at: 0) {
+    check(found.lineCount == 6, "a nested <details> does not close its parent early")
+    check(found.summary == [.text("outer", bold: false, italic: false, code: false, href: nil)],
+          "…and the outer summary is the one parsed")
+} else {
+    check(false, "nested disclosures parse")
 }
 
 print(failures == 0 ? "\nAll markdown-html assertions passed." : "\n\(failures) assertion(s) failed.")
