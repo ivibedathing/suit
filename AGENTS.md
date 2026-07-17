@@ -165,10 +165,12 @@ the source of truth for details.
 - `CLAUDE.md` — auto-loaded by Claude Code before anything else, so it carries the rules that
   must land before the first tool call: the concurrency/worktree rules and the advisor consult.
   Everything else lives here; keep it to those two things plus the pointer.
-- `.claude/agents/advisor.md` — the `advisor` subagent, pinned to Fable 5. A second opinion on
-  decisions that are expensive to reverse (architecture, the load-bearing invariants above,
-  non-trivial merges, destructive git). It advises; the consulting agent still decides. See
-  `CLAUDE.md` for when to consult it.
+- `.claude/agents/advisor.md` — the advisor charter, Fable 5. A second opinion at fixed decision
+  gates (destructive git, working around the rules above, build tooling, pre-merge architecture
+  review). Invoke it **inline** — Agent tool with `subagent_type: general-purpose`,
+  `model: fable`, pointing it at this file — rather than relying on the `advisor` agent type,
+  which only exists in sessions started after the file landed. `CLAUDE.md` has the gates, the
+  prompt contract, and the escalation rule.
 - `.claude/commands/` — repo slash commands: `/build`, `/test`,
   `/render-reference`, `/orient`, `/find-file`.
 - `.claude/settings.json` — shared permission allowlist for safe repeated commands. It

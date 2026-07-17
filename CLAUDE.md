@@ -51,22 +51,61 @@ outside your worktree is shared with every other running agent:
   draws a live clock), so it differs on every run. Only re-render when you actually changed
   chrome, and expect merge conflicts if another session touched it too.
 
-## Consult Fable 5 before critical decisions
+## Consult Fable 5 at decision gates
 
-Use the **`advisor`** subagent (`.claude/agents/advisor.md`, pinned to Fable 5) as a second
-opinion — an advisor and reviewer, not a delegate. It runs on a different model, so it fails
-differently than you do, which is the whole point of asking it.
+The advisor is a second opinion on a different model — it fails differently than you do, which
+is the whole point of asking it.
 
-Ask it before decisions that are expensive to reverse:
+**Invoke it inline.** Agent tool: `subagent_type: general-purpose`, `model: fable`,
+`run_in_background: false` (a background consult before an irreversible action invites acting
+before the verdict lands). Open the prompt with: *"You are the Suit advisor. Read
+`<your-worktree>/.claude/agents/advisor.md` and follow it as your role."* — spell that path out
+absolutely, so it reads your charter rather than whatever the shared checkout currently holds.
 
-- Architectural choices — a new pane kind, a change to the tab/pane model, moving logic into the
-  Go sidecar, anything touching `PaneContent` or `TabStore`.
-- Changes to the load-bearing invariants in `AGENTS.md`: derived focus, the no-SwiftPM
-  constraint, the Foundation-only-file testing pattern, the privacy rules (Keychain-only SSH
-  passwords, OSC 52 denied).
-- Before merging a non-trivial branch, and before any destructive or irreversible git operation.
-- When you are about to work around a constraint rather than satisfy it — that is usually the
-  moment the design is wrong.
+Do **not** depend on the `advisor` agent type resolving. Claude Code loads the agent registry at
+session start, so every session older than the file lacks it — that is the expected state, not a
+malfunction, and "advisor wasn't available" is never a reason to skip a consult. Reading the
+charter from the committed file also keeps the advisor's instructions out of your control.
 
-Weigh what it says and decide yourself; it advises, it does not approve. Skip it for mechanical
-work — renames, typos, docs, adding a harness to `HARNESSES`.
+**Consult BEFORE acting** — these are irreversible, so afterwards is an autopsy:
+
+- Destructive git that could lose work you didn't create: deleting another session's branch or
+  worktree, history rewrites, purges.
+- Changing or working around a rule in `AGENTS.md` — including "just this once". Writing the
+  justification for the exception *is* the trigger.
+- Build tooling or dependency changes: `Package.swift`, an `.xcodeproj`, a new vendored dep,
+  restructuring `build.sh`. Same for format changes to persisted `~/.suit/` state — old files
+  exist on disk and migration is one-way.
+
+**Consult AFTER implementing, before merge** — it reviews the diff, not the plan:
+
+- A branch touching the `PaneContent` protocol or `TabStore` *themselves*, focus derivation, or
+  state restoration — or any diff past ~300 lines. Architecture gets reviewed as real code in
+  your worktree, not as a pre-flight description.
+
+**Prompt contract** — a consult missing these is a ritual, not a review:
+
+1. The exact action: the commands or the diff, not your description of them.
+2. Every factual claim the decision rests on, numbered, with SHAs and absolute paths. The
+   advisor re-checks each against the repo rather than taking your word for anything checkable.
+3. Your best guess at your own blind spot ("if I'm wrong, it's probably because…").
+4. The ask is **refute this**, not "what do you think?" — a neutral ask buys agreement with a
+   well-written summary. "Checked X, Y, Z; found no error" is a valid, complete answer.
+5. Your worktree's absolute path — the advisor must read your tree and your copy of this
+   charter, not the shared checkout that other sessions move under it.
+
+**If the advisor says don't proceed, don't silently override it** — surface the disagreement to
+the user and stop. Two models disagreeing is the user's call, not yours. It advises rather than
+approves, but that is not license to ignore the one signal the mechanism exists to produce.
+
+**Its findings expire.** A consult takes minutes, and other sessions commit during them — the
+verdict holds only for the SHAs examined. Re-verify the key facts (are the SHAs still what the
+advisor saw?) immediately before any irreversible command. The advisor cannot see other sessions
+and cannot arbitrate between them; worktree discipline does that.
+
+Skip it for mechanical work (renames, typos, docs, adding a harness to `HARNESSES`) and for
+additive features that follow an existing pattern — *implementing* `PaneContent` for a new pane
+kind needs no consult; the protocol exists so those are safe. **The skip list never overrides a
+fired gate**: the line count and the file list win, and "it follows an existing pattern" is your
+own classification of your own work — it cannot excuse a 400-line diff. Usually 0–2 consults per
+task; if you're well past that, split the task or stop consulting to avoid deciding.
