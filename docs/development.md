@@ -1,13 +1,13 @@
 # Development
 
-How to build, test, and hack on [Suit](../README.md). `AGENTS.md` at the repo root is the
+How to build, test, and hack on [Suit](../README.md). `CLAUDE.md` at the repo root is the
 source of truth for architecture, the file map, and the load-bearing workflow rules — this page
 is the human-oriented setup guide.
 
 ## Build & run
 
 There is no Xcode project and no SwiftPM package — Suit is compiled directly with `swiftc` and
-assembled into an app bundle by `build.sh` (see the "Why no SwiftPM" note in `AGENTS.md` for the
+assembled into an app bundle by `build.sh` (see the "Why no SwiftPM" note in `CLAUDE.md` for the
 reasoning).
 
 ```sh
@@ -28,7 +28,7 @@ swiftc -O swift/Sources/suit/*.swift \
 There is no XCTest target; the pure, UI-free logic is covered by standalone harnesses — each
 compiles the relevant Foundation-only source file(s) against a small assertion driver and runs
 it. Run them all with `scripts/test.sh` (fast suite) or `scripts/test.sh --all` (includes the
-~4-minute Autopilot pipeline harness) — see the "Testing" section in `AGENTS.md`.
+~4-minute Autopilot pipeline harness) — see the "Testing" section in `CLAUDE.md`.
 
 UI/chrome changes are guarded by the committed reference render instead: re-run
 `design/render-reference.sh` after chrome edits so visual drift shows up in review diffs.
@@ -48,22 +48,21 @@ Two integrations are set up from inside the app rather than by hand:
 | Path | What lives there |
 | --- | --- |
 | `swift/Sources/suit/` | The AppKit app — UI, tabs, sidebar, git / Claude / Autopilot logic |
-| `swift/Vendor/SwiftTerm/` | Vendored SwiftTerm source (no SPM — see `AGENTS.md`) |
+| `swift/Vendor/SwiftTerm/` | Vendored SwiftTerm source (no SPM — see `CLAUDE.md`) |
 | `scripts/claude/` | Statusline + session-state hook scripts installed into `~/.suit` |
 | `scripts/test.sh` | Runs the standalone logic harnesses (`*-test.sh` / `*-harness.sh`) |
 | `design/` | App icon and the committed reference render used to catch visual drift |
 | `docs/` | Long-form docs — `features.md` is the full feature reference |
 | `Resources/Info.plist` | App bundle metadata and permission usage strings |
 | `build.sh` | Builds everything and assembles `build/Suit.app` |
-| `AGENTS.md` | Full agent & contributor guidance — architecture, file map, workflow rules |
+| `CLAUDE.md` | Full agent & contributor guidance — architecture, file map, workflow rules |
 | `.claude/commands/` | Repo slash commands: `/build`, `/test`, `/find-file`, `/orient`, … |
-| `CLAUDE.md` | Stub pointing Claude Code at `AGENTS.md` |
 
 ## Contributing workflow
 
 This is a personal project, but the workflow is documented if you want to hack on it:
 
-- Read `AGENTS.md` for the full architecture, the dev loop, and why the build avoids SwiftPM.
+- Read `CLAUDE.md` for the full architecture, the dev loop, and why the build avoids SwiftPM.
 - Start each change on its own branch in its own git worktree — never work directly in the main
   checkout — so concurrent Claude Code sessions don't step on each other's edits.
 - Run `scripts/test.sh` before committing non-UI changes, and regenerate the reference render
