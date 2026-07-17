@@ -68,6 +68,17 @@ final class ViewerTextView: NSTextView {
         viewerContent?.showFindAndReplace()
     }
 
+    // Esc closes the bar from the text as well as from its fields — once you've
+    // clicked back into the document, Esc is still the key that means "done
+    // finding", and the stock bar behaves this way too.
+    override func cancelOperation(_ sender: Any?) {
+        if viewerContent?.findBar != nil {
+            viewerContent?.closeFindBar()
+        } else {
+            super.cancelOperation(sender)
+        }
+    }
+
     // Cmd-click resolves the identifier under the pointer to its definition,
     // the semantic counterpart of the terminal's Cmd-click on a path link. Only
     // swallow the click when it actually landed on a symbol; otherwise fall

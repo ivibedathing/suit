@@ -145,15 +145,22 @@ enum FindReplace {
         // Re-match, anchored to this range, to recover the capture groups. Cheaper
         // and simpler than threading NSTextCheckingResults up through the UI, and
         // the range came from this same regex so the match is guaranteed.
-        guard let match = regex.firstMatch(in: text, options: [.anchored], range: matchRange) else {
+        //
+        // .withTransparentBounds is load-bearing, not a nicety: without it the
+        // search range's edges are opaque, so a lookaround that peeks outside the
+        // match (`(f)oo(?=bar)`) fails to re-match here and the template would be
+        // inserted as literal text — "$1x" landing in the document rather than the
+        // captured group. The match is still anchored to the range's start.
+        guard let match = regex.firstMatch(in: text, options: [.anchored, .withTransparentBounds],
+                                           range: matchRange) else {
             return template
         }
         return regex.replacementString(for: match, in: text, offset: 0, template: template)
     }
 
-    // Every match replaced in one pass, plus how many there were (the bar reports
-    // "Replaced 12 occurrences"). Returns the original text unchanged when nothing
-    // matches, so the caller can skip dirtying the buffer.
+    // Every match replaced in one pass, plus how many there were. Returns the
+    // original text unchanged when nothing matches, so the caller can skip
+    // dirtying the buffer over a no-op.
     //
     // Built forward into a new string rather than by mutating in place: each
     // replacement shifts every later range, and rebuilding sidesteps the offset

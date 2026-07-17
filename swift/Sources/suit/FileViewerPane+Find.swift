@@ -215,18 +215,33 @@ extension FileViewerPaneContent {
 
     // MARK: - Highlighting
 
+    // Painting is capped because it runs on the main thread on every keystroke:
+    // a one-letter query in a multi-megabyte file matches hundreds of thousands
+    // of times, and that many addTemporaryAttribute calls per keypress is a
+    // beachball. The counter still reports the true total — only the wash is
+    // capped, and the current match is always painted however far down it is, so
+    // stepping past the cap still shows you where you are.
+    private static let maxPaintedHighlights = 2000
+
     private func applyFindHighlights() {
         guard let layoutManager = textView.layoutManager else { return }
         clearFindHighlights()
         let matches = currentFindMatches()
         guard !matches.isEmpty else { return }
-        for (index, range) in matches.enumerated() where isRangeInBounds(range) {
-            // Every match gets a wash; the current one gets the stronger fill, so
-            // "which one am I on" is answerable without reading the counter.
-            let colour = index == findMatchIndex
-                ? Theme.accent.withAlphaComponent(0.55)
-                : Theme.selection
+
+        func paint(_ range: NSRange, current: Bool) {
+            guard isRangeInBounds(range) else { return }
+            // The current match gets the stronger fill, so "which one am I on" is
+            // answerable without reading the counter.
+            let colour = current ? Theme.accent.withAlphaComponent(0.55) : Theme.selection
             layoutManager.addTemporaryAttribute(.backgroundColor, value: colour, forCharacterRange: range)
+        }
+
+        for (index, range) in matches.prefix(Self.maxPaintedHighlights).enumerated() {
+            paint(range, current: index == findMatchIndex)
+        }
+        if findMatchIndex >= Self.maxPaintedHighlights, findMatchIndex < matches.count {
+            paint(matches[findMatchIndex], current: true)
         }
     }
 
@@ -234,8 +249,13 @@ extension FileViewerPaneContent {
         guard let layoutManager = textView.layoutManager else { return }
         // Cleared over the *current* full range rather than over the ranges we
         // painted: the painted ones may already be out of bounds after an edit,
-        // and a full-range clear can't be stale. It also wipes the go-to-line
-        // jump flash if one is mid-fade — cosmetic, and rare enough to accept.
+        // and a full-range clear can't be stale.
+        //
+        // This shares .backgroundColor with the go-to-line jump flash, so the two
+        // step on each other in both directions: clearing here wipes a flash
+        // mid-fade, and the flash's own delayed removal (jump(toLine:)) clears any
+        // match highlight on that line until the next refresh. Both are cosmetic
+        // and both are rare — a jump and a find are seldom in flight together.
         let full = NSRange(location: 0, length: (textView.string as NSString).length)
         layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: full)
     }

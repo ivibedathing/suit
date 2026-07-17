@@ -125,6 +125,18 @@ do {
     check(FindReplace.replacementText(in: text, matchRange: NSRange(location: 0, length: 7),
                                       query: captured, template: "$2 $1") == "bar foo",
           "regex mode interpolates capture groups")
+
+    // A lookahead peeks past the end of the match. The re-match that recovers the
+    // capture groups must see through the range's edges, or it fails and the
+    // template gets inserted as literal text ("$1x" instead of "fx").
+    let lookahead = query("(f)oo(?=bar)", regex: true)
+    check(FindReplace.replacementText(in: "foobar", matchRange: NSRange(location: 0, length: 3),
+                                      query: lookahead, template: "$1x") == "fx",
+          "a lookahead match still interpolates its groups")
+    let lookbehind = query("(?<=foo)(b)ar", regex: true)
+    check(FindReplace.replacementText(in: "foobar", matchRange: NSRange(location: 3, length: 3),
+                                      query: lookbehind, template: "$1z") == "bz",
+          "a lookbehind match still interpolates its groups")
 }
 
 print("== replaceAll ==")
@@ -156,6 +168,11 @@ do {
 
     let groups = FindReplace.replaceAll(in: "a=1 b=2", query: query("(\\w)=(\\d)", regex: true), template: "$2=$1")
     check(groups.text == "1=a 2=b", "replaceAll interpolates capture groups per match")
+
+    let lookaheadAll = FindReplace.replaceAll(in: "foobar foobaz",
+                                              query: query("(f)oo(?=bar)", regex: true), template: "$1x")
+    check(lookaheadAll.text == "fxbar foobaz", "replaceAll honours a lookahead and its groups")
+    check(lookaheadAll.count == 1, "and only replaces where the lookahead holds")
 
     let empty = FindReplace.replaceAll(in: "foo", query: query(""), template: "x")
     check(empty.text == "foo" && empty.count == 0, "an empty query replaces nothing")

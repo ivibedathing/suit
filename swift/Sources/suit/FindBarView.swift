@@ -166,6 +166,39 @@ final class FindBarView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    // MARK: - Key equivalents
+
+    // ⌘G / ⇧⌘G / ⌘F / ⌥⌘F have to be caught here, not left to the menu.
+    //
+    // Menu key equivalents dispatch down the responder chain, and while the user
+    // is typing in the find field the first responder is the field editor — an
+    // NSTextView with no find bar of its own, which validates the find actions to
+    // false. The Find menu would therefore beep for the entire time the bar is
+    // open, which is precisely when these keys are wanted. The key window offers
+    // key equivalents to its view hierarchy before the menu bar sees them, so
+    // answering here works whichever field has focus.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.contains(.command) else { return super.performKeyEquivalent(with: event) }
+        let shift = flags.contains(.shift)
+        switch event.charactersIgnoringModifiers?.lowercased() {
+        case "g":
+            onStep?(!shift)
+            return true
+        case "f" where flags.contains(.option):
+            isReplaceVisible = true
+            focusReplaceField()
+            return true
+        case "f" where !shift:
+            // ⌘F with the bar already up re-targets it rather than opening a
+            // second one: focus the query and select it, so typing replaces it.
+            focusFindField()
+            return true
+        default:
+            return super.performKeyEquivalent(with: event)
+        }
+    }
+
     // MARK: - Driving from the pane
 
     // Seed the query text (⌘E / the current selection) without the caller having
@@ -294,17 +327,20 @@ extension FindBarView: NSTextFieldDelegate {
     // Return steps to the next match (⇧Return to the previous) and esc closes —
     // the same keys the stock find bar answers to, so the muscle memory carries
     // over. Return inside the replace field replaces instead, like VS Code.
+    //
+    // ⇧Return has to be read off the event: AppKit maps both Return and ⇧Return
+    // to insertNewline: for a field editor, so the selector alone can't tell them
+    // apart. (insertBacktab: is ⇧Tab, not ⇧Return — binding it here would step
+    // matches while silently breaking reverse field navigation.)
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         switch commandSelector {
         case #selector(NSResponder.insertNewline(_:)):
-            if control === replaceField {
+            let backward = NSApp.currentEvent?.modifierFlags.contains(.shift) ?? false
+            if control === replaceField, !backward {
                 onReplace?()
             } else {
-                onStep?(true)
+                onStep?(!backward)
             }
-            return true
-        case #selector(NSResponder.insertBacktab(_:)), #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
-            onStep?(false)
             return true
         case #selector(NSResponder.cancelOperation(_:)):
             onClose?()
