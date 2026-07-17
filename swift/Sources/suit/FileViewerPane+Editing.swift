@@ -29,6 +29,11 @@ extension FileViewerPaneContent: NSTextViewDelegate {
             pane?.refreshChrome()
         }
 
+        // An open find bar's matches were computed against the pre-edit text and
+        // are now stale — re-derive them so the count tracks the edit (and so no
+        // highlight is ever painted at a range that no longer exists).
+        findBarDidSeeEdit()
+
         scheduleAutosave()
         scheduleRehighlight()
     }
@@ -189,6 +194,9 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         rehighlight()
         refreshChangedLines()
         scrollTo(firstVisibleLine: line)
+        // The buffer was swapped wholesale behind the delegate's back, so an open
+        // find bar's matches are stale by exactly the amount the disk diverged.
+        findBarDidSeeEdit()
     }
 
     // Unsaved edits vs. a changed disk: the user chooses. Keep-my-edits records

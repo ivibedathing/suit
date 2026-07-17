@@ -62,6 +62,13 @@ extension AppDelegate {
         let useSelectionItem = editMenu.addItem(withTitle: "Use Selection for Find", action: #selector(TerminalView.performFindPanelAction(_:)), keyEquivalent: "e")
         useSelectionItem.tag = Int(NSFindPanelAction.setFindString.rawValue)
 
+        // Replace is the file viewer's alone — terminals have nothing to write
+        // into — so it routes on a viewer-only selector rather than a find-panel
+        // tag, and greys out by itself when a terminal (or a read-only revision)
+        // is focused. NSFindPanelAction has no "show replace" case to use anyway.
+        let replaceItem = editMenu.addItem(withTitle: "Find and Replace…", action: #selector(ViewerTextView.showFindAndReplace(_:)), keyEquivalent: "f")
+        replaceItem.keyEquivalentModifierMask = [.command, .option]
+
         let projectSearchItem = editMenu.addItem(withTitle: "Search in Project…", action: #selector(searchInProject(_:)), keyEquivalent: "f")
         projectSearchItem.keyEquivalentModifierMask = [.command, .shift]
         projectSearchItem.target = self

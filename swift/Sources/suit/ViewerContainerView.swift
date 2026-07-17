@@ -19,6 +19,30 @@ final class ViewerContainerView: NSView {
     }
     static let topBarHeight: CGFloat = 34
 
+    // The ⌘F find/replace widget. Deliberately its own slot rather than sharing
+    // `topBar` with the scrubber: that slot drops its old view when reassigned,
+    // so sharing it would let entering time-travel silently tear down an open
+    // find bar (and exiting tear it down again from the other side). Finding
+    // inside a historical revision is a real thing to want, so the two coexist.
+    //
+    // It floats over the text instead of taking a strip, which is both what VS
+    // Code does and why it costs nothing: no layout change means no wrap-width
+    // re-tile and no scroll jump when it opens.
+    var findOverlay: FindBarView? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            if let findOverlay { addSubview(findOverlay, positioned: .above, relativeTo: scrollView) }
+            relayout()
+        }
+    }
+    private static let findOverlayInset: CGFloat = 10
+
+    // The bar changes height when its replace row opens; it calls this to be
+    // re-placed without the whole container re-laying out.
+    func repositionFindOverlay() {
+        relayout()
+    }
+
     init(scrollView: NSScrollView, minimap: MinimapView) {
         self.scrollView = scrollView
         self.minimap = minimap
@@ -43,5 +67,18 @@ final class ViewerContainerView: NSView {
         let minimapWidth = minimap.isHidden ? 0 : MinimapView.preferredWidth
         scrollView.frame = NSRect(x: 0, y: 0, width: max(0, bounds.width - minimapWidth), height: contentHeight)
         minimap.frame = NSRect(x: bounds.width - minimapWidth, y: 0, width: minimapWidth, height: contentHeight)
+
+        // Top-right of the text area, clear of the minimap and of a legacy
+        // scroller (overlay scrollers sit on top of the text and auto-hide, so
+        // they need no allowance).
+        if let findOverlay {
+            let inset = Self.findOverlayInset
+            let scroller = scrollView.scrollerStyle == .legacy
+                ? (scrollView.verticalScroller?.frame.width ?? 0) : 0
+            let size = findOverlay.preferredSize(maxWidth: scrollView.frame.width - inset * 2 - scroller)
+            findOverlay.frame = NSRect(x: scrollView.frame.maxX - scroller - inset - size.width,
+                                       y: contentHeight - inset - size.height,
+                                       width: size.width, height: size.height)
+        }
     }
 }

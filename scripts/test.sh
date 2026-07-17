@@ -27,6 +27,7 @@ HARNESSES=(
   "broadcast|scripts/broadcast-test.sh|fast"
   "recipes|scripts/recipes-test.sh|fast"
   "file-edit|scripts/file-edit-test.sh|fast"
+  "find-replace|scripts/find-replace-test.sh|fast"
   "activity|scripts/activity-test.sh|fast"
   "pr-review|scripts/pr-review-test.sh|fast"
   "diffparser|scripts/diffparser-test.sh|fast"

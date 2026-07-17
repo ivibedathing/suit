@@ -41,6 +41,20 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     // is never mistaken for a user edit.
     var isLoadingProgrammatically = false
 
+    // MARK: - Find
+
+    // The ⌘F bar, non-nil only while it's open. The logic is in
+    // FileViewerPane+Find.swift; the matching itself in FindReplace.swift.
+    var findBar: FindBarView?
+    // Matches for the current query against the current buffer, and which one is
+    // "current". Cached rather than recomputed per keystroke — but the cache is
+    // only valid for the generation it was computed against: temporary highlight
+    // attributes don't track edits, so a stale range is an out-of-bounds crash,
+    // not a cosmetic glitch. findMatchGeneration is what makes that impossible.
+    var findMatches: [NSRange] = []
+    var findMatchIndex = 0
+    var findMatchGeneration = -1
+
     // Files past this stop being useful to scroll through and start being a
     // memory problem; the viewer refuses rather than beachballing.
     private static let maxFileSize = 8 * 1024 * 1024
@@ -62,8 +76,11 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         textView.isSelectable = true
         textView.isRichText = false
         textView.allowsUndo = true
-        textView.usesFindBar = true
-        textView.isIncrementalSearchingEnabled = true
+        // NSTextView's stock find bar is off: the viewer answers ⌘F with its own
+        // themed find/replace widget instead (ViewerTextView.performFindPanelAction
+        // → FileViewerPane+Find). isIncrementalSearchingEnabled is NSTextFinder-only
+        // and would be dead weight with the finder disabled.
+        textView.usesFindBar = false
         textView.textContainerInset = NSSize(width: 4, height: 4)
         textView.autoresizingMask = [.width]
         textView.isVerticallyResizable = true
@@ -228,6 +245,11 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         // A reload starts clean — drop any leftover dirty indicator.
         tab?.contentDirtyDidChange(false)
         pane?.refreshChrome()
+
+        // A different file (or the working tree returning after time-travel) means
+        // different matches and possibly different editability; an open find bar
+        // re-derives both rather than pointing into the old buffer.
+        refreshFindEditability()
 
         if let line {
             jump(toLine: line)
