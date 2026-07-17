@@ -33,6 +33,68 @@ final class MarkdownImageLoader {
     }
 }
 
+// Draws one frame of an animated GIF in a text attachment. NSTextAttachment
+// shows a still NSImage, so a README's GIF froze on its first frame.
+//
+// This is an NSTextAttachmentCell rather than the tidier
+// NSTextAttachmentViewProvider because that one is TextKit 2-only, and the
+// pane pins TextKit 1 on purpose — NSTextTable/NSTextBlock (tables, code
+// backgrounds, quote bars, rules) only lay out there. As a cell, selection,
+// copy and the reading-column cap keep working untouched.
+//
+// The pane owns the clock: it advances `frame` and invalidates. Nothing here
+// retains a timer, so a re-render can drop these cells with no teardown.
+final class AnimatedImageCell: NSTextAttachmentCell {
+    private let rep: NSBitmapImageRep
+    let frameCount: Int
+    private(set) var frame = 0
+    private let drawSize: NSSize
+
+    /// nil when `image` isn't a multi-frame bitmap — callers fall back to a
+    /// plain still attachment.
+    init?(image: NSImage, drawSize: NSSize) {
+        guard let source = image.representations.compactMap({ $0 as? NSBitmapImageRep }).first,
+              let count = source.value(forProperty: .frameCount) as? Int, count > 1,
+              // MarkdownImageLoader caches NSImage across panes, so advancing a
+              // shared rep's currentFrame would have two panes showing the same
+              // remote GIF fighting over the counter. Own a copy.
+              let copy = source.copy() as? NSBitmapImageRep else { return nil }
+        rep = copy
+        frameCount = count
+        self.drawSize = drawSize
+        super.init()
+        image.size = drawSize
+    }
+
+    required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// Advance one frame; returns how long the new frame should be shown.
+    @discardableResult
+    func advance() -> TimeInterval {
+        frame = (frame + 1) % frameCount
+        rep.setProperty(.currentFrame, withValue: frame)
+        return currentFrameDuration
+    }
+
+    var currentFrameDuration: TimeInterval {
+        let raw = rep.value(forProperty: .currentFrameDuration) as? TimeInterval ?? 0.1
+        // Browsers clamp near-zero delays; GIFs in the wild rely on it.
+        return raw < 0.02 ? 0.1 : raw
+    }
+
+    override func draw(withFrame cellFrame: NSRect, in controlView: NSView?) {
+        rep.setProperty(.currentFrame, withValue: frame)
+        // respectFlipped, because NSTextView's coordinates are flipped and the
+        // bare `draw(in:)` would render every frame upside down. The still
+        // NSTextAttachment.image path handles this for us; drawing the rep
+        // ourselves means handling it ourselves.
+        rep.draw(in: cellFrame, from: .zero, operation: .sourceOver, fraction: 1,
+                 respectFlipped: true, hints: nil)
+    }
+
+    override func cellSize() -> NSSize { drawSize }
+}
+
 // A compact line-based Markdown → NSAttributedString renderer. Not a full
 // CommonMark implementation — ATX/setext headings, nested lists, task lists,
 // fenced/inline code, blockquotes, pipe tables, rules, images, emphasis,
@@ -659,11 +721,18 @@ enum MarkdownRenderer {
 
     static func attachmentString(for image: NSImage, maxWidth: CGFloat?) -> NSAttributedString {
         let attachment = NSTextAttachment()
-        attachment.image = image
         let cap = min(maxWidth ?? imageColumnWidth, imageColumnWidth)
         var bounds = image.size
         if bounds.width > cap {
             bounds = NSSize(width: cap, height: bounds.height * cap / bounds.width)
+        }
+        // Every attachment — local and remote, markdown and HTML — is built
+        // here, so putting the GIF check at this one chokepoint animates all of
+        // them. A single-frame image takes the plain still path.
+        if let cell = AnimatedImageCell(image: image, drawSize: bounds) {
+            attachment.attachmentCell = cell
+        } else {
+            attachment.image = image
         }
         attachment.bounds = NSRect(origin: .zero, size: bounds)
         return NSAttributedString(attachment: attachment)

@@ -76,6 +76,11 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
     // text storage, so the re-render behind a theme or font change — which
     // rebuilds the storage from the same source — preserves expansion for free.
     private var flippedDetails: Set<Int> = []
+    // Block-based on purpose: a target/selector timer would retain the pane and
+    // make teardown() the only thing between us and leaking it.
+    private var animationTimer: Timer?
+    private var animationClock: TimeInterval = 0
+    private var nextFrameDue: [Int: TimeInterval] = [:]
     private var baseFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
     private var baseTextColor: NSColor = Theme.textPrimary
     private var background = Theme.bg
@@ -189,6 +194,72 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         updateInsets()
         loadRemoteImages()
+        syncAnimation()
+    }
+
+    // MARK: - Animated images
+
+    // One timer per pane drives every animated GIF in the document, rather than
+    // one per cell: the cells are replaced wholesale on each rerender() and by
+    // the remote-image swap, so per-cell timers would need a teardown protocol
+    // to avoid outliving their cell. Nothing retains the cells here — the timer
+    // re-finds them by attribute each tick, and dropping the storage drops them.
+    private func syncAnimation() {
+        let cells = animatedCells()
+        guard !rawMode, !cells.isEmpty else {
+            stopAnimation()
+            return
+        }
+        guard animationTimer == nil else { return }
+        // Frame durations vary per GIF and per frame; tick at a fixed rate and
+        // let each cell advance when its own frame is due. Coalescing many GIFs
+        // onto one clock costs a little frame-time precision and saves a timer
+        // per image.
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+            self?.tickAnimation()
+        }
+        // .common so a GIF keeps playing while the reader drags the scroller.
+        RunLoop.main.add(timer, forMode: .common)
+        animationTimer = timer
+    }
+
+    private func stopAnimation() {
+        animationTimer?.invalidate()
+        animationTimer = nil
+        animationClock = 0
+        nextFrameDue = [:]
+    }
+
+    private func tickAnimation() {
+        guard !rawMode else {
+            stopAnimation()
+            return
+        }
+        let cells = animatedCells()
+        // Every GIF gone — a rerender or the raw toggle swapped the storage.
+        guard !cells.isEmpty else {
+            stopAnimation()
+            return
+        }
+        animationClock += 0.05
+        for (range, cell) in cells where animationClock >= (nextFrameDue[range.location] ?? 0) {
+            nextFrameDue[range.location] = animationClock + cell.advance()
+            textView.layoutManager?.invalidateDisplay(forCharacterRange: range)
+        }
+    }
+
+    // Re-found by attribute every tick rather than cached: the remote-image
+    // swap and rerender() both move ranges, and a stale range would draw the
+    // wrong run.
+    private func animatedCells() -> [(NSRange, AnimatedImageCell)] {
+        guard let storage = textView.textStorage else { return [] }
+        var found: [(NSRange, AnimatedImageCell)] = []
+        storage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: storage.length)) { value, range, _ in
+            if let cell = (value as? NSTextAttachment)?.attachmentCell as? AnimatedImageCell {
+                found.append((range, cell))
+            }
+        }
+        return found
     }
 
     // MARK: - Remote images
@@ -246,6 +317,8 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
             storage.replaceCharacters(in: range, with: replacement)
         }
         storage.endEditing()
+        // A remote GIF only becomes animatable now, once its bitmap has landed.
+        syncAnimation()
     }
 
     // Center the rendered column: the horizontal inset absorbs whatever width
@@ -350,5 +423,6 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
 
     func teardown() {
         NotificationCenter.default.removeObserver(self)
+        stopAnimation()
     }
 }
