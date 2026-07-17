@@ -24,8 +24,12 @@ There is no Xcode project. To iterate without assembling the bundle:
 
 ```
 swiftc -O swift/Sources/suit/*.swift \
-  $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell && /tmp/suit-shell
+  $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell-$TASK && /tmp/suit-shell-$TASK
 ```
+
+Give the output binary a task-specific suffix as shown. Several agents run here at once, and a
+fixed `/tmp/suit-shell` means two of them race on one file — you can silently run someone else's
+build. `./build.sh` needs no such care: it writes `build/` under your own worktree root.
 
 ### Why no SwiftPM
 
@@ -158,8 +162,13 @@ the source of truth for details.
 
 ## Agent tooling
 
-- `CLAUDE.md` — a stub that points here (Claude Code auto-loads it). Keep it a pointer;
-  all agent guidance lives in this file.
+- `CLAUDE.md` — auto-loaded by Claude Code before anything else, so it carries the rules that
+  must land before the first tool call: the concurrency/worktree rules and the advisor consult.
+  Everything else lives here; keep it to those two things plus the pointer.
+- `.claude/agents/advisor.md` — the `advisor` subagent, pinned to Fable 5. A second opinion on
+  decisions that are expensive to reverse (architecture, the load-bearing invariants above,
+  non-trivial merges, destructive git). It advises; the consulting agent still decides. See
+  `CLAUDE.md` for when to consult it.
 - `.claude/commands/` — repo slash commands: `/build`, `/test`,
   `/render-reference`, `/orient`, `/find-file`.
 - `.claude/settings.json` — shared permission allowlist for safe repeated commands. It
@@ -169,18 +178,15 @@ the source of truth for details.
 ## Workflow
 
 - **Always work on a new branch in its own git worktree** (`EnterWorktree`) — never directly in
-  the main checkout. Concurrent sessions have clobbered each other here before. Exit with
-  `keep` to persist, `remove` once merged/abandoned.
-  - **Worktree FIRST, always** — the very first action for *any* task, including a "trivial"
-    one-liner or "just merge this branch", is to create the worktree. Never run merges, edits,
-    builds, or `git checkout`/`git add`/`git commit` in the shared main checkout: other live
-    sessions switch branches and commit under you mid-operation and will silently wipe your
-    in-progress merge or index. This has happened repeatedly.
-  - **To land on `main`**, do the work in a worktree whose branch *is* `main`
-    (`git worktree add <path> main`) so the merge commit advances `main` without touching the
-    shared checkout — which also stops a concurrent session from grabbing `main` while you work.
-    If you ever catch yourself dirtying the shared checkout, back up the diff, restore it clean,
-    and restart in a worktree.
+  the main checkout. Concurrent sessions have clobbered each other here before. The full set of
+  concurrency rules — worktree-first, naming, shared `/tmp` paths, which branch to merge into —
+  is in **`CLAUDE.md`**, deliberately duplicated there because it has to be read before the first
+  tool call. Read it. Exit with `keep` to persist, `remove` once merged/abandoned.
+- **To land on `main`**: `git worktree add -b <task-branch> <path> main`, do the work there, then
+  merge that branch into `main`. Note that `git worktree add <path> main` — checking `main` out
+  *directly* in a second worktree — fails whenever the shared checkout is sitting on `main`,
+  which is its default state; git refuses to check one branch out in two worktrees. Merge from a
+  task branch instead of trying to work on `main` in two places.
 - **After implementing a feature, document it in `docs/features.md`** (user-facing behavior,
   shortcuts, settings) as part of the same task — that's the full feature reference. Keep
   `README.md` lean: it carries only the Highlights summary, pointers into `docs/features.md` and
