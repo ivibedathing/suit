@@ -123,6 +123,10 @@ extension FileViewerPaneContent {
         rehighlight()
         updateMinimapMarkers()
         ruler.needsDisplay = true
+        // This revision is a different buffer: any open find bar's matches point
+        // into the previous one, and replace has to go away because scrubbing
+        // made the text read-only. Searching a revision stays available.
+        refreshFindEditability()
     }
 
     // The "Show Diff" flip: that commit's per-file change in the diff pane
