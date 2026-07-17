@@ -16,7 +16,6 @@ extension SettingsWindowController {
             wrap(terminalPane()),
             wrap(viewerPane()),
             wrap(claudePane()),
-            wrap(claudeAPIPane()),
             wrap(autopilotPane()),
             wrap(budgetPane()),
             wrap(themesPane()),
@@ -282,7 +281,7 @@ extension SettingsWindowController {
         ])
     }
 
-    // Claude: launcher arguments + task / goal / token toggles.
+    // Claude: launcher arguments + task / goal toggles and notification sounds.
     private func claudePane() -> NSStackView {
         // Arguments the quick-access launchers (strip ✦, ⌃⌘C, palette) append.
         claudeArgsField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
@@ -302,72 +301,6 @@ extension SettingsWindowController {
         goalProvenanceCheckbox.target = self
         goalProvenanceCheckbox.action = #selector(goalProvenanceChanged)
         let goalProvenanceRow = row(label: "Goals:", controls: [goalProvenanceCheckbox])
-
-        // rtk output compression: install/remove the PreToolUse hook.
-        rtkCompressionCheckbox.target = self
-        rtkCompressionCheckbox.action = #selector(rtkCompressionChanged)
-        let rtkCompressionRow = row(label: "Tokens:", controls: [rtkCompressionCheckbox])
-        let rtkHintRow = hintRow(
-            "Filters shell-command output through rtk to cut context tokens. Requires rtk on your PATH; commands run unchanged when it's missing.",
-            width: 340
-        )
-
-        // PostToolUse output compression: install/remove the dispatcher hook.
-        postToolCompressCheckbox.target = self
-        postToolCompressCheckbox.action = #selector(postToolCompressChanged)
-        let postToolCompressRow = row(label: "", controls: [postToolCompressCheckbox])
-        let postToolHintRow = hintRow(
-            "Elides tool results over ~30k characters (head + tail + a how-to-narrow marker) before they reach the context window — the built-in tools rtk can't wrap. Requires Claude Code ≥ 2.1.133 and jq; results pass through unchanged on any error.",
-            width: 340
-        )
-
-        // Read-dedup: same dispatcher hook, --dedup behavior.
-        readDedupCheckbox.target = self
-        readDedupCheckbox.action = #selector(readDedupChanged)
-        let readDedupRow = row(label: "", controls: [readDedupCheckbox])
-        let readDedupHintRow = hintRow(
-            "A repeat full read of a file that hasn't changed returns a one-line stub instead of the whole file — its content is already in the conversation. Edited files always re-read fully, offset/limit reads are untouched, a second consecutive re-read forces the full file, and every compaction clears the memory.",
-            width: 340
-        )
-
-        // Token-ignore firewall: the PreToolUse Read hook + the dispatcher's
-        // --ignore flag, wired together by one toggle.
-        tokenIgnoreCheckbox.target = self
-        tokenIgnoreCheckbox.action = #selector(tokenIgnoreChanged)
-        let tokenIgnoreRow = row(label: "", controls: [tokenIgnoreCheckbox])
-        let tokenIgnoreHintRow = hintRow(
-            "Repos listing heavy paths (vendored deps, build output) in .claude/token-ignore get full-file Reads there denied and Grep/Glob results there hidden behind a count marker. Range reads and searches that target the path explicitly always pass.",
-            width: 340
-        )
-
-        // Shell helpers: the ZDOTDIR shim + run_silent, new zsh terminals only.
-        shellExtrasCheckbox.target = self
-        shellExtrasCheckbox.action = #selector(shellExtrasChanged)
-        let shellExtrasRow = row(label: "", controls: [shellExtrasCheckbox])
-        let shellExtrasHintRow = hintRow(
-            "Defines run_silent (prints ✓ on success, full output only on failure — cheap builds/tests in Claude sessions) by launching new zsh terminals through a shim that sources your own config first. Never edits your dotfiles; see ~/.suit/scripts/SUIT-SHELL-EXTRAS.md for a CLAUDE.md snippet that tells Claude to use it.",
-            width: 340
-        )
-
-        // Auto-/compact guardrails: threshold stepper + focus instructions.
-        autoCompactCheckbox.target = self
-        autoCompactCheckbox.action = #selector(autoCompactEnabledChanged)
-        let autoCompactRow = row(
-            label: "Compact:",
-            controls: [autoCompactCheckbox] + autoCompactThresholdStepper.views
-        )
-        autoCompactThresholdStepper.stepper.target = self
-        autoCompactThresholdStepper.stepper.action = #selector(autoCompactThresholdChanged)
-        autoCompactInstructionsField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        autoCompactInstructionsField.placeholderString = "focus instructions — empty = plain /compact"
-        autoCompactInstructionsField.delegate = self
-        autoCompactInstructionsField.translatesAutoresizingMaskIntoConstraints = false
-        autoCompactInstructionsField.widthAnchor.constraint(equalToConstant: 340).isActive = true
-        let autoCompactInstructionsRow = row(label: "", controls: [autoCompactInstructionsField])
-        let autoCompactHintRow = hintRow(
-            "Types /compact with these instructions into a session that idles past the threshold — earlier and more focused than Claude Code's own auto-compact. Fires only at an idle prompt, once per crossing.",
-            width: 340
-        )
 
         // Notification sounds: play a system sound when a session finishes a
         // task or asks a question while Suit is in the background. Each event
@@ -393,107 +326,10 @@ extension SettingsWindowController {
         let stack = NSStackView(views: [
             paneTitle("Claude"),
             claudeArgsRow, claudeHintRow, taskIsolateRow, goalProvenanceRow,
-            rtkCompressionRow, rtkHintRow,
-            postToolCompressRow, postToolHintRow,
-            readDedupRow, readDedupHintRow,
-            tokenIgnoreRow, tokenIgnoreHintRow,
-            shellExtrasRow, shellExtrasHintRow,
-            autoCompactRow, autoCompactInstructionsRow, autoCompactHintRow,
             taskDoneSoundRow, needsInputSoundRow,
         ])
         stack.setCustomSpacing(4, after: claudeArgsRow)
-        stack.setCustomSpacing(4, after: rtkCompressionRow)
-        stack.setCustomSpacing(4, after: autoCompactRow)
-        stack.setCustomSpacing(4, after: autoCompactInstructionsRow)
         stack.setCustomSpacing(4, after: taskDoneSoundRow)
-        return stack
-    }
-
-    // Claude API: per-launch Anthropic env overrides (model, effort, thinking
-    // budget, output cap, prompt caching, custom headers, free-form env) that
-    // ClaudeAPISettings composes onto the typed `claude` command. A live
-    // preview at the bottom shows exactly what will be typed, so the pane is
-    // a playground with visible output rather than hidden state.
-    private func claudeAPIPane() -> NSStackView {
-        for field in [apiModelField, apiSubagentModelField, apiCustomHeadersField, apiExtraEnvField] {
-            field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-            field.delegate = self
-            field.translatesAutoresizingMaskIntoConstraints = false
-            field.widthAnchor.constraint(equalToConstant: 260).isActive = true
-        }
-        apiModelField.placeholderString = "default — e.g. opus, sonnet, haiku"
-        apiSubagentModelField.placeholderString = "default — e.g. haiku, or inherit"
-        apiCustomHeadersField.placeholderString = "e.g. anthropic-beta: fast-mode-2026-02-01"
-        apiExtraEnvField.placeholderString = "KEY=VALUE KEY2=VALUE2"
-
-        let modelRow = row(label: "Model:", controls: [apiModelField])
-        let subagentRow = row(label: "Subagents:", controls: [apiSubagentModelField])
-
-        apiEffortPopup.removeAllItems()
-        apiEffortPopup.addItems(withTitles: ["Default"] + ClaudeAPISettings.effortLevels)
-        apiEffortPopup.target = self
-        apiEffortPopup.action = #selector(apiEffortPicked)
-        let effortRow = row(label: "Effort:", controls: [apiEffortPopup])
-        let effortHintRow = hintRow(
-            "Reasoning depth vs. token spend. low/medium suit routine work; xhigh is Claude Code's coding default; max spends the most.",
-            width: 340
-        )
-
-        for field in [apiThinkingTokensField, apiMaxOutputTokensField] {
-            field.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-            field.placeholderString = "default"
-            field.delegate = self
-            field.alignment = .right
-            field.translatesAutoresizingMaskIntoConstraints = false
-            field.widthAnchor.constraint(equalToConstant: 80).isActive = true
-        }
-        let thinkingSuffix = NSTextField(labelWithString: "tokens")
-        thinkingSuffix.font = .systemFont(ofSize: 11)
-        thinkingSuffix.textColor = Theme.textDim
-        let outputSuffix = NSTextField(labelWithString: "tokens")
-        outputSuffix.font = .systemFont(ofSize: 11)
-        outputSuffix.textColor = Theme.textDim
-        let thinkingRow = row(label: "Thinking:", controls: [apiThinkingTokensField, thinkingSuffix])
-        let outputRow = row(label: "Max Output:", controls: [apiMaxOutputTokensField, outputSuffix])
-
-        apiPromptCachingCheckbox.target = self
-        apiPromptCachingCheckbox.action = #selector(apiPromptCachingChanged)
-        let cachingRow = row(label: "Caching:", controls: [apiPromptCachingCheckbox])
-        let cachingHintRow = hintRow(
-            "Prompt caching serves the repeated prompt prefix at ~10% of the input price. Leave it on outside experiments.",
-            width: 340
-        )
-
-        let headersRow = row(label: "Headers:", controls: [apiCustomHeadersField])
-        let extraEnvRow = row(label: "Extra Env:", controls: [apiExtraEnvField])
-        let extraEnvHintRow = hintRow(
-            "Space-separated KEY=VALUE pairs appended last, so they can override the knobs above or set variables this pane doesn't cover.",
-            width: 340
-        )
-
-        apiPreviewLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        apiPreviewLabel.textColor = Theme.textDim
-        apiPreviewLabel.lineBreakMode = .byWordWrapping
-        apiPreviewLabel.maximumNumberOfLines = 0
-        apiPreviewLabel.preferredMaxLayoutWidth = 340
-        let previewRow = row(label: "Launch as:", controls: [apiPreviewLabel])
-        let previewHintRow = hintRow(
-            "Applies to Claude sessions started from Suit (✦, tasks, recipes, review passes) — each variable lasts for that session only. Autopilot runs are unaffected.",
-            width: 340
-        )
-
-        let stack = NSStackView(views: [
-            paneTitle("Claude API"),
-            modelRow, subagentRow, effortRow, effortHintRow,
-            thinkingRow, outputRow,
-            cachingRow, cachingHintRow,
-            headersRow, extraEnvRow, extraEnvHintRow,
-            previewRow, previewHintRow,
-        ])
-        stack.setCustomSpacing(4, after: effortRow)
-        stack.setCustomSpacing(4, after: cachingRow)
-        stack.setCustomSpacing(4, after: extraEnvRow)
-        stack.setCustomSpacing(4, after: previewRow)
         return stack
     }
 
@@ -553,6 +389,11 @@ extension SettingsWindowController {
         autopilotReviewModelField.widthAnchor.constraint(equalToConstant: 220).isActive = true
         let autopilotReviewModelRow = row(label: "Reviewer:", controls: [autopilotReviewModelField])
 
+        autopilotModelRoutingCheckbox.target = self
+        autopilotModelRoutingCheckbox.action = #selector(autopilotModelRoutingChanged)
+        let autopilotModelRoutingRow = row(label: "", controls: [autopilotModelRoutingCheckbox])
+        let autopilotModelRoutingHintRow = hintRow("Asks haiku which tier each phase needs. A roadmap “model:” line, or a Reviewer above, wins.")
+
         autopilotKeepAwakeCheckbox.target = self
         autopilotKeepAwakeCheckbox.action = #selector(autopilotKeepAwakeChanged)
         let autopilotKeepAwakeRow = row(label: "", controls: [autopilotKeepAwakeCheckbox])
@@ -563,9 +404,12 @@ extension SettingsWindowController {
             autopilotFiveHourRow, autopilotWeeklyRow, autopilotHardStopRow, autopilotPaceRow,
             autopilotAttemptsRow, autopilotStallRow,
             autopilotArgsRow, autopilotArgsHintRow,
-            autopilotReviewModelRow, autopilotKeepAwakeRow,
+            autopilotReviewModelRow,
+            autopilotModelRoutingRow, autopilotModelRoutingHintRow,
+            autopilotKeepAwakeRow,
         ])
         stack.setCustomSpacing(4, after: autopilotArgsRow)
+        stack.setCustomSpacing(4, after: autopilotModelRoutingRow)
         return stack
     }
 

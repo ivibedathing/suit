@@ -37,6 +37,7 @@ extension TerminalWindowController {
         }
 
         sidebar.reapplyTheme()
+        activityBar.reapplyTheme()
 
         if let root = window.contentView {
             refreshThemeRecursively(root)

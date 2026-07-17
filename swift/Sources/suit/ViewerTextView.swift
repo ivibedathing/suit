@@ -47,6 +47,38 @@ final class ViewerTextView: NSTextView {
         viewerContent?.findReferencesAtCaret()
     }
 
+    // MARK: - Find
+
+    // ⌘F / ⌘G / ⇧⌘G / ⌘E all arrive here as NSFindPanelAction tags (the standard
+    // Find menu items — see AppDelegate+Menu). The viewer answers them with its
+    // own themed find/replace bar rather than NSTextView's stock one, so this
+    // intercepts the whole family instead of calling super. Terminals implement
+    // the same selector via SwiftTerm and are untouched.
+    override func performFindPanelAction(_ sender: Any?) {
+        let raw = (sender as? NSMenuItem)?.tag ?? Int(NSFindPanelAction.showFindPanel.rawValue)
+        guard raw >= 0, let action = NSFindPanelAction(rawValue: UInt(raw)) else { return }
+        viewerContent?.performFind(action)
+    }
+
+    // ⌥⌘F. A dedicated selector rather than a find-panel tag: NSFindPanelAction
+    // has no "show replace interface" case (that's NSTextFinder's vocabulary),
+    // and a viewer-only selector also means the item greys out on its own when a
+    // terminal is focused, with no tag validation to get right.
+    @objc func showFindAndReplace(_ sender: Any?) {
+        viewerContent?.showFindAndReplace()
+    }
+
+    // Esc closes the bar from the text as well as from its fields — once you've
+    // clicked back into the document, Esc is still the key that means "done
+    // finding", and the stock bar behaves this way too.
+    override func cancelOperation(_ sender: Any?) {
+        if viewerContent?.findBar != nil {
+            viewerContent?.closeFindBar()
+        } else {
+            super.cancelOperation(sender)
+        }
+    }
+
     // Cmd-click resolves the identifier under the pointer to its definition,
     // the semantic counterpart of the terminal's Cmd-click on a path link. Only
     // swallow the click when it actually landed on a symbol; otherwise fall
@@ -74,6 +106,18 @@ final class ViewerTextView: NSTextView {
         if item.action == #selector(toggleTimeTravel(_:)) {
             (item as? NSMenuItem)?.state = (viewerContent?.isTimeTraveling ?? false) ? .on : .off
             return viewerContent?.filePath != nil
+        }
+        // Find must be validated explicitly: NSTextView disables the find actions
+        // whenever usesFindBar is false, which it is here (we answer ⌘F with our
+        // own bar). Falling through to super would grey out the entire Find menu
+        // in the viewer.
+        if item.action == #selector(performFindPanelAction(_:)) {
+            return true
+        }
+        // Replace needs somewhere to write: read-only revisions and the
+        // binary/too-large placeholders can be searched but not edited.
+        if item.action == #selector(showFindAndReplace(_:)) {
+            return isEditable
         }
         return super.validateUserInterfaceItem(item)
     }

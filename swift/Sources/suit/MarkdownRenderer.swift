@@ -33,6 +33,67 @@ final class MarkdownImageLoader {
     }
 }
 
+// Draws one frame of an animated GIF in a text attachment. NSTextAttachment
+// shows a still NSImage, so a README's GIF froze on its first frame.
+//
+// This is an NSTextAttachmentCell rather than the tidier
+// NSTextAttachmentViewProvider because that one is TextKit 2-only, and the
+// pane pins TextKit 1 on purpose — NSTextTable/NSTextBlock (tables, code
+// backgrounds, quote bars, rules) only lay out there. As a cell, selection,
+// copy and the reading-column cap keep working untouched.
+//
+// The pane owns the clock: it advances `frame` and invalidates. Nothing here
+// retains a timer, so a re-render can drop these cells with no teardown.
+final class AnimatedImageCell: NSTextAttachmentCell {
+    private let rep: NSBitmapImageRep
+    let frameCount: Int
+    private(set) var frame = 0
+    private let drawSize: NSSize
+
+    /// nil when `image` isn't a multi-frame bitmap — callers fall back to a
+    /// plain still attachment.
+    init?(image: NSImage, drawSize: NSSize) {
+        guard let source = image.representations.compactMap({ $0 as? NSBitmapImageRep }).first,
+              let count = source.value(forProperty: .frameCount) as? Int, count > 1,
+              // MarkdownImageLoader caches NSImage across panes, so advancing a
+              // shared rep's currentFrame would have two panes showing the same
+              // remote GIF fighting over the counter. Own a copy.
+              let copy = source.copy() as? NSBitmapImageRep else { return nil }
+        rep = copy
+        frameCount = count
+        self.drawSize = drawSize
+        super.init()
+    }
+
+    required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// Advance one frame; returns how long the new frame should be shown.
+    @discardableResult
+    func advance() -> TimeInterval {
+        frame = (frame + 1) % frameCount
+        rep.setProperty(.currentFrame, withValue: frame)
+        return currentFrameDuration
+    }
+
+    var currentFrameDuration: TimeInterval {
+        let raw = rep.value(forProperty: .currentFrameDuration) as? TimeInterval ?? 0.1
+        // Browsers clamp near-zero delays; GIFs in the wild rely on it.
+        return raw < 0.02 ? 0.1 : raw
+    }
+
+    override func draw(withFrame cellFrame: NSRect, in controlView: NSView?) {
+        rep.setProperty(.currentFrame, withValue: frame)
+        // respectFlipped, because NSTextView's coordinates are flipped and the
+        // bare `draw(in:)` would render every frame upside down. The still
+        // NSTextAttachment.image path handles this for us; drawing the rep
+        // ourselves means handling it ourselves.
+        rep.draw(in: cellFrame, from: .zero, operation: .sourceOver, fraction: 1,
+                 respectFlipped: true, hints: nil)
+    }
+
+    override func cellSize() -> NSSize { drawSize }
+}
+
 // A compact line-based Markdown → NSAttributedString renderer. Not a full
 // CommonMark implementation — ATX/setext headings, nested lists, task lists,
 // fenced/inline code, blockquotes, pipe tables, rules, images, emphasis,
@@ -54,7 +115,18 @@ enum MarkdownRenderer {
         return result
     }
 
-    static func render(_ text: String, baseFont: NSFont, textColor: NSColor, baseDir: String? = nil) -> NSAttributedString {
+    // Summary runs carry the source line of their `<details>` tag; the pane
+    // hit-tests this on click to toggle, and keys its state by it. The source
+    // line is stable across re-renders (the source doesn't change), so a theme
+    // or font change can't disturb what the reader has expanded.
+    static let detailsIDKey = NSAttributedString.Key("suit.markdown.detailsID")
+
+    /// - Parameter flippedDetails: the `<details>` IDs the reader has toggled
+    ///   *away from* their `open` default. Storing the flip rather than the
+    ///   state means the pane never has to pre-scan the source to learn which
+    ///   disclosures start open.
+    static func render(_ text: String, baseFont: NSFont, textColor: NSColor, baseDir: String? = nil,
+                       flippedDetails: Set<Int> = []) -> NSAttributedString {
         // Reading size: prose renders larger than the terminal font it
         // inherits, the way documentation surfaces do, and never below a 16pt
         // floor — the default 13pt terminal font should still yield
@@ -65,10 +137,35 @@ enum MarkdownRenderer {
         let out = NSMutableAttributedString()
 
         let lines = text.components(separatedBy: "\n")
+        // Lines holding a `</details>` whose body we spliced into this loop —
+        // the body renders as ordinary markdown, so only the closing tag itself
+        // needs skipping when we reach it.
+        var detailsEnds: Set<Int> = []
         var i = 0
         while i < lines.count {
+            if detailsEnds.contains(i) {
+                i += 1
+                continue
+            }
             let line = lines[i]
             let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            // A `<details>` disclosure. The summary is always drawn; the body
+            // is spliced back into this loop when expanded, because it is
+            // markdown (the README's is pipe tables) and has to go through the
+            // same block handling as anything else.
+            if MarkdownHTML.opensDetails(trimmed), let found = MarkdownHTML.details(in: lines, at: i) {
+                let expanded = found.isOpen != flippedDetails.contains(i)
+                out.append(summary(found, id: i, expanded: expanded, size: size,
+                                   textColor: textColor, mono: mono, baseDir: baseDir))
+                if expanded, found.bodyStart < found.bodyEnd {
+                    detailsEnds.insert(found.bodyEnd)
+                    i = found.bodyStart
+                } else {
+                    i += found.lineCount
+                }
+                continue
+            }
 
             // Fenced code block.
             if trimmed.hasPrefix("```") {
@@ -174,8 +271,19 @@ enum MarkdownRenderer {
                 continue
             }
 
-            // Block image on its own line — `![alt](src)` or raw `<img>` tags,
-            // local or remote.
+            // Raw HTML block — the `<p align="center"><img …></p>` README
+            // idiom, centered headings, `<a href><img></a>` badge rows. The
+            // parser owns every `<`-led line and fails closed: anything outside
+            // its whitelist returns nil and falls through to the literal
+            // paragraph rendering below, exactly as before.
+            if MarkdownHTML.opensBlock(trimmed),
+               let (htmlBlock, lineCount) = MarkdownHTML.block(in: lines, at: i) {
+                out.append(html(htmlBlock, size: size, textColor: textColor, mono: mono, baseDir: baseDir))
+                i += lineCount
+                continue
+            }
+
+            // Block image on its own line — `![alt](src)`, local or remote.
             if let image = imageLine(trimmed, baseDir: baseDir, size: size) {
                 out.append(image)
                 i += 1
@@ -362,6 +470,12 @@ enum MarkdownRenderer {
         if trimmed.isEmpty { return false }
         if trimmed.hasPrefix("```") || trimmed.hasPrefix(">") || trimmed.hasPrefix("#") { return false }
         if isRule(trimmed) || setextLevel(trimmed) != nil { return false }
+        // `</details>` ends the paragraph. Without this the joiner eats the
+        // close tag of a spliced-in body — the top of the render loop never
+        // reaches its skip — and the tag lands in the output as literal text.
+        // Any body ending in prose with no blank line before `</details>` hits
+        // this, which is the common README shape.
+        if trimmed.lowercased().hasPrefix("</details") { return false }
         if listItem(line) != nil { return false }
         if trimmed.contains("|"), let next, isTableSeparator(next) { return false }
         return true
@@ -477,6 +591,128 @@ enum MarkdownRenderer {
         return out
     }
 
+    // MARK: - Raw HTML
+
+    // A parsed HTML block → its attributed form. MarkdownHTML did the parsing
+    // (Foundation-only, harness-covered); this only maps its nodes onto fonts,
+    // alignment and image fragments.
+    /// - Parameters:
+    ///   - terminated: false when the caller is embedding these nodes in a line
+    ///     it owns (a `<details>` summary), so the block must not close itself.
+    ///   - style: the caller's paragraph style, when it has one.
+    private static func html(_ block: MarkdownHTML.Block, size: CGFloat, textColor: NSColor,
+                             mono: NSFont, baseDir: String?, terminated: Bool = true,
+                             style: NSMutableParagraphStyle? = nil) -> NSAttributedString {
+        // A fresh style per block: sharing one instance would let a later
+        // block's mutation restyle earlier ones through the attributed
+        // reference they still hold.
+        let para = style ?? NSMutableParagraphStyle()
+        if style == nil { para.alignment = textAlignment(block.alignment) }
+
+        var font = NSFont.systemFont(ofSize: size)
+        var color = textColor
+        switch block.kind {
+        case .paragraph:
+            if style == nil {
+                para.lineSpacing = size * 0.4
+                para.paragraphSpacing = size * 0.7
+            }
+        case .heading(let level):
+            // Same type scale as the ATX path, so `<h1 align="center">` and
+            // `# Heading` are the same heading.
+            let scale: CGFloat = [2.0, 1.5, 1.25, 1.05, 0.95, 0.85][min(level - 1, 5)]
+            font = NSFont.systemFont(ofSize: round(size * scale), weight: level <= 2 ? .bold : .semibold)
+            para.paragraphSpacingBefore = size * (level <= 2 ? 1.2 : 1.0)
+            para.paragraphSpacing = level <= 2 ? size * 0.3 : size * 0.5
+            if level == 6 { color = Theme.textDim }
+        }
+
+        let base: [NSAttributedString.Key: Any] = [
+            .font: font, .foregroundColor: color, .paragraphStyle: para,
+        ]
+        let out = NSMutableAttributedString()
+        for node in block.nodes {
+            switch node {
+            case .lineBreak:
+                // U+2028 breaks the line without ending the paragraph. A `\n`
+                // here would start a new one, so `<br>` would pick up the full
+                // paragraphSpacing and read as a paragraph split.
+                out.append(NSAttributedString(string: "\u{2028}", attributes: base))
+            case .text(let text, let isBold, let isItalic, let isCode, let href):
+                var attrs = base
+                var runFont = font
+                if isBold { runFont = bold(runFont) }
+                if isItalic { runFont = italic(runFont) }
+                if isCode {
+                    runFont = mono
+                    attrs[.backgroundColor] = Theme.raised
+                }
+                attrs[.font] = runFont
+                if let href { attrs[.link] = href }
+                out.append(NSAttributedString(string: text, attributes: attrs))
+            case .image(let alt, let src, let width, let href):
+                var attrs = base
+                if let href { attrs[.link] = href }
+                if let fragment = imageFragment(alt: alt, src: src, baseDir: baseDir, size: size,
+                                                maxWidth: width.map { CGFloat($0) }, base: attrs) {
+                    out.append(fragment)
+                } else if !alt.isEmpty {
+                    // An unresolvable image still says what it was.
+                    out.append(NSAttributedString(string: alt, attributes: attrs))
+                }
+            }
+        }
+        if terminated { out.append(NSAttributedString(string: "\n", attributes: base)) }
+        // The style goes over the whole block, trailing newline included:
+        // TextKit takes a paragraph's attributes from its first character, so a
+        // leading run that lost them — an image fragment, or a bitmap swapped in
+        // over a remote placeholder — would silently drop the block's centering.
+        out.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: out.length))
+        if terminated, case .heading(let level) = block.kind, level <= 2 {
+            out.append(rule(spacingBefore: 0, spacingAfter: size * 0.7))
+        }
+        return out
+    }
+
+    // A `<details>`'s clickable summary line: a disclosure triangle plus the
+    // summary's own inline content. Tagged with detailsIDKey over the whole
+    // line so the pane can hit-test a click anywhere along it.
+    private static func summary(_ details: MarkdownHTML.Details, id: Int, expanded: Bool,
+                                size: CGFloat, textColor: NSColor, mono: NSFont,
+                                baseDir: String?) -> NSAttributedString {
+        let para = NSMutableParagraphStyle()
+        para.paragraphSpacingBefore = size * 0.6
+        para.paragraphSpacing = size * 0.4
+        para.lineSpacing = size * 0.3
+        let base: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: size),
+            .foregroundColor: textColor,
+            .paragraphStyle: para,
+        ]
+
+        let out = NSMutableAttributedString()
+        var markerAttrs = base
+        markerAttrs[.foregroundColor] = Theme.textDim
+        out.append(NSAttributedString(string: expanded ? "▾  " : "▸  ", attributes: markerAttrs))
+        out.append(html(MarkdownHTML.Block(kind: .paragraph, alignment: .leading, nodes: details.summary),
+                        size: size, textColor: textColor, mono: mono, baseDir: baseDir,
+                        terminated: false, style: para))
+        out.append(NSAttributedString(string: "\n", attributes: base))
+        out.addAttributes(
+            [.paragraphStyle: para, detailsIDKey: id, .cursor: NSCursor.pointingHand],
+            range: NSRange(location: 0, length: out.length)
+        )
+        return out
+    }
+
+    private static func textAlignment(_ alignment: MarkdownHTML.Alignment) -> NSTextAlignment {
+        switch alignment {
+        case .leading: return .natural
+        case .center: return .center
+        case .trailing: return .right
+        }
+    }
+
     // MARK: - Images
 
     // Placeholder runs for remote images carry these: the pane fetches the URL
@@ -490,45 +726,38 @@ enum MarkdownRenderer {
 
     static func attachmentString(for image: NSImage, maxWidth: CGFloat?) -> NSAttributedString {
         let attachment = NSTextAttachment()
-        attachment.image = image
         let cap = min(maxWidth ?? imageColumnWidth, imageColumnWidth)
         var bounds = image.size
         if bounds.width > cap {
             bounds = NSSize(width: cap, height: bounds.height * cap / bounds.width)
         }
+        // Every attachment — local and remote, markdown and HTML — is built
+        // here, so putting the GIF check at this one chokepoint animates all of
+        // them. A single-frame image takes the plain still path.
+        if let cell = AnimatedImageCell(image: image, drawSize: bounds) {
+            attachment.attachmentCell = cell
+        } else {
+            attachment.image = image
+        }
         attachment.bounds = NSRect(origin: .zero, size: bounds)
         return NSAttributedString(attachment: attachment)
     }
 
-    // A line that is nothing but images — `![alt](src)` or HTML starting with
-    // `<` and containing `<img>` tags (the `<p align="center"><img …></p>`
-    // README idiom) → the images as their own block, scaled into the column.
+    // A line that is nothing but a `![alt](src)` image → the image as its own
+    // block, scaled into the column. Raw `<img>` HTML used to land here too;
+    // MarkdownHTML owns that now, so the two parsers can't disagree about a
+    // line — the old one dropped `align` and the `<a href>` around a badge.
     // Unresolvable lines fall through to paragraph rendering.
     private static func imageLine(_ trimmed: String, baseDir: String?, size: CGFloat) -> NSAttributedString? {
-        var fragments: [NSAttributedString] = []
-        if trimmed.hasPrefix("<") {
-            for spec in htmlImageSpecs(trimmed) {
-                if let fragment = imageFragment(alt: spec.alt, src: spec.src, baseDir: baseDir,
-                                                size: size, maxWidth: spec.width, base: [:]) {
-                    fragments.append(fragment)
-                }
-            }
-        } else if trimmed.hasPrefix("!["), trimmed.hasSuffix(")"),
-                  let spec = imageSpec(trimmed), spec.rest.isEmpty,
-                  let fragment = imageFragment(alt: spec.alt, src: spec.src, baseDir: baseDir,
-                                               size: size, maxWidth: nil, base: [:]) {
-            fragments.append(fragment)
-        }
-        guard !fragments.isEmpty else { return nil }
+        guard trimmed.hasPrefix("!["), trimmed.hasSuffix(")"),
+              let spec = imageSpec(trimmed), spec.rest.isEmpty,
+              let fragment = imageFragment(alt: spec.alt, src: spec.src, baseDir: baseDir,
+                                           size: size, maxWidth: nil, base: [:]) else { return nil }
 
         let para = NSMutableParagraphStyle()
         para.paragraphSpacingBefore = size * 0.4
         para.paragraphSpacing = size * 0.8
-        let result = NSMutableAttributedString()
-        for (index, fragment) in fragments.enumerated() {
-            if index > 0 { result.append(NSAttributedString(string: "  ")) }
-            result.append(fragment)
-        }
+        let result = NSMutableAttributedString(attributedString: fragment)
         result.append(NSAttributedString(string: "\n"))
         result.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: result.length))
         return result
@@ -590,36 +819,6 @@ enum MarkdownRenderer {
         let raw = String(text[altClose.upperBound..<parenClose.lowerBound]).trimmingCharacters(in: .whitespaces)
         let src = raw.components(separatedBy: " ").first ?? raw
         return (alt, src, text[parenClose.upperBound...])
-    }
-
-    // Every `<img …>` tag in an HTML line → (alt, src, width-attribute).
-    private static func htmlImageSpecs(_ line: String) -> [(alt: String, src: String, width: CGFloat?)] {
-        var specs: [(alt: String, src: String, width: CGFloat?)] = []
-        var search = line.startIndex
-        while let tagStart = line.range(of: "<img", options: .caseInsensitive,
-                                        range: search..<line.endIndex)?.lowerBound {
-            let tagEnd = line.range(of: ">", range: tagStart..<line.endIndex)?.upperBound ?? line.endIndex
-            let tag = String(line[tagStart..<tagEnd])
-            if let src = htmlAttribute("src", in: tag) {
-                let width = htmlAttribute("width", in: tag).flatMap { Double($0) }.map { CGFloat($0) }
-                specs.append((htmlAttribute("alt", in: tag) ?? "", src, width))
-            }
-            search = tagEnd
-        }
-        return specs
-    }
-
-    private static func htmlAttribute(_ name: String, in tag: String) -> String? {
-        guard let attr = tag.range(of: "\(name)=", options: .caseInsensitive) else { return nil }
-        let after = tag[attr.upperBound...]
-        guard let quote = after.first, quote == "\"" || quote == "'" else {
-            // Unquoted value: runs to the next space or tag end.
-            let value = after.prefix { $0 != " " && $0 != ">" && $0 != "/" }
-            return value.isEmpty ? nil : String(value)
-        }
-        let body = after.dropFirst()
-        guard let close = body.firstIndex(of: quote) else { return nil }
-        return String(body[..<close])
     }
 
     // MARK: - Inline

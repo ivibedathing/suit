@@ -1,7 +1,7 @@
 #!/bin/bash
 # Unified logic-test runner for Suit's UI-free cores.
 #
-# Suit has no XCTest target (there's no SwiftPM / Xcode project — see AGENTS.md
+# Suit has no XCTest target (there's no SwiftPM / Xcode project — see CLAUDE.md
 # "Why no SwiftPM"). Instead, the pure, app-independent logic that phases rest
 # on is verified by standalone harnesses that compile just the relevant
 # Foundation-only sources against a small assertion driver and run it — no app,
@@ -27,6 +27,7 @@ HARNESSES=(
   "broadcast|scripts/broadcast-test.sh|fast"
   "recipes|scripts/recipes-test.sh|fast"
   "file-edit|scripts/file-edit-test.sh|fast"
+  "find-replace|scripts/find-replace-test.sh|fast"
   "activity|scripts/activity-test.sh|fast"
   "pr-review|scripts/pr-review-test.sh|fast"
   "diffparser|scripts/diffparser-test.sh|fast"
@@ -34,11 +35,8 @@ HARNESSES=(
   "layouts|scripts/layouts-test.sh|fast"
   "file-time-travel|scripts/file-time-travel-test.sh|fast"
   "budget|scripts/budget-test.sh|fast"
-  "compact-guard|scripts/compact-guard-test.sh|fast"
   "command-history|scripts/command-history-test.sh|fast"
-  "rtk|scripts/rtk-test.sh|fast"
-  "posttool|scripts/posttool-test.sh|fast"
-  "token-ignore|scripts/token-ignore-test.sh|fast"
+  "markdown-html|scripts/markdown-html-test.sh|fast"
   "roadmap-routing|scripts/roadmap-routing-test.sh|fast"
   "autopilot-paths|scripts/autopilot-paths-test.sh|fast"
   "cache-stats|scripts/cache-stats-test.sh|fast"
@@ -49,7 +47,6 @@ HARNESSES=(
   "dictation|scripts/dictation-test.sh|fast"
   "themes|scripts/test-themes.sh|fast"
   "notification-sound|scripts/notification-sound-test.sh|fast"
-  "claude-api-settings|scripts/claude-api-settings-test.sh|fast"
   "update-check|scripts/update-check-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )

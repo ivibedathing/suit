@@ -30,8 +30,6 @@ struct FleetRow {
     let branch: String?      // resolved async off the main thread; nil until then
     let contextPct: Double?
     let costUSD: Double?
-    // Rolling prompt-cache hit rate % (CacheStatsGuard); nil until measured.
-    let cacheHitPct: Double?
     let hosted: Bool         // some pane in some window hosts this session's pty
     // Subagent tree: indent depth (0 = a top-level session,
     // 1+ = a nested `isolation: worktree` subagent) and whether this row is a
@@ -49,7 +47,6 @@ enum FleetModel {
     static func rows(
         sessions: [ClaudeSession],
         hostedIds: Set<String>,
-        cacheRate: (String) -> Double? = { _ in nil },
         branch: (String) -> String? = { _ in nil }
     ) -> [FleetRow] {
         sessions
@@ -68,7 +65,6 @@ enum FleetModel {
                     branch: session.cwd.flatMap(branch),
                     contextPct: session.contextPct,
                     costUSD: session.costUSD,
-                    cacheHitPct: cacheRate(session.id),
                     hosted: hostedIds.contains(session.id)
                 )
             }
@@ -142,7 +138,6 @@ enum FleetModel {
             branch: node.branch,
             contextPct: nil,
             costUSD: nil,
-            cacheHitPct: nil,
             hosted: false,
             depth: depth,
             isBareWorktree: true
