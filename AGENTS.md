@@ -114,7 +114,9 @@ Everything lives in `swift/Sources/suit/` unless noted. Roughly by area:
   `LineNumberRulerView.swift`, `FileEdit.swift`, `FileTimeTravel.swift`, `SyntaxHighlighter.swift`,
   `MinimapView.swift`, `SymbolIndexCore.swift` / `SymbolIndex.swift` (ctags go-to-definition),
   `ReferencesPane.swift`. Other pane kinds: `MarkdownPane.swift` (+ `MarkdownRenderer.swift`,
-  the markdown → NSAttributedString parser), `ImagePane.swift`,
+  the markdown → NSAttributedString parser, and `MarkdownHTML.swift`, the Foundation-only
+  whitelist parser for the raw-HTML subset READMEs use — harness-covered, and it fails closed
+  by design, so widening it is a deliberate decision rather than a drift), `ImagePane.swift`,
   `PDFPane.swift`.
 - **Git & GitHub**: `GitStatus.swift`, `GitBlame.swift`, `GitView.swift` (review surface, shown
   via the palette — no sidebar rail tab) + `GitView+Feedback.swift` / `GitView+PRInbox.swift`,
