@@ -148,10 +148,11 @@ extension AutopilotEngine {
                 return
             }
             // Repo rules from the *main* checkout: a worker that weakened
-            // CLAUDE.md must be judged against the original, not its edit.
-            let claudeMd = (try? String(contentsOfFile: root + "/CLAUDE.md", encoding: .utf8)) ?? ""
+            // AGENTS.md must be judged against the original, not its edit.
+            // AGENTS.md, not CLAUDE.md — the latter is only a pointer stub.
+            let repoRules = (try? String(contentsOfFile: root + "/AGENTS.md", encoding: .utf8)) ?? ""
             let prompt = AutopilotPrompts.reviewGatePrompt(
-                slug: run.slug, defaultBranch: defaultBranch, claudeMd: claudeMd,
+                slug: run.slug, defaultBranch: defaultBranch, repoRules: repoRules,
                 specSnapshot: run.specSnapshot, diff: diff
             )
             AutopilotReviewGate.run(

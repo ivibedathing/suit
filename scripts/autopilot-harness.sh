@@ -72,7 +72,7 @@ Verification: ./build.sh exits 0.
 Pre-skipped by the ⏸ steering marker — Autopilot must never start this one.
 EOF
 
-cat > "$FIXREPO/CLAUDE.md" <<'EOF'
+cat > "$FIXREPO/AGENTS.md" <<'EOF'
 # Fixture repo rules
 
 Keep the fixture minimal.

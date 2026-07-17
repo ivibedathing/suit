@@ -500,6 +500,12 @@ app does.
   old single-autopilot layout (files directly under `~/.suit/autopilot/`) is migrated into the
   primary repo's slot automatically on first launch. A `~/.suit/autopilot-prompt.md`, when
   present, overrides the worker prompt template.
+- **What the worker and the review gate are told** — the worker prompt points at `AGENTS.md`
+  for the repo's conventions and asks for the shipped behavior to be documented in
+  `docs/features.md`, touching `README.md` only when the change belongs in its Highlights
+  summary or shortcuts table. The review gate judges against the same targets, and the repo
+  rules it reads are `AGENTS.md` from the *main* checkout (never the worker's edit of them),
+  capped at 40 KB with a truncation marker so the gate knows when it judged a prefix.
 
 ## Appearance & settings
 

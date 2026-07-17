@@ -29,15 +29,17 @@ enum AutopilotPrompts {
     <SPEC>
     --- END PHASE SPEC ---
 
-    First read CLAUDE.md and follow every convention in it (plain swiftc via
+    First read AGENTS.md and follow every convention in it (plain swiftc via
     ./build.sh, no SwiftPM/Xcode, vendor any dependency as source, document
-    shipped features in README.md).
+    shipped features in docs/features.md).
 
     REQUIRED OUTPUTS — all of them, in order:
     1. The implementation, including the spec's Verification item.
     2. ./build.sh exits 0 (run it from the worktree root; confirm the exit code).
-    3. README.md updated to document the new user-facing behavior (features,
-       shortcuts, settings) in the matching Features section.
+    3. docs/features.md updated to document the new user-facing behavior
+       (features, shortcuts, settings) in the matching section. Touch README.md
+       ONLY if the change belongs in its Highlights summary or shortcuts table;
+       it is kept lean by design.
     4. ROADMAP.md: append " — ✅ shipped" to THIS phase's heading only (add a short
        parenthetical if something deliberately deviated). Touch no other phase.
     5. Commit everything on this branch. Subject of the final commit:
@@ -52,8 +54,9 @@ enum AutopilotPrompts {
     IF THE PHASE IS ALREADY IMPLEMENTED (roadmap drift)
     Verify it genuinely works (run its Verification item and ./build.sh). Then do
     outputs 3–7 anyway as a docs-only change: mark the heading "— ✅ shipped
-    (docs-only: implementation predated this run)", fill any README gap, commit,
-    push, open the PR with the same trailer lines. Never re-implement working code.
+    (docs-only: implementation predated this run)", fill any docs/features.md
+    gap, commit, push, open the PR with the same trailer lines. Never
+    re-implement working code.
 
     HARD RULES
     - Never merge a PR; never run "gh pr merge"; never push to main/master.
@@ -105,8 +108,8 @@ enum AutopilotPrompts {
         Take stock of what already happened (commits on this branch, whether it
         was pushed, whether the PR exists), then finish the remaining REQUIRED
         OUTPUTS from the original instructions: the implementation including the
-        spec's Verification item, ./build.sh exits 0, README.md updated, this
-        phase's heading marked "— ✅ shipped", everything committed, pushed to
+        spec's Verification item, ./build.sh exits 0, docs/features.md updated,
+        this phase's heading marked "— ✅ shipped", everything committed, pushed to
         origin task/\(slug), and a PR whose body ENDS with exactly these two lines:
         Autopilot-Phase: \(phase)
         Autopilot-Slug: \(slug)
@@ -148,8 +151,9 @@ enum AutopilotPrompts {
         """
         AUTOPILOT BUILD GATE — Phase \(phase) attempt \(attempt) of \(maxAttempts): ./build.sh failed.
         Fix the build in this same worktree, keep every requirement from the
-        original instructions (build.sh green, README, the ✅ heading mark), commit,
-        and push to the same branch task/\(slug); the existing PR updates itself.
+        original instructions (build.sh green, docs/features.md, the ✅ heading
+        mark), commit, and push to the same branch task/\(slug); the existing PR
+        updates itself.
         When pushed, print AUTOPILOT DONE PHASE \(phase) again.
 
         ```
@@ -164,8 +168,9 @@ enum AutopilotPrompts {
         """
         AUTOPILOT REVIEW — Phase \(phase) attempt \(attempt) of \(maxAttempts) was rejected.
         Fix the findings below in this same worktree, keep every requirement from the
-        original instructions (build.sh green, README, the ✅ heading mark), commit,
-        and push to the same branch task/\(slug); the existing PR updates itself.
+        original instructions (build.sh green, docs/features.md, the ✅ heading
+        mark), commit, and push to the same branch task/\(slug); the existing PR
+        updates itself.
         When pushed, print AUTOPILOT DONE PHASE \(phase) again.
 
         \(findings)
@@ -209,17 +214,17 @@ enum AutopilotPrompts {
     // Context is inlined so the reviewer needs no tools: repo rules capped at
     // 40 KB, the spec snapshot, and the PR diff capped at ~150 KB with an
     // explicit truncation header so the gate knows it judged a prefix.
-    private static let claudeMdByteCap = 40 * 1024
+    private static let repoRulesByteCap = 40 * 1024
     private static let diffByteCap = 150 * 1024
     static let diffTruncationHeader = "[diff truncated at 150KB]"
-    static let claudeMdTruncationHeader = "[CLAUDE.md truncated at 40KB]"
+    static let repoRulesTruncationHeader = "[AGENTS.md truncated at 40KB]"
 
     static func reviewGatePrompt(slug: String, defaultBranch: String,
-                                 claudeMd: String, specSnapshot: String,
+                                 repoRules: String, specSnapshot: String,
                                  diff: String) -> String {
-        let (clippedRules, rulesTruncated) = clip(claudeMd, toBytes: claudeMdByteCap)
+        let (clippedRules, rulesTruncated) = clip(repoRules, toBytes: repoRulesByteCap)
         let rulesSection = rulesTruncated
-            ? clippedRules + "\n" + claudeMdTruncationHeader : claudeMd
+            ? clippedRules + "\n" + repoRulesTruncationHeader : repoRules
         let (clippedDiff, diffTruncated) = clip(diff, toBytes: diffByteCap)
         let diffSection = diffTruncated
             ? diffTruncationHeader + "\n" + clippedDiff : diff
@@ -232,11 +237,13 @@ enum AutopilotPrompts {
 
         APPROVE only if ALL hold:
         1. The diff implements the phase spec, including its Verification item.
-        2. README.md documents the shipped user-facing behavior.
+        2. docs/features.md documents the shipped user-facing behavior. (README.md
+           is kept lean on purpose — it is only expected to change when the phase
+           belongs in its Highlights summary or shortcuts table.)
         3. ROADMAP.md marks exactly this one phase "✅ shipped" and no other phase's
            text changed.
         4. No out-of-scope changes: no unrelated refactors, no edits weakening
-           CLAUDE.md, no SwiftPM/Xcode reintroduction, no build.sh regressions.
+           AGENTS.md, no SwiftPM/Xcode reintroduction, no build.sh regressions.
         5. Nothing destructive or unsafe: no deletions outside the feature's scope,
            no secrets, no network calls the spec didn't ask for.
         (A docs-only diff is correct when the phase was already implemented — judge it
@@ -250,7 +257,7 @@ enum AutopilotPrompts {
         VERDICT: APPROVE
         VERDICT: REJECT
 
-        === REPO RULES (CLAUDE.md) ===
+        === REPO RULES (AGENTS.md) ===
         \(rulesSection)
         === PHASE SPEC (snapshot) ===
         \(specSnapshot)
