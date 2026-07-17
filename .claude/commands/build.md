@@ -4,7 +4,7 @@ allowed-tools: Bash(./build.sh), Bash(swiftc:*), Read
 ---
 
 Run `./build.sh` from the repo root, which compiles `swift/Sources/suit/` and
-assembles `build/Suit.app` (there is no Xcode/SwiftPM project — see AGENTS.md
+assembles `build/Suit.app` (there is no Xcode/SwiftPM project — see CLAUDE.md
 "Why no SwiftPM").
 
 - If it succeeds, report success and the app bundle path.
@@ -12,4 +12,4 @@ assembles `build/Suit.app` (there is no Xcode/SwiftPM project — see AGENTS.md
   Do not "fix" a build error by deleting functionality — find the real cause.
 
 For a faster inner loop while iterating on non-bundle code, you can instead use
-the direct `swiftc` invocation documented in AGENTS.md ("Build & run").
+the direct `swiftc` invocation documented in CLAUDE.md ("Build & run").
