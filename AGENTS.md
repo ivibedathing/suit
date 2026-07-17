@@ -100,7 +100,10 @@ Everything lives in `swift/Sources/suit/` unless noted. Roughly by area:
   `PaneTabBarView.swift`, `PaneTitleBarView.swift`, `RootHeaderView.swift`, `PaneScreensaverView.swift`,
   `SplitOrientation.swift`, `StateRestoration.swift`, `Layouts.swift` + `AppDelegate+Layouts.swift`,
   `ProcessUtil.swift`.
-- **Sidebar**: `SidebarView.swift` (icon rail: Files / Bookmarks / SSH Hosts / Notes),
+- **Sidebar**: `ActivityBarView.swift` (the far-left full-height icon strip; laid out by
+  `WindowRootView` outside the sidebar split so it survives a ⌘B collapse — it renders selection
+  and reports clicks, but `SidebarView` owns the tab model), `SidebarView.swift` (the panel:
+  Files / Sessions / SSH Hosts / Notes / Bookmarks), `RailIconView.swift` (one activity-bar icon),
   `FileBrowserView.swift` (tree + `GitFooterView` branch/worktree switcher),
   `SearchView.swift` (⇧⌘F), `FileIndex.swift` (git-aware file list behind ⌘P and the browser),
   `RipgrepSearch.swift` (bundled `rg --json`), `Favorites.swift` (recent project roots),

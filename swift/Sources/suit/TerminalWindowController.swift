@@ -20,10 +20,13 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
 
     private var rootContainer: WindowRootView!
 
-    // Left rail (Files / Notes) and the split that puts it
-    // beside the pane tree. The pane tree lives in its own filling container
-    // rather than directly in the root, so tree-surgery replaceSubview calls
-    // never have to know about the sidebar split around them.
+    // The activity bar (the far-left icon strip), the sidebar panel it drives,
+    // and the split that puts that panel beside the pane tree. The bar is not in
+    // the split — it's a sibling laid out by rootContainer, so Cmd-B can hide
+    // the sidebar out from under it. The pane tree lives in its own filling
+    // container rather than directly in the root, so tree-surgery
+    // replaceSubview calls never have to know about the sidebar split around them.
+    var activityBar: ActivityBarView!
     var sidebarSplit: NSSplitView!
     var sidebar: SidebarView!
     var paneTreeHost: RootContainerView!
@@ -299,7 +302,19 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebarSplit.addArrangedSubview(sidebar)
         sidebarSplit.addArrangedSubview(paneTreeHost)
 
+        // The bar renders the sidebar's selection and reports clicks back into
+        // it; seed it from the restored tab, which SidebarView.init set without
+        // going through select(tab:), so onTabChange hasn't fired for it.
+        activityBar = ActivityBarView(
+            frame: NSRect(x: 0, y: 0, width: ActivityBarView.width, height: frame.height)
+        )
+        activityBar.selectedTab = sidebar.selectedTab
+        activityBar.onSelect = { [weak self] tab in self?.activateSidebarTab(tab) }
+        sidebar.onTabChange = { [weak self] tab in self?.activityBar.selectedTab = tab }
+
+        rootContainer.addSubview(activityBar)
         rootContainer.addSubview(sidebarSplit)
+        rootContainer.activityBar = activityBar
         rootContainer.body = sidebarSplit
         rootContainer.layoutParts()
         layoutSidebarSplit()
