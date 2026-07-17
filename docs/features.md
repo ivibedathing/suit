@@ -169,9 +169,18 @@ app does.
   inline bold/italic/strikethrough/code plus clickable links — with a Rendered ↔ Raw toggle.
   Images render wherever READMEs put them: local paths and remote `http(s)` sources, block
   `![alt](src)` lines, inline images and `[![badge](src)](href)` linked badges in prose, and
-  raw `<img>` tags (the `<p align="center"><img …></p>` idiom; a `width` attribute is
-  honored). Remote images fetch asynchronously into a shared per-run cache — the alt text
-  shows as a dim placeholder until the bitmap lands, and stays if the fetch fails. Images (PNG/JPG/GIF/SVG/…) open over a checkerboard backing with a zoom-to-fit /
+  animated GIFs (which play, rather than freezing on the first frame). Remote images fetch
+  asynchronously into a shared per-run cache — the alt text shows as a dim placeholder until
+  the bitmap lands, and stays if the fetch fails.
+
+  The raw-HTML subset READMEs lean on renders too, rather than showing as literal tags: the
+  `<p align="center">` / `<div align="center">` idiom, `<h1 align="center">` headings,
+  `<a href><img></a>` badge rows, inline `<strong>`/`<em>`/`<code>`/`<br>`, and `<img>` with
+  its `width`. `<details>`/`<summary>` renders as a real disclosure — click the summary to
+  expand or collapse it, and `open` starts it expanded. Anything outside that whitelist falls
+  back to showing the source verbatim, whole: the parser fails closed on purpose, so an
+  unrecognized tag degrades to the old behavior instead of rendering half-understood markup.
+  Images (PNG/JPG/GIF/SVG/…) open over a checkerboard backing with a zoom-to-fit /
   actual-size toggle and the pixel dimensions in the header. PDFs open in a PDFKit view with a
   page-thumbnail rail. All three are ordinary tabs, so split, drag, path-dedupe, and state
   restoration (scroll / zoom / page) work unchanged.
