@@ -63,7 +63,6 @@ final class AnimatedImageCell: NSTextAttachmentCell {
         frameCount = count
         self.drawSize = drawSize
         super.init()
-        image.size = drawSize
     }
 
     required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -471,6 +470,12 @@ enum MarkdownRenderer {
         if trimmed.isEmpty { return false }
         if trimmed.hasPrefix("```") || trimmed.hasPrefix(">") || trimmed.hasPrefix("#") { return false }
         if isRule(trimmed) || setextLevel(trimmed) != nil { return false }
+        // `</details>` ends the paragraph. Without this the joiner eats the
+        // close tag of a spliced-in body — the top of the render loop never
+        // reaches its skip — and the tag lands in the output as literal text.
+        // Any body ending in prose with no blank line before `</details>` hits
+        // this, which is the common README shape.
+        if trimmed.lowercased().hasPrefix("</details") { return false }
         if listItem(line) != nil { return false }
         if trimmed.contains("|"), let next, isTableSeparator(next) { return false }
         return true

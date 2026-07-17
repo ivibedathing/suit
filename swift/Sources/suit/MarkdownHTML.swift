@@ -138,7 +138,11 @@ enum MarkdownHTML {
         }
         guard let closeLine = end else { return nil }
 
-        let isOpen = hasFlag("open", in: lines[start]) || attribute("open", in: lines[start]) != nil
+        // Scoped to the tag, not the line: `<details><summary>Click to open the
+        // panel</summary>` has the word "open" in prose, and scanning the whole
+        // line would render every such disclosure expanded.
+        let openTag = String(lines[start].prefix { $0 != ">" }) + ">"
+        let isOpen = hasFlag("open", in: openTag) || attribute("open", in: openTag) != nil
 
         // The summary may sit on the `<details>` line or its own, and may wrap.
         let head = lines[start...closeLine].joined(separator: "\n")
@@ -153,8 +157,42 @@ enum MarkdownHTML {
         let consumedThroughSummary = head[head.startIndex..<closeRange.upperBound]
             .components(separatedBy: "\n").count
         let bodyStart = min(start + consumedThroughSummary, closeLine)
+        // The body is whole source lines, so anything sharing a line with
+        // `</summary>` or `</details>` falls outside it and would vanish from
+        // the render. Losing a README's prose is worse than showing its tags:
+        // fail closed and let the caller print the block verbatim.
+        guard strandedText(lines, summaryLine: start + consumedThroughSummary - 1,
+                           closeLine: closeLine).isEmpty else { return nil }
         return Details(summary: summary, isOpen: isOpen, bodyStart: bodyStart,
                        bodyEnd: closeLine, lineCount: closeLine - start + 1)
+    }
+
+    // Text sitting outside the body's line range: after `</summary>` on its own
+    // line, or before `</details>` on its own.
+    private static func strandedText(_ lines: [String], summaryLine: Int, closeLine: Int) -> String {
+        func text(after marker: String, in line: String) -> String? {
+            guard let found = line.range(of: marker, options: [.caseInsensitive, .backwards])
+            else { return nil }
+            return String(line[found.upperBound...])
+        }
+        func text(before marker: String, in line: String) -> String? {
+            guard let found = line.range(of: marker, options: .caseInsensitive) else { return nil }
+            return String(line[..<found.lowerBound])
+        }
+        var stranded: [String] = []
+        if summaryLine == closeLine {
+            // One line holds both tags; only what sits between them is stranded.
+            if let tail = text(after: "</summary>", in: lines[closeLine]) {
+                stranded.append(text(before: "</details", in: tail) ?? tail)
+            }
+        } else {
+            if summaryLine >= 0, summaryLine < lines.count,
+               let tail = text(after: "</summary>", in: lines[summaryLine]) {
+                stranded.append(tail)
+            }
+            if let head = text(before: "</details", in: lines[closeLine]) { stranded.append(head) }
+        }
+        return stranded.joined().trimmingCharacters(in: .whitespaces)
     }
 
     // MARK: - Parsing

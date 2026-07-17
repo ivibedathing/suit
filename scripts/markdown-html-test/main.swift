@@ -224,8 +224,24 @@ check(MarkdownHTML.details(in: ["<details open=\"open\">", "<summary>s</summary>
       "…as does open=\"open\"")
 check(MarkdownHTML.details(in: ["<details class=\"opener\">", "<summary>s</summary>", "</details>"], at: 0)?.isOpen == false,
       "a word merely containing `open` is not the open flag")
-check(MarkdownHTML.details(in: ["<details><summary>All on one line</summary>body</details>"], at: 0)?.lineCount == 1,
-      "a single-line disclosure parses")
+// The `open` check reads the tag, not the line: summary prose is not a flag.
+check(MarkdownHTML.details(in: ["<details><summary>Click to open the panel</summary>", "b", "</details>"], at: 0)?.isOpen == false,
+      "the word `open` in same-line summary prose does not force it expanded")
+check(MarkdownHTML.details(in: ["<details open><summary>Click to open it</summary>", "b", "</details>"], at: 0)?.isOpen == true,
+      "…while a real `open` flag on that same shape still counts")
+
+print("== details strands no content ==")
+// The body is whole source lines, so text sharing a line with </summary> or
+// </details> can't be carried. Rendering the block verbatim is the honest
+// failure; dropping the prose silently is not.
+check(MarkdownHTML.details(in: ["<details><summary>All on one line</summary>body</details>"], at: 0) == nil,
+      "a single-line disclosure with body text fails closed rather than dropping it")
+check(MarkdownHTML.details(in: ["<details>", "<summary>s</summary>stranded", "body", "</details>"], at: 0) == nil,
+      "text after </summary> on its line fails closed")
+check(MarkdownHTML.details(in: ["<details>", "<summary>s</summary>", "body</details>"], at: 0) == nil,
+      "text before </details> on its line fails closed")
+check(MarkdownHTML.details(in: ["<details><summary>s</summary>", "body", "</details>"], at: 0)?.bodyStart == 1,
+      "…but a summary sharing only the <details> tag's line is fine")
 
 print("== details fails closed ==")
 check(MarkdownHTML.details(in: ["<details>", "<summary>s</summary>", "body"], at: 0) == nil,
