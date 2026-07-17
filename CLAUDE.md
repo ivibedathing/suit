@@ -124,8 +124,12 @@ Everything is in `swift/Sources/suit/` unless noted.
   `PaneContent.swift`, `PaneTerminalView.swift`, `PaneTabBarView.swift`, `PaneTitleBarView.swift`,
   `ProjectHeaderView.swift`, `PaneScreensaverView.swift`, `SplitOrientation.swift`,
   `StateRestoration.swift`, `Layouts.swift` + `AppDelegate+Layouts.swift`, `ProcessUtil.swift`.
-- **Sidebar**: `SidebarView.swift` (Files / Bookmarks / SSH Hosts / Notes rail),
-  `FileBrowserView.swift` (+ `GitFooterView`), `SearchView.swift` (⇧⌘F), `FileIndex.swift`,
+- **Sidebar**: `ActivityBarView.swift` (the far-left full-height icon strip — laid out by
+  `WindowRootView` *outside* the sidebar split so it survives a ⌘B collapse; it renders selection
+  and reports clicks, but `SidebarView` owns the tab model), `RailIconView.swift` (one
+  activity-bar icon), `SidebarView.swift` (the panel: Files / Sessions / SSH Hosts / Notes /
+  Bookmarks), `FileBrowserView.swift` (+ `GitFooterView`), `SearchView.swift` (⇧⌘F),
+  `FileIndex.swift`,
   `RipgrepSearch.swift` (bundled `rg --json`), `Favorites.swift`, `Notes.swift`,
   `Bookmarks.swift`, `SSHHosts.swift` / `SSHPane.swift` / `SSHHostsView.swift`.
 - **Viewer & editing**: `FileViewerPane.swift` (+ `Editing`, `Symbols`, `TimeTravel`,
@@ -133,9 +137,7 @@ Everything is in `swift/Sources/suit/` unless noted.
   `LineNumberRulerView.swift`, `FileEdit.swift`, `FileTimeTravel.swift`,
   `SyntaxHighlighter.swift`, `MinimapView.swift`, `SymbolIndexCore.swift` / `SymbolIndex.swift`
   (ctags go-to-definition), `ReferencesPane.swift`. Other pane kinds: `MarkdownPane.swift` +
-  `MarkdownRenderer.swift` + `MarkdownHTML.swift` (the Foundation-only whitelist parser for the
-  raw-HTML subset READMEs use — harness-covered, and it fails closed by design, so widening it
-  is a deliberate decision rather than a drift), `ImagePane.swift`, `PDFPane.swift`.
+  `MarkdownRenderer.swift`, `ImagePane.swift`, `PDFPane.swift`.
 - **Git & GitHub**: `GitStatus.swift`, `GitBlame.swift`, `GitView.swift` (review surface, opened
   via the palette — no sidebar tab) + `+Feedback` / `+PRInbox`, `GitBranches.swift`
   (`GitHubCLI` gh wrapper, degrades gracefully with no gh), `DiffParser.swift`, `DiffPane.swift`,

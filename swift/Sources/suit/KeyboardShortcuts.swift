@@ -59,6 +59,7 @@ enum KeyboardShortcuts {
             Entry("⌘B", "Toggle sidebar"),
             Entry("⇧⌘F", "Search in project"),
             Entry("⌘F", "Find in pane"),
+            Entry("⌥⌘F", "Find and replace (file viewer)"),
             Entry("⌘G", "Find next"),
             Entry("⇧⌘G", "Find previous"),
             Entry("⌘E", "Use selection for find"),

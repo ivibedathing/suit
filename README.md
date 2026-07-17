@@ -127,6 +127,7 @@ or the command palette (which also offers **Rename Layout…** and **Delete Layo
 | ⌘B | Toggle sidebar |
 | ⇧⌘F | Search in project |
 | ⌘F | Find in pane |
+| ⌥⌘F | Find and replace (file viewer) |
 | ⌘G | Find next |
 | ⇧⌘G | Find previous |
 | ⌘E | Use selection for find |

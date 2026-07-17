@@ -31,7 +31,7 @@ app does.
   ⌘1–9 jump (⌘9 = last), ⌃Tab is a most-recently-used switcher (hold ⌃ to pick, quick tap to
   toggle the last two). Opening a file, diff, or transcript adds a tab to the focused pane's
   group.
-- **Sessions sidebar** — the sidebar's Sessions tab (second in the rail, after Files) lists every
+- **Sessions sidebar** — the sidebar's Sessions tab (second in the activity bar, after Files) lists every
   open tab in the window, grouped by the pane (screen) that owns it — the cross-pane overview that
   replaces the old strip. Click a row to bring that tab forward in its pane; its close box
   shuts it. Session dots (busy / pulsing needs-input / done) and red failure dots show right
@@ -65,7 +65,11 @@ app does.
 
 ### Files & sidebar
 
-- **Sidebar** (⌘B) — an icon rail with Files, Sessions, SSH Hosts, Notes and Bookmarks. The
+- **Activity bar** — a full-height icon strip pinned to the window's far-left edge, holding the
+  sidebar's tabs: Files, Sessions, SSH Hosts, Notes and Bookmarks, top to bottom. It stays put
+  when the sidebar is collapsed, so clicking any icon reopens the sidebar on that tab. Clicking
+  the icon of the tab you're already on collapses the sidebar again (as ⌘B does).
+- **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. The
   Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
   search / choose-folder / unpin actions, and, inside a repo, a branch-switcher row with the
   repo's branch/worktree counts — and gives the rest of the tab to the tree. The tree is
@@ -128,6 +132,22 @@ app does.
   branch in accent). Click a node to open that commit's diff. It refreshes on commit / branch /
   worktree operations, and large histories cap with a **Load more** button. One graph tab per
   window, reused like the diff and transcript tabs.
+- **Find & replace in the file viewer** (⌘F, ⌥⌘F for the replace row) — a VS Code-shaped bar that
+  floats over the top-right of the text rather than pushing it down. Matching is incremental: every
+  hit is washed in accent as you type, the current one more strongly, with a `3 of 17` counter.
+  ⌘G / ⇧⌘G (or the ‹ › buttons, or Return / ⇧Return in the find field) step through matches and
+  wrap at both ends; ⌘F from mid-file selects the match *below* the caret rather than jumping back
+  to the top. Three toggles mirror VS Code's: **Aa** match case, **ab** whole word, **.\*** regular
+  expression — a bad pattern reads "Bad pattern" instead of matching nothing silently. Whole-word
+  works for queries ending in symbols (`foo(` matches), which a `\b`-wrapped pattern can't do.
+  Replace does the current match (Return in the replace field) or all of them at once; in regex
+  mode `$1` interpolates capture groups, while in plain mode it stays the literal characters `$1`.
+  A Replace All is a **single undo step**, not one per match. ⌘E puts the selection on the system
+  find pasteboard, so a query carries between panes and from other apps. Esc closes and hands focus
+  back to the text. Find works everywhere — including read-only buffers like a time-travel revision
+  or a binary placeholder — but replace disables itself wherever the buffer can't be written, so it
+  can never fail at save time instead of up front. Terminals keep SwiftTerm's own find bar on the
+  same ⌘F.
 - **Go to definition & find references** — Cmd-click an identifier in the viewer (or Go to
   Definition, ⌃⌘J) to jump to where it's defined; several definitions open a palette picker,
   each `file:line` with its kind. Find References (⌃⌘R) opens a references pane listing every
@@ -187,7 +207,7 @@ app does.
   under the new worktree (same relative subpath when it exists there, otherwise the worktree root),
   so the terminal you're looking at actually lands on the new branch. Terminals mid-job (running
   `claude`, a build, `vim`) are left alone.
-- **Git surface** — the git review surface no longer has its own sidebar rail tab; reach it with
+- **Git surface** — the git review surface has no activity-bar icon; reach it with
   **Show Git** in the command palette. It shows staged / changed files (click to open the scoped
   diff) and, below them, a **Branches** list: every local branch with its ahead/behind vs
   upstream (green ↑ / amber ↓), a worktree glyph, and a dirty dot; the current branch is
