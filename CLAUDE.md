@@ -134,7 +134,8 @@ Everything is in `swift/Sources/suit/` unless noted.
   `Bookmarks.swift`, `SSHHosts.swift` / `SSHPane.swift` / `SSHHostsView.swift`.
 - **Viewer & editing**: `FileViewerPane.swift` (+ `Editing`, `Symbols`, `TimeTravel`,
   `Highlighting`, `Blame`), `ViewerContainerView.swift`, `ViewerTextView.swift`,
-  `LineNumberRulerView.swift`, `FileEdit.swift`, `FileTimeTravel.swift`,
+  `LineNumberRulerView.swift`, `FileEdit.swift`, `FileWatch.swift` / `FileWatcher.swift`
+  (live on-disk-change reload shared by all four file-backed pane kinds), `FileTimeTravel.swift`,
   `SyntaxHighlighter.swift`, `MinimapView.swift`, `SymbolIndexCore.swift` / `SymbolIndex.swift`
   (ctags go-to-definition), `ReferencesPane.swift`. Other pane kinds: `MarkdownPane.swift` +
   `MarkdownRenderer.swift`, `ImagePane.swift`, `PDFPane.swift`.

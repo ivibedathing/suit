@@ -105,11 +105,20 @@ app does.
   **autosaves** to disk on a short debounce, or save now with **⌘S** (File ▸ Save / palette
   "Save File"). An accent dot on the tab (in place of its close ✕ until you hover) and in the
   pane header marks unsaved edits; pending edits also flush when you close the tab or quit.
-  Binary, over-8 MB, and unreadable files stay read-only. If a file changes on disk underneath
-  you — Claude or `$EDITOR` rewrote it — Suit notices when it regains focus: a clean buffer
-  silently reloads (keeping your scroll), and one with unsaved edits asks whether to keep your
-  edits or reload from disk. Editing stays a deliberate, bounded slice — Suit is still
-  viewer-first, with Claude doing the heavy code-writing.
+  Binary, over-8 MB, and unreadable files stay read-only. Editing stays a deliberate, bounded
+  slice — Suit is still viewer-first, with Claude doing the heavy code-writing.
+- **Live reload on outside changes** — open tabs track their file on disk. When something else
+  rewrites it — Claude editing the file you're reading, `$EDITOR`, a branch switch, a build
+  regenerating an asset — the tab updates within a fraction of a second, no click or refocus
+  needed. In the viewer a **clean buffer silently reloads**, keeping your scroll position, and
+  one with **unsaved edits asks** whether to keep your edits (your next save wins) or reload
+  from disk; only one such prompt is ever up at a time, however many writes land while you
+  decide. Markdown, image and PDF tabs re-render in place, holding your scroll position, your
+  `<details>` toggles, and your PDF page. A time-travel scrubber is never reloaded over.
+  Deleted files keep showing their last content and pick the change back up if the file
+  returns — a `git checkout` that removes and rewrites a file lands correctly. Bursts of writes
+  coalesce into one reload, so a generator writing in chunks costs one re-render, not one per
+  chunk.
 - **Blame gutter** — Toggle Blame (⌃⌘B) shows a per-line column of the last-touching commit
   (short sha + author, tinted by age) beside the line numbers; the full commit subject is on
   hover, and clicking a line's sha opens that commit's diff.

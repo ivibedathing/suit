@@ -151,12 +151,27 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         reconcileExternalChange()
     }
 
-    // The file may have been rewritten by Claude or $EDITOR while we were away.
-    // Compare mtimes first (cheap), then reconcile via the pure decision.
+    // Watch the open file so a rewrite lands in the tab as it happens. The
+    // activation observer stays as the belt-and-braces path: it also covers the
+    // window where the watcher gave up on a file that stayed missing, and a
+    // volume that went away and came back.
+    func startWatchingFile(_ path: String) {
+        fileWatcher?.stop()
+        fileWatcher = FileWatcher(path: path) { [weak self] in
+            self?.reconcileExternalChange()
+        }
+    }
+
+    // The file may have been rewritten by Claude or $EDITOR — on app activation,
+    // or, now, the moment the watcher sees it. Compare mtimes first (cheap),
+    // then reconcile via the pure decision.
     func reconcileExternalChange() {
         // The scrubber owns the buffer while time-traveling (read-only, showing
         // a historical revision) — never reload disk content over it.
         guard !isTimeTraveling else { return }
+        // A conflict sheet is already asking about this exact file; a watcher
+        // event arriving mid-decision must not stack a second one behind it.
+        guard !isPresentingExternalConflict else { return }
         guard isEditableFile, let filePath else { return }
         let currentMod = modificationDate(ofPath: filePath)
         // Unchanged mtime → nothing moved.
@@ -209,12 +224,19 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         alert.addButton(withTitle: "Keep My Edits")
         alert.addButton(withTitle: "Reload from Disk")
 
+        isPresentingExternalConflict = true
         let handle: (NSApplication.ModalResponse) -> Void = { [weak self] response in
             guard let self else { return }
+            self.isPresentingExternalConflict = false
             if response == .alertSecondButtonReturn {
-                self.adoptDiskContent(diskText)
+                // Re-read rather than adopting the text captured when the sheet
+                // went up: the watcher may have seen further writes while the
+                // user was deciding, and "Reload from Disk" means *now*.
+                self.adoptDiskContent(self.readableDiskText(atPath: self.filePath ?? "") ?? diskText)
+                self.savedModificationDate = self.filePath.flatMap { self.modificationDate(ofPath: $0) }
+                return
             }
-            // Either way, stop re-prompting for this particular disk change.
+            // Keep-my-edits: stop re-prompting for this particular disk change.
             self.savedModificationDate = modDate
         }
         if let window = view.window {
