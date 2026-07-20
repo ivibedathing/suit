@@ -115,8 +115,11 @@ app does.
   from disk; only one such prompt is ever up at a time, however many writes land while you
   decide. Markdown, image and PDF tabs re-render in place, holding your scroll position, your
   `<details>` toggles, and your PDF page. A time-travel scrubber is never reloaded over.
-  Deleted files keep showing their last content and pick the change back up if the file
-  returns — a `git checkout` that removes and rewrites a file lands correctly. Bursts of writes
+  Deleted files keep showing their last content rather than blanking, and pick the change back
+  up when the file returns — a `git checkout` that removes and rewrites a file lands correctly.
+  (A file that stays missing for more than ~45 seconds stops being watched: the viewer still
+  catches up the next time Suit regains focus, but a markdown, image or PDF tab needs
+  reopening.) Bursts of writes
   coalesce into one reload, so a generator writing in chunks costs one re-render, not one per
   chunk.
 - **Blame gutter** — Toggle Blame (⌃⌘B) shows a per-line column of the last-touching commit

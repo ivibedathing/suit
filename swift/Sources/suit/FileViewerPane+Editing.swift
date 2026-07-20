@@ -170,7 +170,7 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         // a historical revision) — never reload disk content over it.
         guard !isTimeTraveling else { return }
         // A conflict sheet is already asking about this exact file; a watcher
-        // event arriving mid-decision must not stack a second one behind it.
+        // event arriving mid-decision must not re-read and re-resolve behind it.
         guard !isPresentingExternalConflict else { return }
         guard isEditableFile, let filePath else { return }
         let currentMod = modificationDate(ofPath: filePath)
@@ -217,6 +217,13 @@ extension FileViewerPaneContent: NSTextViewDelegate {
     // Unsaved edits vs. a changed disk: the user chooses. Keep-my-edits records
     // the new mtime so the same change doesn't re-prompt; the next save wins.
     private func presentExternalChangeConflict(diskText: String, modDate: Date?) {
+        // Both doors into this sheet have to be guarded, not just the watcher's.
+        // A dirty buffer has an autosave pending, and beginSheetModal is only
+        // document-modal — so a timer scheduled before the sheet went up still
+        // fires while it's open, reaches performSave, resolves .warn against the
+        // same disk change, and would queue a second sheet asking the identical
+        // question with a staler diskText/modDate than the one on screen.
+        guard !isPresentingExternalConflict else { return }
         let alert = NSAlert()
         alert.messageText = "\((filePath as NSString?)?.lastPathComponent ?? "This file") changed on disk"
         alert.informativeText = "You have unsaved edits here. Reload the version on disk and lose your edits, or keep editing (your next save overwrites the disk version)?"
