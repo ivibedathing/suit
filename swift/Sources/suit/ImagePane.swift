@@ -51,6 +51,9 @@ final class ImagePaneContent: NSObject, FileBackedPaneContent {
     private var image: NSImage?
     private var pixelSize: NSSize = .zero
     private var actualSize = false
+    // Live reload when a build step or an export rewrites the asset.
+    private var fileWatcher: FileWatcher?
+    private var fileStamp: FileStamp?
     private var background = Theme.bg
 
     var view: NSView { containerView }
@@ -99,7 +102,21 @@ final class ImagePaneContent: NSObject, FileBackedPaneContent {
     func load(path: String, line: Int?) {
         let standardized = (path as NSString).standardizingPath
         filePath = standardized
-        image = NSImage(contentsOfFile: standardized)
+        readImage(standardized)
+
+        // A build step or an export regenerating the asset updates the open tab.
+        fileWatcher?.stop()
+        fileWatcher = FileWatcher(path: standardized) { [weak self] in
+            self?.reloadFromDisk()
+        }
+    }
+
+    // Decoded from Data rather than NSImage(contentsOfFile:), which caches by
+    // path — after a rewrite, the by-path initializer can hand back the image we
+    // already have, so the reload would silently do nothing.
+    private func readImage(_ path: String) {
+        fileStamp = FileStamp(path: path)
+        image = FileManager.default.contents(atPath: path).flatMap { NSImage(data: $0) }
         canvas.image = image
         pixelSize = image.map(Self.pixelDimensions) ?? .zero
 
@@ -110,7 +127,14 @@ final class ImagePaneContent: NSObject, FileBackedPaneContent {
         }
         updateZoomButton()
         relayoutCanvas()
-        tab?.contentTitleDidChange((standardized as NSString).lastPathComponent)
+        tab?.contentTitleDidChange((path as NSString).lastPathComponent)
+    }
+
+    private func reloadFromDisk() {
+        guard let filePath, FileStamp.changed(from: fileStamp, to: FileStamp(path: filePath)) else { return }
+        // Zoom mode and scroll offset are pane state, untouched by the re-read —
+        // an asset regenerated at the same size stays exactly where it was.
+        readImage(filePath)
     }
 
     // The largest bitmap rep's pixel count is the true resolution; vector/PDF
@@ -202,5 +226,7 @@ final class ImagePaneContent: NSObject, FileBackedPaneContent {
 
     func teardown() {
         NotificationCenter.default.removeObserver(self)
+        fileWatcher?.stop()
+        fileWatcher = nil
     }
 }
