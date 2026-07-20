@@ -106,6 +106,11 @@ extension TerminalWindowController {
     // both ahead and behind reads as "here is my work" rather than as a mess of
     // reversed upstream commits. The upstream is re-read on every Refresh so a
     // fetch that lands afterwards shows up.
+    //
+    // Composed off the main thread, unlike the per-file diffs next door: a
+    // whole branch's divergence can be orders of magnitude larger than one
+    // file's, so this follows openPRDiff's placeholder-then-fill shape rather
+    // than blocking the window on `git diff`.
     func openUpstreamDiff(root: String, branch: String) {
         let state = GitStatusMonitor.shared(forRoot: root).sync
         guard let upstream = state.upstream else { NSSound.beep(); return }
@@ -115,8 +120,19 @@ extension TerminalWindowController {
             )) ?? ""
         }
         let title = GitBranchOps.upstreamDiffTitle(branch: branch, state: state)
-        reuseOrCreateTab(DiffPaneContent()) { content in
-            content.loadDiffText(producer(), title: title, root: root, reload: producer)
+        let content = reuseOrCreateTab(DiffPaneContent()) { _ in }
+        content.reviewingPR = nil
+        content.pendingLoadTag = title
+        content.loadDiffText("Loading \(title)…", title: title, root: root, reload: producer)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let diff = producer()
+            DispatchQueue.main.async {
+                // Only apply if the one diff tab is still loading this diff — a
+                // second click that repointed it elsewhere must win.
+                guard content.pendingLoadTag == title else { return }
+                content.pendingLoadTag = nil
+                content.loadDiffText(diff, title: title, root: root, reload: producer)
+            }
         }
     }
 

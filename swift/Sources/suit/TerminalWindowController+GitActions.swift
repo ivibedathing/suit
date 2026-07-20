@@ -64,7 +64,13 @@ extension TerminalWindowController {
             alert.addButton(withTitle: "Delete Anyway…")
             presentAlert(alert) { [weak self] response in
                 guard response == .alertSecondButtonReturn else { return }
-                self?.runBranchAction(root: root, action: .deleteBranch(name: name, force: true))
+                // One hop: the force variant's own confirmation is app-modal,
+                // and presenting it from inside this sheet's completion handler
+                // — while the sheet is still tearing down — is how a second
+                // alert ends up behind the window.
+                DispatchQueue.main.async {
+                    self?.runBranchAction(root: root, action: .deleteBranch(name: name, force: true))
+                }
             }
             return
         }
@@ -84,8 +90,11 @@ extension TerminalWindowController {
 
     // MARK: - Confirmation
 
-    // Destructive plans get Cancel as the default button, so a reflexive Return
-    // cancels rather than discards.
+    // A destructive plan's confirm button gives up its Return equivalent, so
+    // the dialog can only be accepted by clicking it — a reflexive Return does
+    // nothing. Cancel keeps the Escape equivalent NSAlert hands any button
+    // titled "Cancel"; overwriting it to make Return cancel would take Escape
+    // away from the most dangerous dialog in the app, which is the worse trade.
     private func confirm(_ confirmation: GitBranchOps.Confirmation?) -> Bool {
         guard let confirmation else { return true }
         let alert = NSAlert()
@@ -96,7 +105,6 @@ extension TerminalWindowController {
         alert.addButton(withTitle: "Cancel")
         if confirmation.isDestructive {
             if #available(macOS 11.0, *) { confirmButton.hasDestructiveAction = true }
-            alert.buttons.last?.keyEquivalent = "\r"
             confirmButton.keyEquivalent = ""
         }
         // Modal rather than a sheet: the caller needs the answer before it can

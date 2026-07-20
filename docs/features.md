@@ -220,8 +220,9 @@ app does.
   holds. Everything runs off the main thread, so a slow fetch never freezes the window, and the
   branch row repaints as soon as it lands.
 - **The destructive ones ask first** — **Discard All Changes** (`reset --hard` + `clean -fd`) and
-  force-deleting an unmerged branch put up a confirmation naming what's about to be lost, with
-  **Cancel** as the default button so a reflexive Return can't throw work away. Nothing in the
+  force-deleting an unmerged branch put up a confirmation naming what's about to be lost. The
+  confirm button gives up its Return key, so a reflexive Return does nothing and the only way
+  through is to click it; **Esc** cancels. Nothing in the
   menu force-pushes or rewrites pushed history. Deleting an unmerged branch fails safely first
   and *then* offers to force it, so the warning appears exactly when it's true. New branch names
   are checked against git's ref rules before a process is spent on them.

@@ -138,7 +138,8 @@ Everything is in `swift/Sources/suit/` unless noted.
   `SyntaxHighlighter.swift`, `MinimapView.swift`, `SymbolIndexCore.swift` / `SymbolIndex.swift`
   (ctags go-to-definition), `ReferencesPane.swift`. Other pane kinds: `MarkdownPane.swift` +
   `MarkdownRenderer.swift`, `ImagePane.swift`, `PDFPane.swift`.
-- **Git & GitHub**: `GitStatus.swift`, `GitBlame.swift`, `GitView.swift` (review surface, opened
+- **Git & GitHub**: `GitStatus.swift`, `GitBlame.swift`, `GitBranchOps.swift` (the UI-free argv +
+  guard rails behind the Files-tab branch actions), `GitView.swift` (review surface, opened
   via the palette — no sidebar tab) + `+Feedback` / `+PRInbox`, `GitBranches.swift`
   (`GitHubCLI` gh wrapper, degrades gracefully with no gh), `DiffParser.swift`, `DiffPane.swift`,
   `CommitGraph.swift` / `CommitGraphPane.swift`, `WorktreeTasks.swift`, `WorktreeSwitcher.swift`,
