@@ -201,6 +201,17 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.fileBrowser.onCheckoutBranch = { [weak self] root, branch in
             self?.checkoutBranch(root: root, branch: branch)
         }
+        // Branch-row git actions (fetch/pull/push, stash, discard, branches)
+        // and the sync badge's local↔upstream diff.
+        sidebar.fileBrowser.onBranchAction = { [weak self] root, action in
+            self?.runBranchAction(root: root, action: action)
+        }
+        sidebar.fileBrowser.onShowUpstreamDiff = { [weak self] root, branch in
+            self?.openUpstreamDiff(root: root, branch: branch)
+        }
+        sidebar.fileBrowser.onNewBranch = { [weak self] root in
+            self?.promptForNewBranch(root: root)
+        }
         sidebar.gitView.onOpenDiff = { [weak self] root, path in
             self?.openGitDiff(root: root, file: path)
         }

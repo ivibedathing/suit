@@ -63,14 +63,11 @@ enum GitBranchList {
     }
 
     // "ahead 2, behind 1" / "ahead 3" / "behind 2" / "gone" / "" → counts.
+    // The parse itself lives in the harness-tested GitBranchOps, which the
+    // Files-tab branch row reads the same field through.
     private static func parseTrack(_ track: String) -> (ahead: Int, behind: Int) {
-        var ahead = 0, behind = 0
-        for part in track.components(separatedBy: ",") {
-            let piece = part.trimmingCharacters(in: .whitespaces)
-            if piece.hasPrefix("ahead ") { ahead = Int(piece.dropFirst(6)) ?? 0 }
-            else if piece.hasPrefix("behind ") { behind = Int(piece.dropFirst(7)) ?? 0 }
-        }
-        return (ahead, behind)
+        let parsed = GitBranchOps.parseTrack(track)
+        return (parsed.ahead, parsed.behind)
     }
 
     // branch name → the worktree path it's checked out in, from

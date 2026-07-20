@@ -31,11 +31,21 @@ final class GitStatusMonitor {
     private(set) var stagedByPath: [String: Character] = [:]
     private(set) var unstagedByPath: [String: Character] = [:]
 
-    // Repo shape for the Files-tab footer: the checked-out branch (nil while
+    // Repo shape for the Files-tab header: the checked-out branch (nil while
     // detached), local branch count, and worktree count. Main-queue only.
     private(set) var currentBranch: String?
     private(set) var branchCount = 0
     private(set) var worktreeCount = 0
+
+    // The branch row's sync badge and the stash entries the actions menu
+    // offers to pop — both refreshed on the same pass as the shape above, so
+    // "↑2" and "Pop Stash (1)" are never staler than the branch name beside
+    // them. Main-queue only.
+    private(set) var sync: GitBranchOps.SyncState = .untracked
+    private(set) var stashCount = 0
+
+    // Whether anything is uncommitted right now — what gates Stash / Discard.
+    var hasLocalChanges: Bool { !statusByPath.isEmpty }
 
     private var gitDirStream: FSEventStreamRef?
     private var refreshDebounce: DispatchWorkItem?
@@ -70,6 +80,8 @@ final class GitStatusMonitor {
                 self.currentBranch = shape.branch
                 self.branchCount = shape.branches
                 self.worktreeCount = shape.worktrees
+                self.sync = shape.sync
+                self.stashCount = shape.stashes
                 var directories: Set<String> = []
                 for path in parsed.combined.keys {
                     var dir = (path as NSString).deletingLastPathComponent
@@ -129,9 +141,12 @@ final class GitStatusMonitor {
     // repo (no commits yet) still reports its branch; -q makes a detached HEAD
     // a quiet nil. for-each-ref and `worktree list --porcelain` are plumbing,
     // so their output is stable to count lines of.
-    private static func readRepoShape(root: String) -> (branch: String?, branches: Int, worktrees: Int) {
-        let branch = runProcess("/usr/bin/git", ["-C", root, "symbolic-ref", "--short", "-q", "HEAD"])?
+    private static func readRepoShape(
+        root: String
+    ) -> (branch: String?, branches: Int, worktrees: Int, sync: GitBranchOps.SyncState, stashes: Int) {
+        let rawBranch = runProcess("/usr/bin/git", ["-C", root, "symbolic-ref", "--short", "-q", "HEAD"])?
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let branch = rawBranch?.isEmpty == false ? rawBranch : nil
         let branches = runProcess("/usr/bin/git", ["-C", root, "for-each-ref", "--format=%(refname)", "refs/heads"])
             .map { $0.split(separator: "\n", omittingEmptySubsequences: true).count } ?? 0
         let worktrees = runProcess("/usr/bin/git", ["-C", root, "worktree", "list", "--porcelain"])
@@ -139,7 +154,30 @@ final class GitStatusMonitor {
                 output.split(separator: "\n", omittingEmptySubsequences: true)
                     .filter { $0.hasPrefix("worktree ") }.count
             } ?? 0
-        return (branch?.isEmpty == false ? branch : nil, branches, worktrees)
+        return (branch, branches, worktrees, readSync(root: root, branch: branch), readStashCount(root: root))
+    }
+
+    // The checked-out branch's position vs its upstream, from the same
+    // for-each-ref fields GitBranchList uses — one process, no rev-list, and
+    // no network (so the counts are only as fresh as the last fetch, which is
+    // exactly what the Fetch action in the menu is for).
+    private static func readSync(root: String, branch: String?) -> GitBranchOps.SyncState {
+        guard let branch else { return .untracked }
+        guard let output = runProcess("/usr/bin/git", [
+            "-C", root, "for-each-ref",
+            "--format=%(upstream:short)%09%(upstream:track,nobracket)",
+            "refs/heads/" + branch,
+        ])?.split(separator: "\n", omittingEmptySubsequences: true).first else { return .untracked }
+        let columns = String(output).components(separatedBy: "\t")
+        return GitBranchOps.syncState(
+            upstream: columns.first.flatMap { $0.isEmpty ? nil : $0 },
+            track: columns.count > 1 ? columns[1] : ""
+        )
+    }
+
+    private static func readStashCount(root: String) -> Int {
+        runProcess("/usr/bin/git", ["-C", root, "stash", "list"])
+            .map { $0.split(separator: "\n", omittingEmptySubsequences: true).count } ?? 0
     }
 
     // FileIndex deliberately ignores FSEvents under .git (see handleEvents
