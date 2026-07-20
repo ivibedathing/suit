@@ -183,6 +183,20 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         get { header.onCheckoutBranch }
         set { header.onCheckoutBranch = newValue }
     }
+    // Branch-row git actions: run one composed action, open the local↔upstream
+    // diff, or prompt for a new branch name.
+    var onBranchAction: ((_ root: String, _ action: GitBranchOps.Action) -> Void)? {
+        get { header.onBranchAction }
+        set { header.onBranchAction = newValue }
+    }
+    var onShowUpstreamDiff: ((_ root: String, _ branch: String) -> Void)? {
+        get { header.onShowUpstreamDiff }
+        set { header.onShowUpstreamDiff = newValue }
+    }
+    var onNewBranch: ((_ root: String) -> Void)? {
+        get { header.onNewBranch }
+        set { header.onNewBranch = newValue }
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -305,7 +319,10 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
                 root: gitMonitor.root,
                 branch: gitMonitor.currentBranch,
                 branches: gitMonitor.branchCount,
-                worktrees: gitMonitor.worktreeCount
+                worktrees: gitMonitor.worktreeCount,
+                sync: gitMonitor.sync,
+                hasLocalChanges: gitMonitor.hasLocalChanges,
+                stashCount: gitMonitor.stashCount
             )
         } else {
             header.updateBranch(root: nil, branch: nil, branches: 0, worktrees: 0)

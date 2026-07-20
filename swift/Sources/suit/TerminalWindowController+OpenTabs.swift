@@ -100,6 +100,26 @@ extension TerminalWindowController {
         }
     }
 
+    // The Files-tab sync badge: what separates this branch from the remote
+    // branch it tracks, in the window's diff tab. `upstream...branch` (three
+    // dots, see GitBranchOps) diffs against the merge base, so a branch that is
+    // both ahead and behind reads as "here is my work" rather than as a mess of
+    // reversed upstream commits. The upstream is re-read on every Refresh so a
+    // fetch that lands afterwards shows up.
+    func openUpstreamDiff(root: String, branch: String) {
+        let state = GitStatusMonitor.shared(forRoot: root).sync
+        guard let upstream = state.upstream else { NSSound.beep(); return }
+        let producer = {
+            runProcess("/usr/bin/git", ["-C", root] + GitBranchOps.upstreamDiffArguments(
+                branch: branch, upstream: upstream
+            )) ?? ""
+        }
+        let title = GitBranchOps.upstreamDiffTitle(branch: branch, state: state)
+        reuseOrCreateTab(DiffPaneContent()) { content in
+            content.loadDiffText(producer(), title: title, root: root, reload: producer)
+        }
+    }
+
     // Open a PR's diff for review: `gh pr diff <n>` into the
     // window's diff tab, tagged with the PR number so Submit Review knows where
     // to post. gh hits the network, so fetch off the main thread and show a
