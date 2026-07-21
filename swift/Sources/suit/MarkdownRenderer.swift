@@ -951,11 +951,24 @@ enum MarkdownRenderer {
         guard !name.isEmpty else { return nil }
         switch name {
         case "python": return .python
-        case "shell", "console", "sh", "bash", "zsh": return .shell
+        case "shell", "console", "sh", "bash", "zsh", "shell-session": return .shell
         case "javascript", "typescript", "ts", "js": return .javascript
         case "golang": return .go
         case "objective-c", "objc", "c++", "cpp": return .c
         case "markdown": return .markdown
+        case "rust": return .rust
+        case "ruby": return .ruby
+        case "csharp", "c#": return .csharp
+        case "kotlin": return .kotlin
+        case "elixir": return .elixir
+        case "haskell": return .haskell
+        case "powershell", "pwsh": return .powershell
+        case "terraform", "hcl": return .hcl
+        case "dockerfile", "docker": return .dockerfile
+        case "make": return .makefile
+        case "sass", "less": return .scss
+        case "svg", "xhtml": return .xml
+        case "protobuf": return .protobuf
         default: return CodeLanguage.detect(path: "fence.\(name)")
         }
     }
