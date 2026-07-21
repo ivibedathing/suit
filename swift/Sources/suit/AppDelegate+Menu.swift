@@ -85,6 +85,33 @@ extension AppDelegate {
         let toggleBookmarkItem = editMenu.addItem(withTitle: "Toggle Bookmark", action: #selector(toggleBookmark(_:)), keyEquivalent: "l")
         toggleBookmarkItem.keyEquivalentModifierMask = [.command, .shift]
 
+        editMenu.addItem(.separator())
+
+        // Code-editing commands, all responder-routed to the focused viewer so
+        // they grey out in a terminal. Tab / ⇧Tab over a multi-line selection do
+        // the same indenting without a menu trip; these exist for discovery and
+        // for the caret-only case.
+        editMenu.addItem(withTitle: "Toggle Comment", action: #selector(ViewerTextView.toggleLineComment(_:)), keyEquivalent: "/")
+
+        // ⌘] / ⌘[ are the window's opacity controls, so indenting takes the
+        // control-flavoured pair rather than stealing them.
+        let indentItem = editMenu.addItem(withTitle: "Indent", action: #selector(ViewerTextView.indentSelection(_:)), keyEquivalent: "]")
+        indentItem.keyEquivalentModifierMask = [.command, .control]
+
+        let outdentItem = editMenu.addItem(withTitle: "Outdent", action: #selector(ViewerTextView.outdentSelection(_:)), keyEquivalent: "[")
+        outdentItem.keyEquivalentModifierMask = [.command, .control]
+
+        // ⌘D is Split Screen in this app and has been since long before any of
+        // this existed, so add-next-occurrence can't have it. Nor can ⌥⌘D, the
+        // obvious second choice: that's the system-wide "Turn Dock Hiding
+        // On/Off", enabled by default, so the keystroke would toggle the Dock
+        // and never reach us. ⌃⌘E / ⌃⌘G are free in both places.
+        let nextOccurrenceItem = editMenu.addItem(withTitle: "Select Next Occurrence", action: #selector(ViewerTextView.selectNextOccurrence(_:)), keyEquivalent: "e")
+        nextOccurrenceItem.keyEquivalentModifierMask = [.command, .control]
+
+        let allOccurrencesItem = editMenu.addItem(withTitle: "Select All Occurrences", action: #selector(ViewerTextView.selectAllOccurrences(_:)), keyEquivalent: "g")
+        allOccurrencesItem.keyEquivalentModifierMask = [.command, .control]
+
         editMenuItem.submenu = editMenu
 
         // The Tabs menu (browser-tab model): one tab list per window owns every
@@ -301,6 +328,40 @@ extension AppDelegate {
 
         let findReferencesItem = viewMenu.addItem(withTitle: "Find References", action: #selector(ViewerTextView.findReferences(_:)), keyEquivalent: "r")
         findReferencesItem.keyEquivalentModifierMask = [.command, .control]
+
+        // Peek reads the definition in place; ⌥⌘J deliberately shadows ⌃⌘J's
+        // shape so the pair reads as "look" vs. "go".
+        let peekItem = viewMenu.addItem(withTitle: "Peek Definition", action: #selector(ViewerTextView.peekDefinition(_:)), keyEquivalent: "j")
+        peekItem.keyEquivalentModifierMask = [.command, .option]
+
+        // ⇧⌘O is Show Fleet, so the in-file symbol picker takes ⌃⌘O.
+        let symbolItem = viewMenu.addItem(withTitle: "Go to Symbol in File…", action: #selector(ViewerTextView.goToSymbolInFile(_:)), keyEquivalent: "o")
+        symbolItem.keyEquivalentModifierMask = [.command, .control]
+
+        // Retrace symbol jumps. Window-scoped, so these live on the controller
+        // rather than the responder chain.
+        let backItem = viewMenu.addItem(withTitle: "Navigate Back", action: #selector(navigateBack(_:)), keyEquivalent: "-")
+        backItem.keyEquivalentModifierMask = [.control]
+        backItem.target = self
+
+        let forwardItem = viewMenu.addItem(withTitle: "Navigate Forward", action: #selector(navigateForward(_:)), keyEquivalent: "-")
+        forwardItem.keyEquivalentModifierMask = [.control, .shift]
+        forwardItem.target = self
+
+        viewMenu.addItem(.separator())
+
+        // Folding — the Xcode/VS Code pair, and free here.
+        let foldItem = viewMenu.addItem(withTitle: "Fold Block", action: #selector(ViewerTextView.foldBlock(_:)), keyEquivalent: "[")
+        foldItem.keyEquivalentModifierMask = [.command, .option]
+
+        let unfoldItem = viewMenu.addItem(withTitle: "Unfold Block", action: #selector(ViewerTextView.unfoldBlock(_:)), keyEquivalent: "]")
+        unfoldItem.keyEquivalentModifierMask = [.command, .option]
+
+        let foldAllItem = viewMenu.addItem(withTitle: "Fold All", action: #selector(ViewerTextView.foldAllBlocks(_:)), keyEquivalent: "0")
+        foldAllItem.keyEquivalentModifierMask = [.command, .option]
+
+        let unfoldAllItem = viewMenu.addItem(withTitle: "Unfold All", action: #selector(ViewerTextView.unfoldAllBlocks(_:)), keyEquivalent: "0")
+        unfoldAllItem.keyEquivalentModifierMask = [.command, .option, .shift]
 
         viewMenu.addItem(.separator())
 

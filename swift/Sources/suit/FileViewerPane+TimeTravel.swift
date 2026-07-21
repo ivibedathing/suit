@@ -110,6 +110,15 @@ extension FileViewerPaneContent {
         textView.string = text
         isLoadingProgrammatically = false
         textView.undoManager?.removeAllActions()
+        // Every scrub replaces the whole buffer, so any fold still held from the
+        // working-tree view would hide character ranges belonging to a different
+        // revision. Drop them outright rather than re-parsing on each slider
+        // step: a historical revision is a read-only glance, and re-deriving
+        // regions for every position of the scrubber would cost far more than
+        // folding an old revision is worth.
+        foldedStarts = []
+        foldRegions = []
+        applyFolds()
         recomputeLineStarts(for: text)
         ruler.lineStarts = lineStarts
         ruler.updateThickness()

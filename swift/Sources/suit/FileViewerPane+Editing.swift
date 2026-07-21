@@ -39,11 +39,15 @@ extension FileViewerPaneContent: NSTextViewDelegate {
     }
 
     // Re-colour after a short typing pause rather than on every keystroke; the
-    // scan itself still runs off-main inside rehighlight().
+    // scan itself still runs off-main inside rehighlight(). Fold regions ride
+    // the same debounce — re-parsing the block structure of a file being typed
+    // into is both expensive and pointless, and folding mid-keystroke would make
+    // the gutter twitch.
     private func scheduleRehighlight() {
         rehighlightTimer?.invalidate()
         rehighlightTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: false) { [weak self] _ in
             self?.rehighlight()
+            self?.refreshFoldRegions()
         }
     }
 
@@ -199,6 +203,12 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         recomputeLineStarts(for: text)
         ruler.lineStarts = lineStarts
         ruler.updateThickness()
+        // Folds are character ranges into the buffer we just replaced. Leaving
+        // them alone would apply the *old* ranges to the *new* text and hide
+        // arbitrary wrong lines — and this is the path Claude rewriting an open
+        // file takes, so it is the common case, not the corner one. Re-deriving
+        // regions here also prunes any fold whose block the rewrite removed.
+        refreshFoldRegions()
         ruler.needsDisplay = true
         let wasDirty = editState.isDirty
         editState.markLoaded(text)

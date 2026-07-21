@@ -227,21 +227,96 @@ extension AppDelegate {
     }
 
     // Multi-definition picker: several definitions of one
-    // symbol reuse the palette in explicit-items mode (the Cmd-P trick), each
-    // row `file:line` with the ctags kind, jumping straight to the chosen one.
-    func showDefinitionPicker(symbol: String, definitions: [SymbolDefinition], root: String, controller: TerminalWindowController) {
+    // symbol reuse the palette in explicit-items mode (the Cmd-P trick),
+    // jumping straight to the chosen one.
+    //
+    // Each row carries a kind glyph, `file:line`, and the *source line itself* —
+    // because "3 definitions of `load`" is unanswerable from paths alone, and
+    // reading `func load(path: String)` next to `func load(data: Data)` is the
+    // whole decision. Definitions in the directory the jump came from sort
+    // first, since a symbol used here is usually defined here.
+    func showDefinitionPicker(
+        symbol: String,
+        definitions: [SymbolDefinition],
+        root: String,
+        preferringDirectory: String?,
+        controller: TerminalWindowController
+    ) {
         paletteFileIndex = nil
+
+        let preferred = preferringDirectory.map { directory -> String in
+            let prefix = root.hasSuffix("/") ? root : root + "/"
+            return directory.hasPrefix(prefix) ? String(directory.dropFirst(prefix.count)) : directory
+        }
+        let ranked = definitions.sorted { a, b in
+            let aNear = preferred.map { (a.relativePath as NSString).deletingLastPathComponent == $0 } ?? false
+            let bNear = preferred.map { (b.relativePath as NSString).deletingLastPathComponent == $0 } ?? false
+            if aNear != bNear { return aNear }
+            return a.relativePath < b.relativePath
+        }
+
         commandPalette.show(
             relativeTo: controller.window,
-            commands: definitions.map { definition in
-                let kind = definition.kind.map { " · \($0)" } ?? ""
-                let title = "\(definition.relativePath):\(definition.lineNumber)\(kind)"
-                return PaletteCommand(title: title, shortcut: nil) { [weak controller] in
+            commands: ranked.map { definition in
+                let glyph = OutlineEntry(name: definition.name, kind: definition.kind,
+                                         line: definition.lineNumber, depth: 0).symbol
+                let source = Self.sourceLine(ofFile: root + "/" + definition.relativePath,
+                                             line: definition.lineNumber)
+                let context = source.map { "   \($0)" } ?? ""
+                let title = "\(glyph)  \(definition.relativePath):\(definition.lineNumber)\(context)"
+                return PaletteCommand(title: title, shortcut: definition.kind) { [weak controller] in
                     controller?.openDefinition(definition, root: root)
                 }
             },
             placeholder: "Go to definition of \(symbol)…"
         )
+    }
+
+    // One line of a file, trimmed and clipped to something that fits a palette
+    // row. Only ever called for the handful of rows a picker is showing.
+    private static func sourceLine(ofFile path: String, line: Int) -> String? {
+        guard let data = FileManager.default.contents(atPath: path),
+              data.count <= 4 * 1024 * 1024,
+              let text = String(bytes: data, encoding: .utf8) else { return nil }
+        let lines = text.components(separatedBy: "\n")
+        guard lines.indices.contains(line - 1) else { return nil }
+        let trimmed = lines[line - 1].trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        return trimmed.count > 80 ? String(trimmed.prefix(79)) + "…" : trimmed
+    }
+
+    // The ⌃⌘O outline picker: this file’s symbols, indented by nesting depth so
+    // the shape of the file survives the flattening into a list.
+    func showSymbolOutlinePicker(
+        entries: [OutlineEntry],
+        relativeTo window: NSWindow?,
+        jump: @escaping (Int) -> Void
+    ) {
+        paletteFileIndex = nil
+        commandPalette.show(
+            relativeTo: window,
+            commands: entries.map { entry in
+                let indent = String(repeating: "  ", count: min(entry.depth, 6))
+                return PaletteCommand(title: "\(indent)\(entry.symbol)  \(entry.name)",
+                                      shortcut: "\(entry.line)") {
+                    jump(entry.line)
+                }
+            },
+            placeholder: "Go to symbol in file…"
+        )
+    }
+
+    // MARK: - Navigation history (⌃- / ⌃⇧-)
+
+    // Window-scoped, so these route to the active controller rather than down
+    // the responder chain: the history belongs to the window, not to whichever
+    // viewer happens to be focused inside it.
+    @objc func navigateBack(_ sender: Any?) {
+        activeWindowController()?.navigateBack()
+    }
+
+    @objc func navigateForward(_ sender: Any?) {
+        activeWindowController()?.navigateForward()
     }
 
     // MARK: - Fuzzy file opener (Cmd-P)

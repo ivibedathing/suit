@@ -32,6 +32,25 @@ extension FileViewerPaneContent {
         return SymbolIndexCore.identifier(in: lineText, atUTF16Offset: column)
     }
 
+    // The document range of the identifier straddling an offset — what ⌘-hover
+    // underlines. symbol(atCharacterOffset:) answers *which* identifier; this
+    // answers *where* it is, so the affordance lights up exactly the text the
+    // click would act on.
+    func symbolRange(atCharacterOffset offset: Int) -> NSRange? {
+        guard let (lineText, column) = lineAndColumn(forCharacterAt: offset),
+              let identifier = SymbolIndexCore.identifier(in: lineText, atUTF16Offset: column),
+              let local = EditorOps.wordRange(in: lineText, at: column) else { return nil }
+        // Re-derive the line's document start from the offset and its column
+        // rather than threading it out of lineAndColumn.
+        let lineStart = offset - column
+        let range = NSRange(location: lineStart + local.location, length: local.length)
+        // The two resolvers must agree, or the underline would sit on different
+        // text than the jump acts on.
+        let ns = textView.string as NSString
+        guard NSMaxRange(range) <= ns.length, ns.substring(with: range) == identifier else { return nil }
+        return range
+    }
+
     // Cmd-click entry point: resolve + navigate, returning whether an identifier
     // was found so ViewerTextView knows to swallow the click (vs. fall through
     // to normal selection).
