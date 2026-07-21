@@ -40,8 +40,11 @@ enum EditorLanguage {
         // auto-indent behave, not to name every language the highlighter knows
         // (SyntaxLanguages.swift does that). `.c` is the `//` + braces shape,
         // `.shell` is `#`, `.sql` is `--`.
+        // Plain CSS is deliberately absent: it has no line comment, so ⌘/ must
+        // no-op rather than insert an invalid `//` (the same reason JSON maps to
+        // a nil comment token). SCSS/Less/Sass do have `//`.
         case "rs", "java", "kt", "kts", "cs", "php", "dart", "scala", "sbt",
-             "zig", "groovy", "gradle", "proto", "css", "scss", "less", "sass":
+             "zig", "groovy", "gradle", "proto", "scss", "less", "sass":
             return .c
         case "toml", "ini", "cfg", "conf", "properties", "tf", "tfvars", "hcl",
              "ex", "exs", "ps1", "psm1", "mk", "pl", "pm", "graphql", "gql", "r":
