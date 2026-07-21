@@ -52,9 +52,14 @@ open build/Suit.app               # launch like a normal Mac app
 To iterate without assembling the bundle:
 
 ```
-swiftc -O swift/Sources/suit/*.swift \
+swiftc -O -j $(sysctl -n hw.ncpu) swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell-$TASK && /tmp/suit-shell-$TASK
 ```
+
+**Always pass `-j`.** `swiftc` plans one frontend job per file (253 here) and runs them *serially*
+by default — ~3 minutes on one core with ten idle. `-j` drops that to ~30 s and changes nothing but
+scheduling. Add `-Onone` (~16 s) when you only need a running binary, not a fast one; it's the
+wrong build for judging scroll smoothness or anything perf-shaped.
 
 **No SwiftPM, no Xcode project.** This machine runs a beta Xcode CLT (no full Xcode.app) on
 which `swift build` / `swift package` fail to link even an empty manifest; plain `swiftc` is
@@ -69,7 +74,7 @@ the relevant Foundation-only file(s) against a small assertion driver and runs i
 
 ```
 scripts/test.sh                   # fast suite, ~seconds
-scripts/test.sh --all             # + the autopilot pipeline harness (~4 min)
+scripts/test.sh --all             # + the autopilot pipeline harness (~2 min)
 scripts/test.sh --list            # list the harnesses
 ```
 

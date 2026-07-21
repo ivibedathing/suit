@@ -18,7 +18,20 @@ rm -rf "$APP"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 
 echo "==> Building Swift shell"
-swiftc -O \
+# -j is a 6x speedup (~3 min -> ~30 s), not a tuning knob. swiftc plans one
+# frontend job per file — 253 of them for this module — and swift-driver runs
+# them strictly serially by default, one core busy and ten idle. -j runs that
+# same job plan in parallel, so the emitted code is byte-for-byte what a plain
+# -O build produced; only the scheduling changed.
+#
+# The alternative, -wmo -num-threads N, lands at ~50 s instead of ~30 s but uses
+# a third of the total CPU (140% vs 765%) and yields a smaller binary, since it
+# type-checks the module once and optimizes across files. It was measured and
+# deliberately not chosen: -wmo is a different codegen mode than every binary
+# shipped to date, and -j buys most of the win with none of that risk. Revisit
+# if concurrent agent builds start starving each other on this machine.
+JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+swiftc -O -j "$JOBS" \
   "$ROOT"/swift/Sources/suit/*.swift \
   $(find "$ROOT/swift/Vendor/SwiftTerm" -name '*.swift') \
   -o "$CONTENTS/MacOS/Suit"

@@ -13,7 +13,7 @@
 #                             #  recipes, file-edit, file-watch, activity, pr-review,
 #                             #  diffparser, layouts, file-time-travel, budget,
 #                             #  command-history), ~seconds
-#   scripts/test.sh --all     # also runs the autopilot pipeline harness (~4 min)
+#   scripts/test.sh --all     # also runs the autopilot pipeline harness (~2 min)
 #   scripts/test.sh --list    # list the harnesses and exit
 #   scripts/test.sh -h        # this help
 #
