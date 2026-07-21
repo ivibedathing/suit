@@ -76,6 +76,11 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
     // text storage, so the re-render behind a theme or font change — which
     // rebuilds the storage from the same source — preserves expansion for free.
     private var flippedDetails: Set<Int> = []
+    // Live reload: a README being rewritten under an open tab re-renders in
+    // place. The stamp filters the event bursts a generator produces down to the
+    // writes that actually changed something.
+    private var fileWatcher: FileWatcher?
+    private var fileStamp: FileStamp?
     // Block-based on purpose: a target/selector timer would retain the pane and
     // make teardown() the only thing between us and leaking it.
     private var animationTimer: Timer?
@@ -150,13 +155,35 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
         // source changes.
         if standardized != filePath { flippedDetails.removeAll() }
         filePath = standardized
-        if let data = FileManager.default.contents(atPath: standardized) {
-            source = String(decoding: data, as: UTF8.self)
-        } else {
-            source = "Could not read \(standardized)."
-        }
+        readSource(standardized)
         rerender()
         tab?.contentTitleDidChange((standardized as NSString).lastPathComponent)
+
+        fileWatcher?.stop()
+        fileWatcher = FileWatcher(path: standardized) { [weak self] in
+            self?.reloadFromDisk()
+        }
+    }
+
+    private func readSource(_ path: String) {
+        fileStamp = FileStamp(path: path)
+        if let data = FileManager.default.contents(atPath: path) {
+            source = String(decoding: data, as: UTF8.self)
+        } else {
+            source = "Could not read \(path)."
+        }
+    }
+
+    // The file changed underneath the open tab. Nothing here is editable, so
+    // there's never a conflict to resolve — re-read and re-render, holding the
+    // scroll position and the `<details>` toggles so a reader mid-document isn't
+    // thrown back to the top by someone else's write.
+    private func reloadFromDisk() {
+        guard let filePath, FileStamp.changed(from: fileStamp, to: FileStamp(path: filePath)) else { return }
+        let fraction = scrollFraction
+        readSource(filePath)
+        rerender()
+        restore(scrollFraction: fraction)
     }
 
     @objc private func modeChanged(_ sender: Any?) {
@@ -423,6 +450,8 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
 
     func teardown() {
         NotificationCenter.default.removeObserver(self)
+        fileWatcher?.stop()
+        fileWatcher = nil
         stopAnimation()
     }
 }

@@ -18,6 +18,10 @@ final class PDFPaneContent: NSObject, FileBackedPaneContent {
 
     private(set) var filePath: String?
     private var background = Theme.terminalBg
+    // Live reload: a spec re-exported, or a LaTeX/typst build rewriting its
+    // output, refreshes the open tab on the page the reader is already on.
+    private var fileWatcher: FileWatcher?
+    private var fileStamp: FileStamp?
 
     var view: NSView { containerView }
     var focusTarget: NSView { pdfView }
@@ -57,6 +61,19 @@ final class PDFPaneContent: NSObject, FileBackedPaneContent {
     func load(path: String, line: Int?) {
         let standardized = (path as NSString).standardizingPath
         filePath = standardized
+        readDocument(standardized)
+        tab?.contentTitleDidChange((standardized as NSString).lastPathComponent)
+
+        fileWatcher?.stop()
+        fileWatcher = FileWatcher(path: standardized) { [weak self] in
+            self?.reloadFromDisk()
+        }
+    }
+
+    // Re-reading a PDF replaces the document wholesale, which resets the view to
+    // page one — so callers that reload in place restore the page themselves.
+    private func readDocument(_ standardized: String) {
+        fileStamp = FileStamp(path: standardized)
         if let document = PDFDocument(url: URL(fileURLWithPath: standardized)) {
             pdfView.document = document
             pdfView.isHidden = false
@@ -69,7 +86,16 @@ final class PDFPaneContent: NSObject, FileBackedPaneContent {
             statusLabel.stringValue = "Could not open PDF."
             statusLabel.isHidden = false
         }
-        tab?.contentTitleDidChange((standardized as NSString).lastPathComponent)
+    }
+
+    private func reloadFromDisk() {
+        guard let filePath, FileStamp.changed(from: fileStamp, to: FileStamp(path: filePath)) else { return }
+        // Hold the reader's place across the swap. A rebuilt document that grew
+        // or shrank may not have that page any more — restore(pageIndex:) is
+        // already bounds-checked, so it just stays on page one in that case.
+        let page = currentPageIndex
+        readDocument(filePath)
+        restore(pageIndex: page)
     }
 
     @objc private func layoutContents() {
@@ -108,5 +134,7 @@ final class PDFPaneContent: NSObject, FileBackedPaneContent {
 
     func teardown() {
         NotificationCenter.default.removeObserver(self)
+        fileWatcher?.stop()
+        fileWatcher = nil
     }
 }

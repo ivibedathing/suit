@@ -40,6 +40,16 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     // Set while we assign textView.string ourselves, so a programmatic reload
     // is never mistaken for a user edit.
     var isLoadingProgrammatically = false
+    // Live watch on the open file, so a rewrite by Claude / $EDITOR / a branch
+    // switch lands in the tab as it happens rather than at the next app
+    // activation. Re-created per load(); the reconcile it triggers is the same
+    // one appBecameActive runs.
+    var fileWatcher: FileWatcher?
+    // True while the "changed on disk" conflict sheet is up. A live watcher can
+    // fire again while the user is still deciding — without this, a file being
+    // rewritten repeatedly would stack a sheet per write on top of the one
+    // that's already asking about the same conflict.
+    var isPresentingExternalConflict = false
 
     // MARK: - Find
 
@@ -215,6 +225,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         savedModificationDate = modificationDate(ofPath: standardized)
         autosaveTimer?.invalidate(); autosaveTimer = nil
         rehighlightTimer?.invalidate(); rehighlightTimer = nil
+        startWatchingFile(standardized)
 
         isLoadingProgrammatically = true
         textView.string = text
@@ -447,6 +458,8 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     func teardown() {
         autosaveTimer?.invalidate()
         rehighlightTimer?.invalidate()
+        fileWatcher?.stop()
+        fileWatcher = nil
         NotificationCenter.default.removeObserver(self)
     }
 }
