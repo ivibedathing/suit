@@ -71,8 +71,9 @@ app does.
   the icon of the tab you're already on collapses the sidebar again (as ⌘B does).
 - **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. The
   Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
-  search / choose-folder / unpin actions, and, inside a repo, a branch-switcher row with the
-  repo's branch/worktree counts — and gives the rest of the tab to the tree. The tree is
+  search / choose-folder / unpin actions, and, inside a repo, a branch row carrying the branch
+  switcher, the upstream sync badge and the git actions menu — and gives the rest of the tab to
+  the tree. The tree is
   gitignore-consistent with the file index, shows sub-project badges (`go.mod`, `package.json`,
   …) and git status letters, and can be pinned to any folder. Hidden folders and dotfiles
   (`.claude`, `.github`, `.gitignore`) are shown like any other row — inside a repo because
@@ -203,13 +204,38 @@ app does.
   to Session…** (also in the palette) pipes the whole batch into a chosen Claude session as one
   structured prompt, then clears the draft. Comments persist across restarts with the diff tab.
 - **Branch / worktree switcher** — the Files tab header's branch row shows the checked-out branch
-  with a branch/worktree count; click the branch name to drop a switcher menu of the repo's
+  (hover it for the repo's branch/worktree counts); click the branch name to drop a switcher menu
+  of the repo's
   **worktrees** (pick one to repoint the whole sidebar there) and **local branches** (pick one to
   check it out). Picking a worktree also **walks the open terminals over** to it: every visible
   shell sitting idle at a prompt inside the repo's worktree tree gets `cd`'d to the matching spot
   under the new worktree (same relative subpath when it exists there, otherwise the worktree root),
   so the terminal you're looking at actually lands on the new branch. Terminals mid-job (running
   `claude`, a build, `vim`) are left alone.
+- **Branch git actions** — the same branch row ends in a **⋯** menu that runs the everyday git
+  commands against the shown repo, without dropping to a terminal: **Fetch** (with `--prune`),
+  **Pull** (fast-forward only, so a diverged branch fails loudly instead of quietly merging),
+  **Pull (Rebase)**, **Push** — or **Publish Branch** when the branch has no upstream yet —
+  **Stash Changes** (untracked files included), **Pop Stash (N)**, **Discard All Changes…**,
+  **New Branch…** and **Delete Branch ▸**. Entries that couldn't succeed are disabled rather than
+  hidden (Stash with a clean tree, Pop with an empty stash), and the delete submenu only lists
+  branches git would actually let go — never the checked-out one, never one another worktree
+  holds. Everything runs off the main thread, so a slow fetch never freezes the window, and the
+  branch row repaints as soon as it lands.
+- **The destructive ones ask first** — **Discard All Changes** (`reset --hard` + `clean -fd`) and
+  force-deleting an unmerged branch put up a confirmation naming what's about to be lost. The
+  confirm button gives up its Return key, so a reflexive Return does nothing and the only way
+  through is to click it; **Esc** cancels. Nothing in the
+  menu force-pushes or rewrites pushed history. Deleting an unmerged branch fails safely first
+  and *then* offers to force it, so the warning appears exactly when it's true. New branch names
+  are checked against git's ref rules before a process is spent on them.
+- **Diff vs the remote** — when the branch is ahead of or behind its upstream, the branch row
+  shows an amber **↑2 ↓1** badge (**gone** in red when the remote branch was deleted, **no
+  remote** when it was never pushed). Click it — or **Diff vs origin/…** in the ⋯ menu — to open
+  the local↔remote diff in the window's diff tab, with the full review surface (comments, ⌘F,
+  Refresh) available on it. The diff is taken against the merge base (`origin/main...main`), so a
+  branch that's both ahead and behind reads as *your work* rather than as reversed upstream
+  commits. The counts come from the last fetch, not the network — **Fetch** refreshes them.
 - **Git surface** — the git review surface has no activity-bar icon; reach it with
   **Show Git** in the command palette. It shows staged / changed files (click to open the scoped
   diff) and, below them, a **Branches** list: every local branch with its ahead/behind vs
