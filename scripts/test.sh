@@ -30,6 +30,8 @@ HARNESSES=(
   "file-edit|scripts/file-edit-test.sh|fast"
   "file-watch|scripts/file-watch-test.sh|fast"
   "find-replace|scripts/find-replace-test.sh|fast"
+  "editor-ops|scripts/editor-ops-test.sh|fast"
+  "editor-nav|scripts/editor-nav-test.sh|fast"
   "activity|scripts/activity-test.sh|fast"
   "pr-review|scripts/pr-review-test.sh|fast"
   "diffparser|scripts/diffparser-test.sh|fast"
