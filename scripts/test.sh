@@ -33,6 +33,7 @@ HARNESSES=(
   "activity|scripts/activity-test.sh|fast"
   "pr-review|scripts/pr-review-test.sh|fast"
   "diffparser|scripts/diffparser-test.sh|fast"
+  "git-branch-ops|scripts/git-branch-ops-test.sh|fast"
   "storefile|scripts/storefile-test.sh|fast"
   "layouts|scripts/layouts-test.sh|fast"
   "file-time-travel|scripts/file-time-travel-test.sh|fast"
@@ -46,6 +47,7 @@ HARNESSES=(
   "themes|scripts/test-themes.sh|fast"
   "notification-sound|scripts/notification-sound-test.sh|fast"
   "update-check|scripts/update-check-test.sh|fast"
+  "file-index|scripts/file-index-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 
