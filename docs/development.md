@@ -19,16 +19,22 @@ To iterate on the UI without assembling the bundle, compile the Swift sources st
 binary:
 
 ```sh
-swiftc -O swift/Sources/suit/*.swift \
+swiftc -O -j $(sysctl -n hw.ncpu) swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell && /tmp/suit-shell
 ```
+
+`-j` is not optional in practice. `swiftc` compiles this module as one frontend job per file — 253
+of them — and runs them serially unless told otherwise, which is why an unparallelized build takes
+about three minutes with a single core busy. With `-j` it's ~30 s, and the emitted code is
+identical; only the scheduling changes. Adding `-Onone` gets you to ~16 s when you just need a
+binary that runs.
 
 ## Testing
 
 There is no XCTest target; the pure, UI-free logic is covered by standalone harnesses — each
 compiles the relevant Foundation-only source file(s) against a small assertion driver and runs
 it. Run them all with `scripts/test.sh` (fast suite) or `scripts/test.sh --all` (includes the
-~4-minute Autopilot pipeline harness) — see the "Testing" section in `CLAUDE.md`.
+~2-minute Autopilot pipeline harness) — see the "Testing" section in `CLAUDE.md`.
 
 UI/chrome changes are guarded by the committed reference render instead: re-run
 `design/render-reference.sh` after chrome edits so visual drift shows up in review diffs.

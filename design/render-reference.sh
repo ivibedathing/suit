@@ -4,7 +4,9 @@
 # chrome change and commit the PNG so drift shows up in review diffs.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-swiftc -O $(ls swift/Sources/suit/*.swift | grep -v '/main.swift$') \
+# -j: swiftc runs its per-file frontend jobs serially by default — see build.sh.
+swiftc -O -j "$(sysctl -n hw.ncpu 2>/dev/null || echo 4)" \
+  $(ls swift/Sources/suit/*.swift | grep -v '/main.swift$') \
   design/reference/main.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') \
   -o /tmp/suit-design-reference

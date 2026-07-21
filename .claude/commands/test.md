@@ -11,7 +11,7 @@ app-independent cores compiled against small assertion drivers (no app, no UI).
 There is no XCTest target; these harnesses are the automated tests.
 
 - No arguments → the fast suite (feedback-routing + mode-plan, ~seconds).
-- `--all` → also runs the autopilot pipeline harness (~4 minutes).
+- `--all` → also runs the autopilot pipeline harness (~2 minutes).
 - `--list` → list the harnesses without running.
 
 If a harness fails, show its failing assertions and fix the underlying logic —

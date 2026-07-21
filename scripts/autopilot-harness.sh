@@ -30,7 +30,7 @@
 #
 # Re-runnable: everything lives under a fresh mktemp dir, removed on success
 # and kept (path printed) on failure. Prints PASS/FAIL per assertion and
-# exits nonzero on any FAIL. Takes ~4 minutes: ~2 for swiftc, ~2 for the
+# exits nonzero on any FAIL. Takes ~2.5 minutes: ~30 s for swiftc, ~2 for the
 # pipeline itself (the engine's own ≥30 s verification pacing is real).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -309,8 +309,10 @@ chmod +x "$FAKEBIN/claude" "$FAKEBIN/gh"
 
 # --------------------------------------------------------------------- driver
 
-echo "[harness] compiling the driver (swiftc, ~2 min)…"
-swiftc -O $(ls swift/Sources/suit/*.swift | grep -v '/main.swift$') \
+echo "[harness] compiling the driver (swiftc, ~30 s)…"
+# -j: swiftc runs its per-file frontend jobs serially by default — see build.sh.
+swiftc -O -j "$(sysctl -n hw.ncpu 2>/dev/null || echo 4)" \
+  $(ls swift/Sources/suit/*.swift | grep -v '/main.swift$') \
   scripts/autopilot-harness/main.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') \
   -o "$DRIVER"
