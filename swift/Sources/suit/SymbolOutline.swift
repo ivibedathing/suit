@@ -1,6 +1,6 @@
 import Foundation
 
-// The UI-free core behind the file's symbol outline (⇧⌘O) and the breadcrumb
+// The UI-free core behind the file’s symbol outline (⌃⌘O) and the breadcrumb
 // above the text. Foundation-only, compiled standalone by
 // scripts/editor-nav-test.sh alongside SymbolIndexCore and NavigationHistory.
 //

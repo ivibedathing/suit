@@ -285,7 +285,7 @@ extension AppDelegate {
         return trimmed.count > 80 ? String(trimmed.prefix(79)) + "…" : trimmed
     }
 
-    // The ⇧⌘O outline picker: this file's symbols, indented by nesting depth so
+    // The ⌃⌘O outline picker: this file’s symbols, indented by nesting depth so
     // the shape of the file survives the flattening into a list.
     func showSymbolOutlinePicker(
         entries: [OutlineEntry],

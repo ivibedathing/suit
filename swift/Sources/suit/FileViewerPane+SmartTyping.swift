@@ -2,7 +2,7 @@ import Cocoa
 
 // The typing intelligence the viewer gained when it stopped being read-only:
 // auto-indent on Return, bracket/quote auto-close (with skip-over, wrap-selection
-// and pair-delete), indent/outdent (⌘] / ⌘[) and comment toggling (⌘/).
+// and pair-delete), indent/outdent (⌃⌘] / ⌃⌘[) and comment toggling (⌘/).
 //
 // Every decision here is made by EditorOps, which is Foundation-only and
 // harness-tested; this file's job is strictly to ask the right question, route

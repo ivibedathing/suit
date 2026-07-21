@@ -80,7 +80,7 @@ final class ViewerTextView: NSTextView {
         viewerContent?.peekDefinitionAtCaret()
     }
 
-    // ⇧⌘O — the current file's symbols as a picker.
+    // ⌃⌘O — the current file’s symbols as a picker.
     @objc func goToSymbolInFile(_ sender: Any?) {
         viewerContent?.showSymbolOutline()
     }

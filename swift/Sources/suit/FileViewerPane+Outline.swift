@@ -1,6 +1,6 @@
 import Cocoa
 
-// The file's symbol outline: ⇧⌘O to jump to a symbol in this file, and the
+// The file’s symbol outline: ⌃⌘O to jump to a symbol in this file, and the
 // breadcrumb strip above the text showing which symbol the caret is inside.
 // Both read the same OutlineEntry list, built by SymbolOutline (pure,
 // harness-tested) from the ctags index go-to-definition already maintains — so
@@ -43,7 +43,7 @@ extension FileViewerPaneContent {
         return path.hasPrefix(prefix) ? String(path.dropFirst(prefix.count)) : path
     }
 
-    // MARK: - ⇧⌘O
+    // MARK: - ⌃⌘O
 
     func showSymbolOutline() {
         guard !outlineEntries.isEmpty else {

@@ -135,7 +135,15 @@ or the command palette (which also offers **Rename Layout…** and **Delete Layo
 | ⌘L | Go to line (file viewer) |
 | ⇧⌘L | Toggle bookmark on the current line (file viewer) |
 | ⌃⌘J | Go to definition (file viewer; also Cmd-click) |
+| ⌥⌘J | Peek definition inline (file viewer; also ⌥⌘-click) |
 | ⌃⌘R | Find references (file viewer) |
+| ⌃⌘O | Go to symbol in this file (file viewer) |
+| ⌃- / ⌃⇧- | Navigate back / forward through jumps |
+| ⌘/ | Toggle comment (file viewer) |
+| ⌃⌘] / ⌃⌘[ | Indent / outdent (file viewer) |
+| ⌥⌘D / ⇧⌥⌘D | Select next / all occurrences (multi-cursor) |
+| ⌥⌘[ / ⌥⌘] | Fold / unfold block (file viewer) |
+| ⌥⌘0 / ⇧⌥⌘0 | Fold / unfold all (file viewer) |
 
 ### Git & Claude
 

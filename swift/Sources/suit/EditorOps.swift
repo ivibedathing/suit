@@ -271,7 +271,7 @@ enum EditorOps {
         c.isLetter || c.isNumber || c == "_"
     }
 
-    // MARK: - Indent / outdent (⌘] / ⌘[)
+    // MARK: - Indent / outdent (⌃⌘] / ⌃⌘[)
 
     // A whole-line rewrite: the new text for each touched line, plus how much
     // the first and last line shifted so the caller can keep the selection

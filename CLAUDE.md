@@ -138,7 +138,13 @@ Everything is in `swift/Sources/suit/` unless noted.
   `RipgrepSearch.swift` (bundled `rg --json`), `Favorites.swift`, `Notes.swift`,
   `Bookmarks.swift`, `SSHHosts.swift` / `SSHPane.swift` / `SSHHostsView.swift`.
 - **Viewer & editing**: `FileViewerPane.swift` (+ `Editing`, `Symbols`, `TimeTravel`,
-  `Highlighting`, `Blame`), `ViewerContainerView.swift`, `ViewerTextView.swift`,
+  `Highlighting`, `Blame`, `SmartTyping`, `MultiCursor`, `Folding`, `Outline`, `Peek`),
+  `EditorOps.swift` (pure editing intelligence: auto-indent, auto-close, comment toggling, the
+  multi-cursor range math), `CodeFolding.swift` + `FoldingLayoutManager.swift` (pure region
+  scanner + the TextKit layout manager that hides folded glyphs), `SymbolOutline.swift` +
+  `BreadcrumbBarView.swift`, `NavigationHistory.swift` (browser-style back/forward for symbol
+  jumps, one per window), `DefinitionPeekView.swift`,
+  `ViewerContainerView.swift`, `ViewerTextView.swift`,
   `LineNumberRulerView.swift`, `FileEdit.swift`, `FileWatch.swift` / `FileWatcher.swift`
   (live on-disk-change reload shared by all four file-backed pane kinds), `FileTimeTravel.swift`,
   `SyntaxHighlighter.swift`, `MinimapView.swift`, `SymbolIndexCore.swift` / `SymbolIndex.swift`

@@ -111,6 +111,41 @@ app does.
   pane header marks unsaved edits; pending edits also flush when you close the tab or quit.
   Binary, over-8 MB, and unreadable files stay read-only. Editing stays a deliberate, bounded
   slice — Suit is still viewer-first, with Claude doing the heavy code-writing.
+- **Smart typing** — the editor knows the shape of code. **Return** auto-indents to the enclosing
+  block (and opens a body between a just-typed `{`/`}` pair); brackets and quotes **auto-close**,
+  with type-over when you type the closer yourself, wrap-the-selection when text is selected, and
+  pair-delete when Backspace lands between an empty pair. **⌘/** toggles line comments for the
+  selection (using the language's own comment token, and un-commenting only when *every* selected
+  line is already commented), **⌃⌘]** / **⌃⌘[** indent and outdent. Anything the editor doesn't
+  positively recognise is handed back to the text view untouched, so IME, dictation and paste
+  behave exactly as before.
+- **Multi-cursor** — **⌥⌘D** adds the next occurrence of the selection as another cursor,
+  **⇧⌥⌘D** selects all occurrences at once, **⌥-click** drops an extra caret anywhere, and
+  **⌥-drag** makes a rectangular (column) selection. Every cursor types, indents, comments and
+  deletes together, and the whole thing is **one undo step**. (⌘D stays Split Screen, as it has
+  always been.)
+- **Code folding** — chevrons in the gutter fold the block they sit on; **⌥⌘[** / **⌥⌘]** fold and
+  unfold the block around the caret, **⌥⌘0** / **⇧⌥⌘0** fold and unfold everything. Braced
+  languages fold on bracket nesting and indentation-based ones (Python, YAML, Markdown) on
+  indentation. Folds are remembered by the line that opens the block, so they survive edits above
+  them and re-renders, and a fold whose block no longer exists simply disappears rather than
+  hiding the wrong lines.
+- **Symbol outline & breadcrumbs** — **⌃⌘O** opens this file's symbols as a picker, indented by
+  nesting depth (⇧⌘O is Show Fleet, so the in-file picker takes ⌃⌘O). Above the text, a
+  **breadcrumb strip** shows where the caret is — `File.swift › TabStore › activate()` — and each
+  crumb is clickable, jumping to that symbol's declaration. Both read the ctags index
+  go-to-definition already maintains, so they cost no extra parse and can never disagree with a
+  jump.
+- **Peek Definition** — **⌥⌘J** (or ⌥⌘-click, or the right-click menu) answers "what is this?"
+  without leaving your place: the definition's source appears in a small syntax-coloured popover
+  floated near the caret. **Esc** dismisses it; **Return** promotes it to a real jump for the times
+  the answer was "I need to be there". It resolves through the same symbol lookup as
+  go-to-definition, so peek and jump always agree.
+- **Navigation history** — **⌃-** goes back and **⌃⇧-** forward through symbol jumps, the way a
+  browser does: going back doesn't discard anything, so forward still works, and jumping somewhere
+  new from mid-history truncates the forward tail. Each window keeps its own history, and a
+  location is recorded before every navigating jump — so chasing a definition four levels deep and
+  walking back out is one keystroke per level.
 - **Live reload on outside changes** — open tabs track their file on disk. When something else
   rewrites it — Claude editing the file you're reading, `$EDITOR`, a branch switch, a build
   regenerating an asset — the tab updates within a fraction of a second, no click or refocus

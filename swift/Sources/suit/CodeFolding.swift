@@ -2,7 +2,7 @@ import Foundation
 
 // The UI-free core of code folding: turn a buffer into the list of foldable
 // regions, and fold state into the set of hidden lines. Foundation-only so
-// scripts/code-folding-test.sh compiles it standalone; FileViewerPane+Folding.swift
+// scripts/editor-ops-test.sh compiles it standalone; FileViewerPane+Folding.swift
 // is the AppKit half that hides glyphs and draws the gutter chevrons.
 //
 // Two strategies, picked by EditorLanguage.usesBraces:
