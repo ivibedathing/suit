@@ -199,12 +199,9 @@ the source of truth for details.
 
 The advisor is a second opinion on a different model — it fails differently than you do, which
 is the point. Invoke it **inline**: Agent tool, `subagent_type: general-purpose`, `model: fable`,
-`run_in_background: false`. Open with *"You are the Suit advisor. Read
-`<your-worktree>/.claude/agents/advisor.md` and follow it as your role."* — spell that path out
-absolutely so it reads your charter, not whatever the shared checkout holds.
-
-Don't rely on the `advisor` agent type resolving; sessions older than the file lack it, which is
-expected and never a reason to skip a consult.
+`run_in_background: false`. Open with *"You are the Suit advisor: an adversarial reviewer whose
+job is to refute, not agree. Re-check every claim against the repo rather than taking my word."*
+— the role goes in the prompt; there is no charter file to read.
 
 **Before acting** (these are irreversible, so afterwards is an autopsy):
 
@@ -247,8 +244,5 @@ task; if you're well past that, split the task or stop consulting to avoid decid
 
 ## Agent tooling
 
-- `.claude/agents/advisor.md` — the advisor charter (Fable 5); gates and contract are above.
-- `.claude/commands/` — repo slash commands: `/build`, `/test`, `/render-reference`, `/orient`,
-  `/find-file`.
 - `.claude/settings.json` — shared permission allowlist. It deliberately does not auto-allow
   `git push` (asks) or force-push (denied).
