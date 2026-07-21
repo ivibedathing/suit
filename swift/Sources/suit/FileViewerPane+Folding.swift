@@ -122,7 +122,7 @@ extension FileViewerPaneContent {
         applyFolds()
     }
 
-    // ⌥⌘0 / ⌥⌘J — everything at once.
+    // ⌥⌘0 / ⇧⌥⌘0 — everything at once.
     func foldAll() {
         foldedStarts = Set(foldRegions.map { $0.startLine })
         applyFolds()

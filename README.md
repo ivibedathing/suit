@@ -141,7 +141,7 @@ or the command palette (which also offers **Rename Layout…** and **Delete Layo
 | ⌃- / ⌃⇧- | Navigate back / forward through jumps |
 | ⌘/ | Toggle comment (file viewer) |
 | ⌃⌘] / ⌃⌘[ | Indent / outdent (file viewer) |
-| ⌥⌘D / ⇧⌥⌘D | Select next / all occurrences (multi-cursor) |
+| ⌃⌘E / ⌃⌘G | Select next / all occurrences (multi-selection) |
 | ⌥⌘[ / ⌥⌘] | Fold / unfold block (file viewer) |
 | ⌥⌘0 / ⇧⌥⌘0 | Fold / unfold all (file viewer) |
 

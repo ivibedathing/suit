@@ -119,11 +119,18 @@ app does.
   line is already commented), **⌃⌘]** / **⌃⌘[** indent and outdent. Anything the editor doesn't
   positively recognise is handed back to the text view untouched, so IME, dictation and paste
   behave exactly as before.
-- **Multi-cursor** — **⌥⌘D** adds the next occurrence of the selection as another cursor,
-  **⇧⌥⌘D** selects all occurrences at once, **⌥-click** drops an extra caret anywhere, and
-  **⌥-drag** makes a rectangular (column) selection. Every cursor types, indents, comments and
-  deletes together, and the whole thing is **one undo step**. (⌘D stays Split Screen, as it has
-  always been.)
+- **Multi-selection** — **⌃⌘E** adds the next occurrence of the selection to the selection set,
+  **⌃⌘G** selects every occurrence at once, and **⌥-drag** makes a rectangular (column)
+  selection. Operations then apply to *all* of them as **one undo step**: comment (⌘/), indent
+  and outdent (⌃⌘] / ⌃⌘[), wrapping the selection in brackets or quotes, and delete. Esc
+  collapses back to one.
+
+  It is deliberately **multi-selection, not multi-cursor**: free-form typing across several
+  sites isn't supported, and typing over a multi-selection beeps rather than editing some of the
+  sites and not others. The reason is AppKit — `NSTextView` collapses a selection made purely of
+  zero-width carets down to one, so "a caret at each site" cannot be represented, and a
+  half-working version of it would silently mangle a file that autosaves. (⌘D stays Split
+  Screen, and ⌥⌘D is macOS's own Dock-hiding shortcut, which is why neither is used here.)
 - **Code folding** — chevrons in the gutter fold the block they sit on; **⌥⌘[** / **⌥⌘]** fold and
   unfold the block around the caret, **⌥⌘0** / **⇧⌥⌘0** fold and unfold everything. Braced
   languages fold on bracket nesting and indentation-based ones (Python, YAML, Markdown) on

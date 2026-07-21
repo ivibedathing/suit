@@ -73,6 +73,20 @@ extension FileViewerPaneContent {
         container.positionPeek(nearCharacterOffset: offset, in: textView)
     }
 
+    // Return promotes the peek to a real jump — what the popover's own hint
+    // ("esc to close · return to open") has always advertised.
+    //
+    // This has to be checked *before* the editor's newline handling. The peek
+    // deliberately never takes first responder, so without this the key reaches
+    // the text view and auto-indents a newline into the file behind the popover
+    // — a buffer that autosaves to disk a second later. Esc was already routed
+    // through cancelOperation; Return was not.
+    func promotePeekToJump() -> Bool {
+        guard let peek = peekView else { return false }
+        peek.onOpen?()
+        return true
+    }
+
     func dismissPeek() {
         guard peekView != nil else { return }
         peekView = nil

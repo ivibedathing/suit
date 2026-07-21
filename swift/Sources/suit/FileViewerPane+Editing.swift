@@ -203,6 +203,12 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         recomputeLineStarts(for: text)
         ruler.lineStarts = lineStarts
         ruler.updateThickness()
+        // Folds are character ranges into the buffer we just replaced. Leaving
+        // them alone would apply the *old* ranges to the *new* text and hide
+        // arbitrary wrong lines — and this is the path Claude rewriting an open
+        // file takes, so it is the common case, not the corner one. Re-deriving
+        // regions here also prunes any fold whose block the rewrite removed.
+        refreshFoldRegions()
         ruler.needsDisplay = true
         let wasDirty = editState.isDirty
         editState.markLoaded(text)

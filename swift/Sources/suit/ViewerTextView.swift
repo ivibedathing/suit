@@ -141,6 +141,9 @@ final class ViewerTextView: NSTextView {
     }
 
     override func insertNewline(_ sender: Any?) {
+        // A peek is open: Return promotes it to a jump rather than typing into
+        // the buffer hidden behind it.
+        if viewerContent?.promotePeekToJump() == true { return }
         if viewerContent?.handleNewline() == true { return }
         super.insertNewline(sender)
     }
@@ -246,22 +249,21 @@ final class ViewerTextView: NSTextView {
         super.mouseDown(with: event)
     }
 
-    // ⌥-drag paints a rectangular selection; a bare ⌥-click toggles one extra
-    // caret. They're the same gesture until the mouse moves, so the tracking
-    // loop decides which it was — NSTextView's own mouseDown runs its own loop,
-    // which is why this can't just set a flag and call super.
+    // ⌥-drag paints a rectangular selection. NSTextView's own mouseDown runs its
+    // own tracking loop, which is why this can't just set a flag and call super.
+    //
+    // A bare ⌥-click used to drop an extra caret here. It can't work: AppKit
+    // collapses a selectedRanges made only of zero-length ranges down to one, so
+    // the extra carets never existed to begin with — the click was a no-op
+    // pretending to be a feature.
     private func beginOptionSelection(from event: NSEvent, content: FileViewerPaneContent) {
         let anchor = characterIndex(for: event)
-        var dragged = false
 
         while let next = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
             if next.type == .leftMouseUp { break }
-            dragged = true
             content.setColumnSelection(from: anchor, to: characterIndex(for: next))
             autoscroll(with: next)
         }
-
-        if !dragged { content.toggleCaret(atOffset: anchor) }
     }
 
     // MARK: - ⌘-hover link affordance
@@ -362,19 +364,6 @@ final class ViewerTextView: NSTextView {
         // but the document attribute underneath is what the character should be.
         viewerContent?.applySyntaxAttributes()
         NSCursor.iBeam.set()
-    }
-
-    // MARK: - Drawing
-
-    // NSTextView blinks exactly one insertion point; the other cursors are drawn
-    // here from the content's list.
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        guard let rects = viewerContent?.extraCaretRects(), !rects.isEmpty else { return }
-        Theme.accent.setFill()
-        for rect in rects where rect.intersects(dirtyRect) {
-            rect.fill()
-        }
     }
 
     // MARK: - Validation

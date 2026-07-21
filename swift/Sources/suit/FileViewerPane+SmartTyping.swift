@@ -40,6 +40,21 @@ extension FileViewerPaneContent {
         if ranges.contains(where: { $0.length > 0 }) {
             guard let sample = ranges.first(where: { $0.length > 0 }),
                   EditorOps.wrap((text as NSString).substring(with: sample), with: character) != nil else {
+                // Not a wrapping character, so this is plain type-over. With one
+                // selection NSTextView's own behaviour is exactly right. With
+                // several it would replace only the *first* and silently leave
+                // the rest — the "select every occurrence, retype the name"
+                // gesture would quietly corrupt a file that autosaves a second
+                // later.
+                //
+                // We can't do it properly either: a batch replace works for the
+                // first keystroke, but the carets it leaves behind are
+                // zero-length, and AppKit collapses an all-zero-length
+                // selectedRanges to one — so the rest of the word would land in
+                // a single place while the other sites kept just the first
+                // letter. Refusing is the only honest option; Esc collapses to
+                // one cursor when you actually want to type.
+                if ranges.count > 1 { NSSound.beep(); return true }
                 return false
             }
             return editAtAllCursors { range in

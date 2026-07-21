@@ -101,13 +101,16 @@ extension AppDelegate {
         let outdentItem = editMenu.addItem(withTitle: "Outdent", action: #selector(ViewerTextView.outdentSelection(_:)), keyEquivalent: "[")
         outdentItem.keyEquivalentModifierMask = [.command, .control]
 
-        // ⌘D is Split Screen in this app and has been since long before
-        // multi-cursor existed, so add-next-occurrence takes ⌥⌘D.
-        let nextOccurrenceItem = editMenu.addItem(withTitle: "Select Next Occurrence", action: #selector(ViewerTextView.selectNextOccurrence(_:)), keyEquivalent: "d")
-        nextOccurrenceItem.keyEquivalentModifierMask = [.command, .option]
+        // ⌘D is Split Screen in this app and has been since long before any of
+        // this existed, so add-next-occurrence can't have it. Nor can ⌥⌘D, the
+        // obvious second choice: that's the system-wide "Turn Dock Hiding
+        // On/Off", enabled by default, so the keystroke would toggle the Dock
+        // and never reach us. ⌃⌘E / ⌃⌘G are free in both places.
+        let nextOccurrenceItem = editMenu.addItem(withTitle: "Select Next Occurrence", action: #selector(ViewerTextView.selectNextOccurrence(_:)), keyEquivalent: "e")
+        nextOccurrenceItem.keyEquivalentModifierMask = [.command, .control]
 
-        let allOccurrencesItem = editMenu.addItem(withTitle: "Select All Occurrences", action: #selector(ViewerTextView.selectAllOccurrences(_:)), keyEquivalent: "d")
-        allOccurrencesItem.keyEquivalentModifierMask = [.command, .option, .shift]
+        let allOccurrencesItem = editMenu.addItem(withTitle: "Select All Occurrences", action: #selector(ViewerTextView.selectAllOccurrences(_:)), keyEquivalent: "g")
+        allOccurrencesItem.keyEquivalentModifierMask = [.command, .control]
 
         editMenuItem.submenu = editMenu
 

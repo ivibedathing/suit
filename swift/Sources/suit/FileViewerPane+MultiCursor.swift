@@ -1,18 +1,28 @@
 import Cocoa
 
-// Multi-cursor editing for the viewer: ⌘D add-next-occurrence, ⌃⌘G select-all-
-// occurrences, ⌥-click to drop an extra caret, and ⌥-drag for a rectangular
-// (column) selection. The range math is pure and harness-tested in
-// EditorOps.swift; this is the AppKit half that turns a set of ranges into one
-// undoable edit and paints the extra carets.
+// Multi-selection editing for the viewer: ⌃⌘E add-next-occurrence, ⌃⌘G
+// select-all-occurrences, and ⌥-drag for a rectangular (column) selection. The
+// range math is pure and harness-tested in EditorOps.swift; this is the AppKit
+// half that turns a set of ranges into one undoable edit.
 //
-// The cursor set is *not* stored here. NSTextView already has a first-class
-// notion of discontiguous selection (`selectedRanges`), it renders every
-// non-empty range highlighted for free, and — crucially — it keeps the ranges
-// alive across the text storage edits we make. A parallel array would have to be
-// re-derived after every edit, and would be wrong for exactly one frame every
-// time. What NSTextView does *not* do is type into more than the first range,
-// which is what editAtAllCursors below supplies.
+// **This is multi-*selection*, not multi-*cursor*, and the difference is forced
+// on us by AppKit.** The set lives in NSTextView's `selectedRanges`, which keeps
+// several *non-empty* ranges alive across the edits we make — but silently
+// collapses a set made only of *zero-length* ranges down to one. Verified on
+// macOS 27: setting three bare carets returns one. So:
+//
+//   * Operations that act on whole selections — ⌘/ comment, ⌃⌘] indent, wrapping
+//     a selection in brackets, delete — apply to every range, as one undo step,
+//     via editAtAllCursors below. These work.
+//   * Free-form typing across several sites does not exist, and can't be faked:
+//     a batch replace handles the first keystroke, but the zero-length carets it
+//     leaves collapse, so the rest of the word would go to one place. Typing
+//     over a multi-selection beeps rather than corrupting (see +SmartTyping).
+//   * ⌥-click extra carets were removed for the same reason — they never existed.
+//
+// Doing it properly means owning the caret set here and drawing the carets
+// ourselves instead of delegating to selectedRanges. That's a real project, not
+// a patch, and it needs interactive testing to land safely.
 extension FileViewerPaneContent {
 
     // Every cursor, document order. selectedRanges is documented non-empty, but
@@ -150,68 +160,14 @@ extension FileViewerPaneContent {
         if let first = all.first { textView.scrollRangeToVisible(first) }
     }
 
-    // MARK: - ⌥-click / ⌥-drag
-
-    // ⌥-click toggles a caret at `offset`: clicking an existing one removes it,
-    // so a mis-drop costs one click rather than a restart. The last cursor is
-    // never removable — a text view with no selection has nowhere to type.
-    func toggleCaret(atOffset offset: Int) {
-        var ranges = cursorRanges
-        if let hit = ranges.firstIndex(where: { NSLocationInRange(offset, $0) || $0.location == offset }) {
-            guard ranges.count > 1 else { return }
-            ranges.remove(at: hit)
-        } else {
-            ranges.append(NSRange(location: offset, length: 0))
-        }
-        setCursorRanges(ranges.sorted { $0.location < $1.location })
-    }
+    // MARK: - ⌥-drag
 
     // ⌥-drag: a rectangular selection between the drag's anchor and the current
-    // point, recomputed live as the mouse moves.
+    // point, recomputed live as the mouse moves. This survives where extra
+    // carets don't, because a column selection is made of *non-empty* ranges.
     func setColumnSelection(from anchor: Int, to head: Int) {
         let ranges = EditorOps.columnRanges(text: textView.string, from: anchor, to: head)
         guard !ranges.isEmpty else { return }
         setCursorRanges(ranges)
-    }
-
-    // MARK: - Extra-caret painting
-
-    // The caret rects for every zero-length cursor beyond the primary one.
-    // NSTextView blinks exactly one insertion point, so the others are drawn by
-    // ViewerTextView from this list. They're drawn solid rather than blinking:
-    // several carets blinking out of phase reads as flicker, and a static bar is
-    // how every other editor renders the non-primary ones.
-    func extraCaretRects() -> [NSRect] {
-        guard hasMultipleCursors else { return [] }
-        let primary = textView.selectedRange()
-        return cursorRanges
-            .filter { $0.length == 0 && $0.location != primary.location }
-            .compactMap { caretRect(atOffset: $0.location) }
-    }
-
-    private func caretRect(atOffset offset: Int) -> NSRect? {
-        guard let layoutManager = textView.layoutManager,
-              let container = textView.textContainer else { return nil }
-        let length = (textView.string as NSString).length
-        guard offset >= 0, offset <= length else { return nil }
-
-        layoutManager.ensureLayout(for: container)
-        let inset = textView.textContainerInset
-
-        // Past the last glyph (end of a document ending in a newline) there is no
-        // glyph to locate — TextKit keeps a dedicated rect for that position.
-        let glyph = layoutManager.glyphIndexForCharacter(at: offset)
-        if glyph >= layoutManager.numberOfGlyphs {
-            let extra = layoutManager.extraLineFragmentRect
-            guard extra != .zero else { return nil }
-            return NSRect(x: extra.minX + inset.width, y: extra.minY + inset.height,
-                          width: 1, height: extra.height)
-        }
-
-        let fragment = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
-        let location = layoutManager.location(forGlyphAt: glyph)
-        return NSRect(x: fragment.minX + location.x + inset.width,
-                      y: fragment.minY + inset.height,
-                      width: 1, height: fragment.height)
     }
 }
