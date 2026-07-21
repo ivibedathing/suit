@@ -75,7 +75,10 @@ app does.
   switcher, the upstream sync badge and the git actions menu — and gives the rest of the tab to
   the tree. The tree is
   gitignore-consistent with the file index, shows sub-project badges (`go.mod`, `package.json`,
-  …) and git status letters, and can be pinned to any folder.
+  …) and git status letters, and can be pinned to any folder. Hidden folders and dotfiles
+  (`.claude`, `.github`, `.gitignore`) are shown like any other row — inside a repo because
+  `git ls-files` reports them, outside one because the fallback walk indexes them too, pruning
+  only noise (`.git`, `.Trash`, `node_modules`, `.DS_Store`).
 - **Project search** (⇧⌘F, or the header's magnifier) — search isn't a permanent field: it
   drops a compact search bar over the tree only when you invoke it, and **Esc** (or the ✕)
   returns you to the file tree. Live ripgrep with regex/case toggles, a glob filter, and
