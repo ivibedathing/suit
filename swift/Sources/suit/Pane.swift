@@ -49,6 +49,10 @@ protocol PaneHost: AnyObject {
     // the tabs) to jump to its definition or list its references.
     func paneRequestedGoToDefinition(symbol: String, fromDirectory directory: String?)
     func paneRequestedFindReferences(symbol: String, fromDirectory directory: String?)
+    // The caret moved inside a file-backed pane. The host keeps the window's
+    // navigation history's current entry pointing at it, so ⌃- returns to where
+    // you *left* a file rather than where you first entered it.
+    func paneNotedNavigationLine(_ line: Int, inFile path: String)
     func paneRequestedShowBackgroundTasks(_ pane: Pane)
     func paneFinishedTask(_ pane: Pane)
     // Tab-grain drag & drop (browser-tab model): a tab dragged from a pane's
@@ -404,6 +408,10 @@ final class Pane: NSObject {
 
     func findReferences(symbol: String, fromDirectory directory: String?) {
         host?.paneRequestedFindReferences(symbol: symbol, fromDirectory: directory)
+    }
+
+    func noteNavigationLine(_ line: Int, inFile path: String) {
+        host?.paneNotedNavigationLine(line, inFile: path)
     }
 
     // The pane is going away for good (its tab closed with it). Contents are

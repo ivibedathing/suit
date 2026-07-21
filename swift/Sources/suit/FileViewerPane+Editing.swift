@@ -39,11 +39,15 @@ extension FileViewerPaneContent: NSTextViewDelegate {
     }
 
     // Re-colour after a short typing pause rather than on every keystroke; the
-    // scan itself still runs off-main inside rehighlight().
+    // scan itself still runs off-main inside rehighlight(). Fold regions ride
+    // the same debounce — re-parsing the block structure of a file being typed
+    // into is both expensive and pointless, and folding mid-keystroke would make
+    // the gutter twitch.
     private func scheduleRehighlight() {
         rehighlightTimer?.invalidate()
         rehighlightTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: false) { [weak self] _ in
             self?.rehighlight()
+            self?.refreshFoldRegions()
         }
     }
 

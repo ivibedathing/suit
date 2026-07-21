@@ -318,21 +318,60 @@ extension TerminalWindowController {
         switch definitions.count {
         case 1:
             let def = definitions[0]
-            openFile(atPath: root + "/" + def.relativePath, line: def.lineNumber)
+            navigate(toPath: root + "/" + def.relativePath, line: def.lineNumber)
         case 0:
             let note = SymbolIndex.hasCtags
                 ? "No indexed definition for “\(symbol)” — showing every use."
                 : "ctags not found — showing every use (rebuild the app or set SUIT_CTAGS_PATH)."
             openReferences(symbol: symbol, root: root, fallbackNote: note)
         default:
-            appDelegate.showDefinitionPicker(symbol: symbol, definitions: definitions, root: root, controller: self)
+            appDelegate.showDefinitionPicker(symbol: symbol, definitions: definitions, root: root,
+                                             preferringDirectory: directory, controller: self)
         }
     }
 
     // Jumps to one specific definition — the palette picker's action for the
     // multi-definition case.
     func openDefinition(_ definition: SymbolDefinition, root: String) {
-        openFile(atPath: root + "/" + definition.relativePath, line: definition.lineNumber)
+        navigate(toPath: root + "/" + definition.relativePath, line: definition.lineNumber)
+    }
+
+    // MARK: - Navigation history (⌃- / ⌃⇧-)
+
+    // Every *navigating* jump goes through here rather than calling openFile
+    // directly: it records where we were before moving, which is the whole
+    // difference between a jump you can retrace and one you can't. Ordinary tab
+    // switches and file opens deliberately don't record — the history is about
+    // symbol navigation, and polluting it with every click makes ⌃- useless.
+    func navigate(toPath path: String, line: Int) {
+        if let origin = currentNavigationLocation() {
+            navigationHistory.record(origin)
+        }
+        openFile(atPath: path, line: line)
+        navigationHistory.record(NavLocation(path: (path as NSString).standardizingPath, line: line))
+    }
+
+    // Where the focused viewer currently is, if a file is focused at all.
+    private func currentNavigationLocation() -> NavLocation? {
+        guard let content = focusedPane()?.content as? FileViewerPaneContent,
+              let path = content.filePath else { return nil }
+        return NavLocation(path: path, line: content.currentLineNumber())
+    }
+
+    func noteNavigationLine(_ line: Int, inFile path: String) {
+        guard let current = navigationHistory.current,
+              current.path == (path as NSString).standardizingPath else { return }
+        navigationHistory.updateCurrentLine(line)
+    }
+
+    func navigateBack() {
+        guard let target = navigationHistory.back() else { NSSound.beep(); return }
+        openFile(atPath: target.path, line: target.line)
+    }
+
+    func navigateForward() {
+        guard let target = navigationHistory.forward() else { NSSound.beep(); return }
+        openFile(atPath: target.path, line: target.line)
     }
 
     // Opens (or reuses) the window's references pane for `symbol`. A missing

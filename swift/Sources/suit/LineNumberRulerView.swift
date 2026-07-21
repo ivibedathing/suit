@@ -53,6 +53,28 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
     // A gutter click toggles the bookmark on the clicked line.
     var onToggleLine: ((Int) -> Void)?
 
+    // Code folding: which lines open a foldable region, which of
+    // those are currently folded, and the click that toggles one. The chevrons
+    // live in a narrow column between the numbers and the text, where every
+    // editor puts them — and where they can't be confused with the bookmark bar
+    // on the gutter's left edge.
+    var foldableLines: Set<Int> = [] {
+        didSet { if foldableLines != oldValue { updateThickness(); needsDisplay = true } }
+    }
+    var foldedLines: Set<Int> = [] {
+        didSet { if foldedLines != oldValue { needsDisplay = true } }
+    }
+    var onToggleFold: ((Int) -> Void)?
+
+    // The line whose chevron the pointer is over, or nil. Chevrons for unfolded
+    // regions only paint on hover (VS Code's rule) so a dense file doesn't read
+    // as a column of arrows; a *folded* one always paints, because it's the only
+    // sign that lines are missing.
+    private var hoveredFoldLine: Int?
+
+    private static let foldColumnWidth: CGFloat = 14
+    private var foldColumnOrigin: CGFloat { ruleThickness - Self.foldColumnWidth }
+
     init(scrollView: NSScrollView, textView: NSTextView) {
         self.textView = textView
         super.init(scrollView: scrollView, orientation: .verticalRuler)
@@ -69,7 +91,11 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
     func updateThickness() {
         let digits = max(3, String(lineStarts.count).count)
         let charWidth = ("0" as NSString).size(withAttributes: [.font: numberFont]).width
-        ruleThickness = blameColumnWidth + CGFloat(digits) * charWidth + 12
+        // The fold column is reserved as soon as the file has anything foldable
+        // in it, not per visible line — a gutter that changes width as you
+        // scroll would reflow wrapped text under the pointer.
+        let foldWidth = foldableLines.isEmpty ? 0 : Self.foldColumnWidth
+        ruleThickness = blameColumnWidth + CGFloat(digits) * charWidth + 12 + foldWidth
     }
 
     private var numberFont: NSFont {
@@ -93,8 +119,45 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
         return lineNumber(forCharacterAt: charIndex)
     }
 
+    // Hover tracking exists only to show fold chevrons; without a fold column
+    // there is nothing to track, so the area is torn down with it.
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        guard !foldableLines.isEmpty else { return }
+        addTrackingArea(NSTrackingArea(
+            rect: NSRect(x: foldColumnOrigin, y: 0, width: Self.foldColumnWidth, height: bounds.height),
+            options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow],
+            owner: self
+        ))
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let line = self.line(atWindowPoint: event.locationInWindow)
+        let hovered = line.flatMap { foldableLines.contains($0) ? $0 : nil }
+        if hovered != hoveredFoldLine {
+            hoveredFoldLine = hovered
+            needsDisplay = true
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        guard hoveredFoldLine != nil else { return }
+        hoveredFoldLine = nil
+        needsDisplay = true
+    }
+
     override func mouseDown(with event: NSEvent) {
         let location = convert(event.locationInWindow, from: nil)
+
+        // The fold column takes priority over the bookmark toggle: it is the
+        // narrower target and the one the chevron under the pointer promises.
+        if !foldableLines.isEmpty, location.x >= foldColumnOrigin,
+           let line = line(atWindowPoint: event.locationInWindow),
+           foldableLines.contains(line) {
+            onToggleFold?(line)
+            return
+        }
         // A click in the blame column on a committed line opens that commit's
         // diff.
         if blameVisible, location.x <= blameColumnWidth,
@@ -137,6 +200,35 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
         return low + 1
     }
 
+    // Where line numbers end: short of the fold column when there is one.
+    private var numbersRightEdge: CGFloat {
+        (foldableLines.isEmpty ? ruleThickness : foldColumnOrigin) - 6
+    }
+
+    // A disclosure chevron — down for an open region, right for a folded one —
+    // stroked rather than drawn as text so it stays crisp at any font size and
+    // needs no glyph fallback.
+    private func drawChevron(in rect: NSRect, pointingRight: Bool, color: NSColor) {
+        let size: CGFloat = 4
+        let centerX = rect.minX + 5
+        let centerY = rect.midY
+        let path = NSBezierPath()
+        if pointingRight {
+            path.move(to: NSPoint(x: centerX - size / 2, y: centerY - size))
+            path.line(to: NSPoint(x: centerX + size / 2, y: centerY))
+            path.line(to: NSPoint(x: centerX - size / 2, y: centerY + size))
+        } else {
+            path.move(to: NSPoint(x: centerX - size, y: centerY - size / 2))
+            path.line(to: NSPoint(x: centerX, y: centerY + size / 2))
+            path.line(to: NSPoint(x: centerX + size, y: centerY - size / 2))
+        }
+        path.lineWidth = 1.5
+        path.lineCapStyle = .round
+        path.lineJoinStyle = .round
+        color.setStroke()
+        path.stroke()
+    }
+
     override func drawHashMarksAndLabels(in rect: NSRect) {
         gutterBackground.setFill()
         bounds.fill()
@@ -175,7 +267,22 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
                 let label = "\(line)" as NSString
                 let size = label.size(withAttributes: attributes)
                 let y = fragmentRect.minY - visibleRect.minY + textView.textContainerInset.height + (fragmentRect.height - size.height) / 2
-                label.draw(at: NSPoint(x: ruleThickness - size.width - 6, y: y), withAttributes: attributes)
+                label.draw(at: NSPoint(x: numbersRightEdge - size.width, y: y), withAttributes: attributes)
+
+                // Fold chevron for a line that opens a region: always for a
+                // folded one (it's the only evidence the block is there), on
+                // hover otherwise.
+                if foldableLines.contains(line) {
+                    let folded = foldedLines.contains(line)
+                    if folded || hoveredFoldLine == line {
+                        let top = fragmentRect.minY - visibleRect.minY + textView.textContainerInset.height
+                        drawChevron(
+                            in: NSRect(x: foldColumnOrigin, y: top, width: Self.foldColumnWidth, height: fragmentRect.height),
+                            pointingRight: folded,
+                            color: folded ? Theme.accent : textColor
+                        )
+                    }
+                }
 
                 if blameVisible, let blame = blameByLine[line] {
                     let tint = GitAgeTint.color(forTime: blame.time, now: now)
