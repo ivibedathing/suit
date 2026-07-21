@@ -199,7 +199,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         )
         loadSettings()
         buildMenu()
-        // Push-to-talk dictation: hold 🌐 (Fn/Globe) to speak into the focused
+        // Push-to-talk dictation: hold 🌐 (Fn/Globe) + V to speak into the focused
         // pane (see AppDelegate+Dictation / Dictation.swift).
         installDictationHotkey()
 

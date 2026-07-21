@@ -232,9 +232,9 @@ extension AppDelegate {
         let toggleSidebarItem = viewMenu.addItem(withTitle: "Toggle Sidebar", action: #selector(toggleSidebar(_:)), keyEquivalent: "b")
         toggleSidebarItem.target = self
 
-        // Push-to-talk dictation: the trigger is holding 🌐 (Fn/Globe); this
+        // Push-to-talk dictation: the trigger is holding 🌐 (Fn/Globe) + V; this
         // entry primes permission and reminds you of the gesture.
-        let dictateItem = viewMenu.addItem(withTitle: "Dictate (hold 🌐 to talk)", action: #selector(startDictation(_:)), keyEquivalent: "")
+        let dictateItem = viewMenu.addItem(withTitle: "Dictate (hold 🌐+V to talk)", action: #selector(startDictation(_:)), keyEquivalent: "")
         dictateItem.target = self
 
         // Ctrl-Cmd-D: Cmd-D/Cmd-Shift-D are the split commands.

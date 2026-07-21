@@ -2,10 +2,10 @@ import Cocoa
 import Speech
 import AVFoundation
 
-// Push-to-talk dictation: hold 🌐 (Fn/Globe) while Suit is focused to speak,
+// Push-to-talk dictation: hold 🌐 (Fn/Globe) + V while Suit is focused to speak,
 // release to drop the recognized text into the focused terminal pane's prompt
-// (SessionControl.send, submit:false — you review before Enter). The Fn hold is
-// watched by AppDelegate+Dictation's local flagsChanged monitor; this file owns
+// (SessionControl.send, submit:false — you review before Enter). The chord is
+// watched by AppDelegate+Dictation's local key/flags monitors; this file owns
 // the recognizer, the mic tap, and the "Listening…" HUD. The pure transcript
 // cleanup lives in DictationText.swift (harness-tested).
 //
@@ -21,7 +21,9 @@ final class DictationController {
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
 
-    private var isListening = false
+    // Readable outside so the 🌐+V monitors know whether a key-up belongs to an
+    // in-flight listen (and should be swallowed) or is just an ordinary "v".
+    private(set) var isListening = false
     private var didDeliver = false
     private var latestTranscript = ""
     private var target: TerminalPaneContent?
@@ -31,7 +33,7 @@ final class DictationController {
 
     private init() {}
 
-    // Fn pressed: begin listening into `terminal` (nil → nothing focused). The
+    // 🌐+V pressed: begin listening into `terminal` (nil → nothing focused). The
     // HUD anchors over `window`. Authorization is requested lazily on first use;
     // if it isn't granted yet the request dialog appears and this press is a
     // no-op (the next hold works once granted).
@@ -59,7 +61,7 @@ final class DictationController {
         }
     }
 
-    // Fn released: stop the mic, flush the recognizer, and inject the final
+    // 🌐 or V released: stop the mic, flush the recognizer, and inject the final
     // transcript. The recognizer delivers its final result asynchronously after
     // endAudio(), so we wait briefly, falling back to the last partial.
     func finish() {
@@ -115,7 +117,7 @@ final class DictationController {
         }
 
         isListening = true
-        hud.show(caption: "🎙 LISTENING — RELEASE 🌐 TO INSERT", message: "…", over: window)
+        hud.show(caption: "🎙 LISTENING — RELEASE 🌐V TO INSERT", message: "…", over: window)
 
         task = recognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
@@ -129,7 +131,7 @@ final class DictationController {
                 }
                 guard let error else { return }
                 if self.isListening && self.latestTranscript.isEmpty {
-                    // Error arrived while we're still holding 🌐 and nothing was
+                    // Error arrived while we're still holding 🌐+V and nothing was
                     // ever transcribed — the recognizer couldn't run at all.
                     // Almost always because macOS Dictation is switched off:
                     // SFSpeechRecognizer reports isAvailable /
@@ -156,7 +158,7 @@ final class DictationController {
         request?.endAudio()
     }
 
-    // A recognition error that fired before the user released 🌐 means no
+    // A recognition error that fired before the user released 🌐+V means no
     // transcript is coming. Stop everything and tell the user how to fix the
     // common cause (Dictation disabled) rather than leaving them with a HUD
     // that just vanished.
@@ -194,7 +196,7 @@ final class DictationController {
     private func deliver() {
         guard !didDeliver else { return }
         didDeliver = true
-        // A final result can arrive before the user releases 🌐; stop the mic
+        // A final result can arrive before the user releases 🌐+V; stop the mic
         // now rather than leaving the tap running until finish().
         if isListening {
             isListening = false
@@ -213,12 +215,12 @@ final class DictationController {
     }
 
     // The ⌘K entry ("Dictate…"): it can't hold a key for you, so it primes
-    // authorization on first use and reminds you of the 🌐 hold gesture.
+    // authorization on first use and reminds you of the 🌐+V hold gesture.
     func primeFromPalette(over window: NSWindow?) {
         ensureAuthorized { [weak self] granted, message in
             guard let self else { return }
             if granted {
-                self.hud.show(caption: "🎙 DICTATION", message: "Hold 🌐 (Globe) to talk", over: window)
+                self.hud.show(caption: "🎙 DICTATION", message: "Hold 🌐 (Globe) + V to talk", over: window)
                 self.hud.dismiss(after: 2.0)
             } else {
                 self.hud.show(caption: "🎙 DICTATION", message: message ?? "Access denied", over: window)

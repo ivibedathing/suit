@@ -49,6 +49,7 @@ HARNESSES=(
   "themes|scripts/test-themes.sh|fast"
   "notification-sound|scripts/notification-sound-test.sh|fast"
   "update-check|scripts/update-check-test.sh|fast"
+  "file-index|scripts/file-index-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 

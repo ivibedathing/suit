@@ -75,7 +75,10 @@ app does.
   switcher, the upstream sync badge and the git actions menu — and gives the rest of the tab to
   the tree. The tree is
   gitignore-consistent with the file index, shows sub-project badges (`go.mod`, `package.json`,
-  …) and git status letters, and can be pinned to any folder.
+  …) and git status letters, and can be pinned to any folder. Hidden folders and dotfiles
+  (`.claude`, `.github`, `.gitignore`) are shown like any other row — inside a repo because
+  `git ls-files` reports them, outside one because the fallback walk indexes them too, pruning
+  only noise (`.git`, `.Trash`, `node_modules`, `.DS_Store`).
 - **Project search** (⇧⌘F, or the header's magnifier) — search isn't a permanent field: it
   drops a compact search bar over the tree only when you invoke it, and **Esc** (or the ✕)
   returns you to the file tree. Live ripgrep with regex/case toggles, a glob filter, and
@@ -300,13 +303,14 @@ app does.
   (no sound when it's the active app). Each event has its own on/off toggle and its own
   sound picker in Settings ▸ Claude; defaults are Glass (finished) and Ping (question), both on,
   and picking a sound previews it.
-- **Dictation (speech to text)** — hold the **🌐 (Globe / Fn)** key to talk; release and the
+- **Dictation (speech to text)** — hold **🌐 (Globe / Fn) + V** to talk; release either key and the
   transcribed text drops into the focused pane's prompt (it is *not* auto-submitted, so you can
-  review and edit before Enter). A small "Listening…" HUD shows the live transcription. Recognition
+  review and edit before Enter). The V keypress is swallowed, so it never lands in the pane.
+  A small "Listening…" HUD shows the live transcription. Recognition
   is **on-device** (Apple's Speech framework) — no network, no API key, works offline. First use
   prompts for microphone and speech-recognition access. **Dictate…** in the command palette (and
-  View menu) primes that permission and reminds you of the gesture. If holding 🌐 pops the emoji
-  picker instead, set *System Settings ▸ Keyboard ▸ Press 🌐 key to* → **Do Nothing**.
+  View menu) primes that permission and reminds you of the gesture. Holding 🌐 on its own does
+  nothing in Suit and keeps whatever *System Settings ▸ Keyboard ▸ Press 🌐 key to* is set to.
 
 ### Fleet control & spend
 
