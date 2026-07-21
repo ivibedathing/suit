@@ -301,7 +301,7 @@ extension AppDelegate {
             PaletteCommand(title: "Route Feedback to Session…", shortcut: nil) { [weak self] in self?.routeFeedbackFromPalette(nil) },
             PaletteCommand(title: "Show PR Review Inbox", shortcut: nil) { [weak self] in self?.showPRReviewInbox(nil) },
             PaletteCommand(title: "Submit PR Review…", shortcut: nil) { [weak self] in self?.submitPRReviewCommand(nil) },
-            PaletteCommand(title: "Dictate (hold 🌐 Globe to talk)", shortcut: nil) { [weak self] in self?.startDictation(nil) },
+            PaletteCommand(title: "Dictate (hold 🌐 Globe + V to talk)", shortcut: nil) { [weak self] in self?.startDictation(nil) },
             PaletteCommand(title: "New Claude Session", shortcut: "⌃⌘C") { [weak self] in self?.newClaudeSession(nil) },
             PaletteCommand(title: "New Claude Task…", shortcut: "⌃⌘T") { [weak self] in self?.newClaudeTask(nil) },
             PaletteCommand(title: "Open Claude Transcript…", shortcut: nil) { [weak self] in self?.openClaudeTranscript(nil) },

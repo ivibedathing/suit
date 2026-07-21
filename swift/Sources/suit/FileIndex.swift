@@ -110,22 +110,47 @@ final class FileIndex {
     }
 
     // Outside a git repo there's no ignore file to honor, so filter the usual
-    // machine-generated trees and hidden files, and cap the walk so pointing a
-    // window at ~/ doesn't try to index the world.
-    private static let fallbackExcludedDirectories: Set<String> = [
+    // machine-generated trees by name, and cap the walk so pointing a window at
+    // ~/ doesn't try to index the world.
+    //
+    // Dot-directories are *not* filtered wholesale: `.claude`, `.github`,
+    // `.config` are content the sidebar has to show, and inside a repo
+    // `git ls-files` reports them, so skipping them here made the same folder
+    // appear or vanish depending on whether the root happened to be a git
+    // checkout. Only the known-noisy hidden trees below are pruned.
+    static let fallbackExcludedDirectories: Set<String> = [
         "node_modules", "build", ".build", "dist", "target", "DerivedData", "Library",
+        ".git", ".hg", ".svn", ".Trash", ".Spotlight-V100", ".fseventsd", ".TemporaryItems",
     ]
+    // Finder/AppleDouble droppings — never worth a row.
+    private static func isFallbackNoiseFile(_ name: String) -> Bool {
+        name == ".DS_Store" || name == ".localized" || name.hasPrefix("._")
+    }
     private static let fileCap = 50_000
 
-    private static func fallbackScan(root: String) -> [String] {
+    static func fallbackScan(root: String) -> [String] {
         let rootURL = URL(fileURLWithPath: root)
         guard let enumerator = FileManager.default.enumerator(
             at: rootURL,
             includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            options: [.skipsPackageDescendants]
         ) else { return [] }
 
-        let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+        // The enumerator hands back symlink-resolved paths (a root under /tmp or
+        // /var comes back as /private/…), so matching only the literal root
+        // prefix silently dropped every file under a symlinked root. Accept
+        // either spelling.
+        // realpath, not URL.resolvingSymlinksInPath — the latter strips a
+        // leading /private and leaves /var/folders alone, which is exactly the
+        // spelling that needs resolving here.
+        var prefixes = [rootURL.path]
+        var buffer = [CChar](repeating: 0, count: Int(PATH_MAX))
+        if let resolved = realpath(rootURL.path, &buffer).map({ String(cString: $0) }),
+           resolved != rootURL.path {
+            prefixes.append(resolved)
+        }
+        prefixes = prefixes.map { $0.hasSuffix("/") ? $0 : $0 + "/" }
+
         var result: [String] = []
         for case let url as URL in enumerator {
             let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
@@ -135,8 +160,9 @@ final class FileIndex {
                 }
                 continue
             }
-            guard values?.isRegularFile == true, url.path.hasPrefix(rootPrefix) else { continue }
-            result.append(String(url.path.dropFirst(rootPrefix.count)))
+            guard values?.isRegularFile == true, !isFallbackNoiseFile(url.lastPathComponent),
+                  let prefix = prefixes.first(where: { url.path.hasPrefix($0) }) else { continue }
+            result.append(String(url.path.dropFirst(prefix.count)))
             if result.count >= fileCap {
                 break
             }
