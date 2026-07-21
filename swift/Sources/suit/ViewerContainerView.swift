@@ -37,6 +37,59 @@ final class ViewerContainerView: NSView {
     }
     private static let findOverlayInset: CGFloat = 10
 
+    // The breadcrumb strip. Its own slot for the same reason the find bar has
+    // one: it must survive entering and leaving time-travel, and it takes a
+    // strip (pushing the text down) rather than floating, because it is chrome
+    // that belongs to the document, not an overlay on it.
+    var breadcrumbBar: BreadcrumbBarView? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            if let breadcrumbBar { addSubview(breadcrumbBar) }
+            relayout()
+        }
+    }
+
+    // The peek-definition popover — floats over the text, positioned near the
+    // caret rather than pinned to a corner, because its whole job is to answer a
+    // question about the line you're looking at.
+    var peekOverlay: DefinitionPeekView? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            if let peekOverlay { addSubview(peekOverlay, positioned: .above, relativeTo: scrollView) }
+        }
+    }
+
+    // Place the peek below the anchor line when there's room, above it when
+    // there isn't — it must never cover the line the reader is asking about.
+    func positionPeek(nearCharacterOffset offset: Int, in textView: NSTextView) {
+        guard let peekOverlay, let layoutManager = textView.layoutManager,
+              let container = textView.textContainer else { return }
+
+        layoutManager.ensureLayout(for: container)
+        let glyph = layoutManager.glyphIndexForCharacter(at: offset)
+        let fragment = glyph < layoutManager.numberOfGlyphs
+            ? layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            : layoutManager.extraLineFragmentRect
+
+        // Text coordinates → this view's, via the clip view's scroll offset.
+        let scrolled = fragment.minY - scrollView.contentView.bounds.minY + textView.textContainerInset.height
+        let lineTopFromBottom = scrollView.frame.height - scrolled
+        let lineBottomFromBottom = lineTopFromBottom - fragment.height
+
+        let width = min(DefinitionPeekView.preferredWidth, max(240, scrollView.frame.width - 40))
+        peekOverlay.frame = NSRect(x: 0, y: 0, width: width, height: DefinitionPeekView.maximumHeight)
+        peekOverlay.layoutSubtreeIfNeeded()
+        let height = min(peekOverlay.preferredHeight(), scrollView.frame.height - 20)
+
+        let gap: CGFloat = 4
+        let below = lineBottomFromBottom - gap - height
+        let above = lineTopFromBottom + gap
+        let y = below >= 8 ? below : min(above, scrollView.frame.height - height - 8)
+
+        let x = min(max(20, scrollView.frame.width - width - 40), max(0, scrollView.frame.width - width))
+        peekOverlay.frame = NSRect(x: x, y: max(8, y), width: width, height: height)
+    }
+
     // The bar changes height when its replace row opens; it calls this to be
     // re-placed without the whole container re-laying out.
     func repositionFindOverlay() {
@@ -63,7 +116,14 @@ final class ViewerContainerView: NSView {
     private func relayout() {
         let barHeight = topBar == nil ? 0 : Self.topBarHeight
         topBar?.frame = NSRect(x: 0, y: bounds.height - barHeight, width: bounds.width, height: barHeight)
-        let contentHeight = max(0, bounds.height - barHeight)
+
+        // The breadcrumb sits under the scrubber (when both are up) and above
+        // the text + minimap.
+        let crumbHeight = breadcrumbBar == nil ? 0 : BreadcrumbBarView.height
+        breadcrumbBar?.frame = NSRect(x: 0, y: bounds.height - barHeight - crumbHeight,
+                                      width: bounds.width, height: crumbHeight)
+
+        let contentHeight = max(0, bounds.height - barHeight - crumbHeight)
         let minimapWidth = minimap.isHidden ? 0 : MinimapView.preferredWidth
         scrollView.frame = NSRect(x: 0, y: 0, width: max(0, bounds.width - minimapWidth), height: contentHeight)
         minimap.frame = NSRect(x: bounds.width - minimapWidth, y: 0, width: minimapWidth, height: contentHeight)

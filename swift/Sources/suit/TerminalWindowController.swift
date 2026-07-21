@@ -18,6 +18,11 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     let store = TabStore()
     let tabSwitcher = TabSwitcherController()
 
+    // Back/forward over symbol-navigation jumps (⌃- / ⌃⇧-), per window — a
+    // window is the unit a reader retraces within, and a shared global stack
+    // would make ⌃- in one window pull another window's file up in this one.
+    let navigationHistory = NavigationHistory()
+
     private var rootContainer: WindowRootView!
 
     // The activity bar (the far-left icon strip), the sidebar panel it drives,

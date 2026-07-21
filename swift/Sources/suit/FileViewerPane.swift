@@ -120,6 +120,18 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
             self?.toggleBookmark(atLine: line)
         }
 
+        // A click in the fold column collapses or expands that block.
+        ruler.onToggleFold = { [weak self] line in
+            self?.toggleFold(atLine: line)
+        }
+
+        // The outline and breadcrumb are built from the project's ctags index,
+        // which finishes (and refreshes) asynchronously.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(symbolIndexChanged),
+            name: SymbolIndex.didUpdate, object: nil
+        )
+
         minimap.onJump = { [weak self] fraction in
             self?.scroll(toFraction: fraction)
         }
@@ -156,6 +168,27 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
             name: NSApplication.didBecomeActiveNotification, object: nil
         )
     }
+
+    // MARK: - Code folding
+
+    // Foldable regions for the current buffer (recomputed with re-highlighting)
+    // and the start lines currently folded. See FileViewerPane+Folding.swift for
+    // why the fold set is start lines rather than ranges.
+    var foldRegions: [FoldRegion] = []
+    var foldedStarts: Set<Int> = []
+
+    // MARK: - Symbol outline & breadcrumb
+
+    // This file's symbols, from the project's SymbolIndex, in line order.
+    // Rebuilt when the index updates or the file reloads — never per keystroke.
+    var outlineEntries: [OutlineEntry] = []
+    var breadcrumbBar: BreadcrumbBarView?
+
+    // MARK: - Peek definition
+
+    // The inline definition popover (⌥⌘J / ⌥⌘-click), non-nil only while open.
+    var peekView: DefinitionPeekView?
+    var isPeeking: Bool { peekView != nil }
 
     // MARK: - Changed regions
 
@@ -239,6 +272,14 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         textView.scroll(.zero)
 
+        // A new file means new blocks and a new outline; a fold set carried over
+        // from the previous file would hide arbitrary lines of this one.
+        foldedStarts = []
+        foldRegions = []
+        dismissPeek()
+        refreshFoldRegions()
+        refreshOutline()
+
         syntaxSpans = []
         changedLines = IndexSet()
         jumpMarkerLine = nil
@@ -285,6 +326,10 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     func jump(toLine line: Int) {
         guard !lineStarts.isEmpty else { return }
         let clamped = min(max(line, 1), lineStarts.count)
+        // A jump must never land on a line a fold is hiding — expand whatever
+        // covers it first, so go-to-definition, a bookmark and a search hit all
+        // arrive somewhere the reader can actually see.
+        revealLine(clamped)
         let start = lineStarts[clamped - 1]
         let end = clamped < lineStarts.count ? lineStarts[clamped] : (textView.string as NSString).length
         let range = NSRange(location: start, length: max(0, end - start))
@@ -456,6 +501,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     }
 
     func teardown() {
+        dismissPeek()
         autosaveTimer?.invalidate()
         rehighlightTimer?.invalidate()
         fileWatcher?.stop()

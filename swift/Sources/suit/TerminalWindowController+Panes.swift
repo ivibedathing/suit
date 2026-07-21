@@ -158,6 +158,10 @@ extension TerminalWindowController {
         findReferences(symbol: symbol, fromDirectory: directory)
     }
 
+    func paneNotedNavigationLine(_ line: Int, inFile path: String) {
+        noteNavigationLine(line, inFile: path)
+    }
+
     // Background-task monitor for a pane's shell: a terminal
     // pane scopes to its own shell's job subtree; any other pane kind opens the
     // window-wide monitor (shellPid 0).
