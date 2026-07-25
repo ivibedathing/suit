@@ -192,10 +192,11 @@ final class DiffPaneContent: NSObject, PaneContent {
         }
     }
 
-    // Live theme switch: re-tint the status label and re-render so the inline
-    // comment accent picks up the new palette (background/text are re-pushed by
-    // the pane via applyBackground/applyTextColor; the +/- line colors are fixed
-    // constants, not Theme tokens, so they're intentionally unaffected).
+    // Live theme switch: re-tint the status label and re-render, which is what
+    // recolors the diff itself — the +/- foregrounds and row washes, the hunk
+    // headers, and the inline comment accent are all read from the active palette
+    // at render time (background/text are re-pushed by the pane via
+    // applyBackground/applyTextColor).
     func reapplyTheme() {
         statusLabel.textColor = Theme.textFaint
         render()

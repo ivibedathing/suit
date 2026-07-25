@@ -13,15 +13,19 @@ extension DiffPaneContent {
         let fillerBackground: NSColor
     }
 
+    // Read from the active theme every render (reapplyTheme re-renders), so a
+    // theme switch recolors the diff. The two row washes carry their own alpha —
+    // they composite over whatever the pane background is rather than punching an
+    // opaque band through a translucent pane.
     private var palette: DiffPalette {
         DiffPalette(
-            addition: NSColor(calibratedRed: 0.55, green: 0.85, blue: 0.55, alpha: 1),
-            deletion: NSColor(calibratedRed: 0.94, green: 0.52, blue: 0.50, alpha: 1),
-            additionBackground: NSColor(calibratedRed: 0.20, green: 0.55, blue: 0.25, alpha: 0.22),
-            deletionBackground: NSColor(calibratedRed: 0.70, green: 0.20, blue: 0.18, alpha: 0.22),
-            header: NSColor(calibratedRed: 0.42, green: 0.78, blue: 0.86, alpha: 1),
-            meta: NSColor(calibratedWhite: 0.55, alpha: 1),
-            fillerBackground: NSColor(calibratedWhite: 0.5, alpha: 0.06)
+            addition: Theme.diffAdded,
+            deletion: Theme.diffRemoved,
+            additionBackground: Theme.diffAddedBg,
+            deletionBackground: Theme.diffRemovedBg,
+            header: Theme.diffHeader,
+            meta: Theme.diffMeta,
+            fillerBackground: Theme.diffFiller
         )
     }
 

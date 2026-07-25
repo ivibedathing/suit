@@ -7,48 +7,11 @@ Autopilot currently fails in ways that cost a worker round (or the whole run)
 and then sit there needing a human. Phases in priority order; Autopilot steers
 off this file (see `RoadmapParser.swift` for the heading grammar).
 
-Order rationale: Phase 1 fixes the prompt every later worker reads, so it goes
-first. Phases 2–3 are why the loop can't start; 4–6 are why a started run
-wedges; 7–9 are correctness inside a run; 10–12 are the long tail.
-
-### Phase 1 — Worker prompt and review gate name the docs that exist — ✅ shipped
-
-Every worker prompt sends the model to files that no longer hold what the
-prompt claims. `AutopilotPrompts.swift:32` opens with:
-
-> First read CLAUDE.md and follow every convention in it (plain swiftc via
-> ./build.sh, no SwiftPM/Xcode, vendor any dependency as source, document
-> shipped features in README.md).
-
-`CLAUDE.md` has been a 5-line stub since `edf86ce` ("docs: make AGENTS.md the
-single source of agent guidance") — the conventions live in `AGENTS.md`. And
-`AGENTS.md:193` now says features are documented in `docs/features.md`, with
-`README.md` kept lean ("touch it only when a change belongs in Highlights or
-that table"). So a worker that obeys the prompt bloats README.md and never
-reads the real rules; a worker that obeys AGENTS.md trips review rule 2.
-
-- Required output 3 (`AutopilotPrompts.swift:39`) becomes `docs/features.md`
-  updated in the matching section, with README.md touched **only** when the
-  change belongs in Highlights or the shortcuts table.
-- The convention line (`:32`) points at `AGENTS.md`, not `CLAUDE.md`.
-- Review gate APPROVE rule 2 (`AutopilotPrompts.swift:235`) —
-  "README.md documents the shipped user-facing behavior" — becomes
-  `docs/features.md`, matching the new required output. Rule 4's "no edits
-  weakening CLAUDE.md" becomes AGENTS.md.
-- Sweep the same file for any other `CLAUDE.md`/`README.md` reference that
-  meant "the conventions" or "the feature reference".
-
-Bootstrap note for whoever runs this phase: the app reviewing your PR is the
-*currently built* binary, so your own review still runs the old rule 2. Document
-this phase in `docs/features.md` per AGENTS.md, and say plainly in the PR body
-that the phase's whole point is moving that target — so rule 2 reads as
-satisfied.
-
-Verification: `scripts/autopilot-harness.sh` passes, and a grep of
-`AutopilotPrompts.swift` for `CLAUDE.md` and `README.md` returns only the
-intentional Highlights/shortcuts carve-out.
-
-effort: low
+Order rationale: Phases 2–3 are why the loop can't start; 4–6 are why a started
+run wedges; 7–9 are correctness inside a run; 10–12 are the long tail. Shipped
+phases are removed from this file rather than left marked ✅, so what remains is
+the queue. (Phase 1 — worker prompt and review gate name the docs that exist —
+shipped; numbering is kept stable and is not reused.)
 
 ### Phase 2 — The instructions file: a configurable roadmap path
 
@@ -363,10 +326,9 @@ two distinct identifiers.
 
 ### Phase 12 — Wire the four orphaned harnesses in, and let CI run the slow suite
 
-`AGENTS.md:52` is unambiguous: "When you add such logic, follow the pattern, add
-a harness script for it, and wire it into the `HARNESSES` list in
-`scripts/test.sh`." Four harnesses exist on disk, still compile live source, and
-are in no list — so nothing has ever run them:
+`CLAUDE.md`'s Testing section is unambiguous: new logic "adds a harness, and
+wires it into `HARNESSES` in `scripts/test.sh`." Four harnesses exist on disk,
+still compile live source, and are in no list — so nothing has ever run them:
 
 - `scripts/background-tasks-test.sh` (`896ebb2`, background-task monitor)
 - `scripts/commit-graph-harness.sh` (`6ff4f06`, commit graph pane)
@@ -385,8 +347,10 @@ any failed or a harness is missing" — neither is true today, and CI
   pipeline harness — the most complex subsystem, one that writes files, merges
   branches and spends money — is finally gated on something. Keep the fast suite
   as its own step so a fast failure reports fast.
-- While in that file: its line 3 comment points at CLAUDE.md for "Why no
-  SwiftPM", which `edf86ce` moved to `AGENTS.md`. One-line fix, same file.
+- While in that file: its header comment cites a CLAUDE.md section called "Why
+  no SwiftPM" that does not exist — the reasoning lives under "Build & run" as
+  the bolded "No SwiftPM, no Xcode project" paragraph. `build.sh` and
+  `.github/workflows/swift.yml` carry the same dead citation; fix all three.
 
 Verification: `scripts/test.sh --list` shows all four; `scripts/test.sh` exits 0
 with them registered; `--all` runs the autopilot harness in CI.

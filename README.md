@@ -217,8 +217,8 @@ live in **[docs/development.md](docs/development.md)**.
 
 This is a personal project, but the workflow is documented if you want to hack on it: start with
 **[docs/development.md](docs/development.md)** — the build/dev loop, testing, integration setup,
-project layout, and contributing workflow — and `CLAUDE.md` for the full architecture, file map,
-and the rules agents follow.
+project layout, and contributing workflow — and `CLAUDE.md` for the architecture and the rules
+agents follow.
 
 ## License
 

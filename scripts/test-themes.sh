@@ -1,13 +1,15 @@
 #!/bin/bash
 # Shareable-themes logic test: compiles the UI-free theme core
-# (swift/Sources/suit/Theme.swift + ThemeStore.swift, which depend only on each
-# other + Cocoa) with scripts/themes-test/main.swift and runs its assertions
-# against a scratch $HOME — the .suittheme (de)serialization (partial decode
-# with per-token fallback, unknown top-level/color-key tolerance, export->import
-# round-trip equality), the hex parser edge cases (missing '#', wrong length,
-# non-hex), and the ThemeStore catalog operations (duplicate produces an
-# independent editable copy; delete removes only user themes). Mirrors the
-# Recipes / Layouts standalone-test pattern.
+# (swift/Sources/suit/Theme.swift + Theme+Palettes.swift + ThemeStore.swift,
+# which depend only on each other + Cocoa) with scripts/themes-test/main.swift
+# and runs its assertions against a scratch $HOME — the .suittheme
+# (de)serialization (partial decode with per-token fallback, unknown
+# top-level/color-key tolerance, export->import round-trip equality), the hex
+# parser edge cases (missing '#', wrong length, non-hex, the "#RRGGBBAA" alpha
+# form the diff washes need), the token-table invariants every palette and the
+# Settings editor depend on, and the ThemeStore catalog operations (duplicate
+# produces an independent editable copy; delete removes only user themes).
+# Mirrors the Recipes / Layouts standalone-test pattern.
 #
 # Theme.swift / ThemeStore.swift import Cocoa (NSColor), so this harness links
 # AppKit — it still needs no running app.
@@ -25,6 +27,7 @@ trap 'rm -f "$DRIVER"; rm -rf "$SCRATCH"' EXIT
 echo "==> Compiling shareable-themes logic test"
 if ! swiftc -O \
     "$ROOT/swift/Sources/suit/Theme.swift" \
+    "$ROOT/swift/Sources/suit/Theme+Palettes.swift" \
     "$ROOT/swift/Sources/suit/ThemeStore.swift" \
     "$ROOT/scripts/themes-test/main.swift" \
     -o "$DRIVER"; then

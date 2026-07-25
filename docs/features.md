@@ -596,11 +596,11 @@ app does.
   old single-autopilot layout (files directly under `~/.suit/autopilot/`) is migrated into the
   primary repo's slot automatically on first launch. A `~/.suit/autopilot-prompt.md`, when
   present, overrides the worker prompt template.
-- **What the worker and the review gate are told** — the worker prompt points at `AGENTS.md`
+- **What the worker and the review gate are told** — the worker prompt points at `CLAUDE.md`
   for the repo's conventions and asks for the shipped behavior to be documented in
   `docs/features.md`, touching `README.md` only when the change belongs in its Highlights
   summary or shortcuts table. The review gate judges against the same targets, and the repo
-  rules it reads are `AGENTS.md` from the *main* checkout (never the worker's edit of them),
+  rules it reads are `CLAUDE.md` from the *main* checkout (never the worker's edit of them),
   capped at 40 KB with a truncation marker so the gate knows when it judged a prefix.
 
 ## Appearance & settings
@@ -657,19 +657,42 @@ bar stays solid, and file/diff/markdown viewers stay opaque for legibility.
 
 ## Themes
 
-- **What a theme is** — a full set of Suit's color tokens: chrome, text, accent, and the
-  session/semantic status colors. Metrics (padding, sizes, corner radii) and fonts stay fixed, so a
-  shared theme can recolor the app but never break its layout. A theme can be dark, light, or
+- **What a theme is** — a full set of Suit's 26 color tokens, in five groups: **Chrome** (window and
+  terminal grounds, bar chrome, raised/hover surfaces, hairlines, overlays), **Text** (primary, dim,
+  faint), **Accent & Status** (the accent plus the session busy / needs-input / done / failed
+  colors), **Syntax** (keyword, string, comment, number, type, attribute, key), and **Diff** (added
+  and removed text plus their two row washes). So a theme reaches past the chrome into the file
+  viewer's code colors, the markdown code blocks, the minimap, the definition peek, the diff pane,
+  and the commit graph's lane colors. Metrics (padding, sizes, corner radii) and fonts stay fixed, so
+  a shared theme can recolor the app but never break its layout. A theme can be dark, light, or
   high-contrast — the window chrome is drawn from whichever palette is active.
 - **Switching** — pick a theme from **Settings (⌘,) ▸ Themes**; clicking one applies it live and
   instantly, no relaunch. For quick cycling without opening Settings, run **Switch Theme…** from the
-  command palette (⌘K). Three themes ship built in: **Suit Dark** (the default — the exact look
-  you've always had), **Midnight**, and **Suit Light**. The selection persists across launches, so
-  the app opens already themed.
+  command palette (⌘K), which labels each entry `built-in dark` / `custom light`. The selection
+  persists across launches, so the app opens already themed. Fourteen themes ship built in:
+  - **Suit originals** — **Suit Dark** (the default — the exact look you've always had),
+    **Midnight** (navy over near-black, periwinkle accent), **Ember** (warm espresso, ember-orange
+    accent), **Verdigris** (graphite with a verdigris accent — the quietest of the set),
+    **Amethyst** (deep plum, violet accent), and **Obsidian** (true black for OLED, highest
+    contrast).
+  - **Familiar palettes** — **Nord**, **Dracula**, **Solarized Dark**, **Gruvbox**, **Tokyo Night**,
+    and **Catppuccin Mocha**, at their published hues, with the chrome tokens Suit needs (a tab
+    strip, a raised active tab, a hover state) filled in around them.
+  - **Light** — **Suit Light** (neutral, re-contrasted with its own darker syntax set) and **Paper**
+    (warm sepia for daylight).
+- **What a theme switch moves, and what it doesn't** — the terminal ground and the terminal text
+  color are separate user settings (**Settings ▸ Appearance**), so they survive a theme switch. Two
+  exceptions keep light themes usable: a terminal ground that is still one of the two theme-derived
+  presets ("Midnight" / "Slate" — i.e. you never picked a color) follows the new theme, and a text
+  color the new ground would swallow (white on Paper's cream) is moved to the new theme's text
+  color. A background or text color you picked yourself is left exactly as it is.
 - **Creating & editing** — built-in themes are read-only. **Duplicate** turns one into an editable
-  user theme, then **Edit** exposes a color well for each of the ~15 tokens with a live preview
-  strip; changes apply as you pick. `focusBorder` and `selection` aren't editable — they derive from
-  the accent color automatically.
+  user theme, then **Edit** exposes a color well per token, grouped under Chrome / Text / Accent &
+  Status / Syntax / Diff, above a live preview; changes apply as you pick. The preview is drawn as a
+  miniature Suit window — tab strip, code block, diff rows, terminal, status dots — with the full
+  token set as a strip beneath it, so you see the effect rather than the swatch. `focusBorder`,
+  `selection`, the diff hunk-header color, and the commit-graph lanes aren't editable: they derive
+  from the accent, type, and status tokens automatically, so a theme can't contradict itself.
 - **Import / export** — **Import** takes a `.suittheme` file (via the file picker or by dropping it
   onto the Themes list), copying it in as a new user theme. **Export** writes the selected theme's
   `.suittheme` file to a location you choose. **Delete** removes a user theme (built-ins can't be
@@ -683,14 +706,21 @@ bar stays solid, and file/diff/markdown viewers stay opaque for legibility.
     "name": "Nord",
     "author": "someone",
     "schema": 1,
-    "colors": { "bg": "#2E3440", "accent": "#88C0D0", "textPrimary": "#ECEFF4" }
+    "colors": {
+      "bg": "#2E3440", "accent": "#88C0D0", "textPrimary": "#ECEFF4",
+      "syntaxKeyword": "#81A1C1", "syntaxString": "#A3BE8C",
+      "diffAdded": "#A3BE8C", "diffAddedBg": "#A3BE8C2E"   // 8 digits = with alpha
+    }
   }
   ```
 
-  Colors are `"#RRGGBB"` hex strings (a leading `#` is optional and case doesn't matter). Every
+  Colors are `"#RRGGBB"` hex strings (a leading `#` is optional and case doesn't matter), or
+  `"#RRGGBBAA"` where a token is translucent — the two diff row washes are, so they composite over
+  whatever a pane's background happens to be instead of punching an opaque band through it. Every
   color is optional: any token a file omits — or spells wrong — falls back to the built-in default,
   and unknown keys are ignored, so partial themes and themes authored against an older or newer Suit
-  still load cleanly.
+  still load cleanly. A theme file written before the syntax and diff tokens existed keeps working:
+  those tokens simply fall back to Suit Dark's.
 
 ## Safety
 
