@@ -240,7 +240,12 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         tableView.headerView = nil
         tableView.rowHeight = 24
         tableView.backgroundColor = .clear
-        tableView.style = .sourceList
+        // .inset, matching the Files tree — not .sourceList, which wraps the
+        // list in AppKit's own sidebar material. That material follows the
+        // window's NSAppearance rather than the palette, so under a light theme
+        // (the appearance stays dark) the list kept a dark slab behind
+        // palette-coloured text. Only visible now that this is a tab you sit in.
+        tableView.style = .inset
         tableView.dataSource = self
         tableView.delegate = self
         tableView.target = self

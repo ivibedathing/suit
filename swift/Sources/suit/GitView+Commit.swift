@@ -62,13 +62,14 @@ extension GitView {
 
         commitButton.bezelStyle = .texturedRounded
         commitButton.controlSize = .small
-        commitButton.font = .systemFont(ofSize: 11)
         commitButton.target = self
         commitButton.action = #selector(commitClicked)
         commitBox.addSubview(commitButton)
 
         commitOptionsButton.bezelStyle = .texturedRounded
         commitOptionsButton.controlSize = .small
+        commitOptionsButton.bezelColor = Theme.raised
+        commitOptionsButton.contentTintColor = Theme.textPrimary
         commitOptionsButton.imagePosition = .imageOnly
         commitOptionsButton.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Commit options")?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 8, weight: .semibold))
@@ -102,6 +103,8 @@ extension GitView {
     func reapplyCommitBoxTheme() {
         commitScroll.backgroundColor = Theme.raised
         commitScroll.layer?.borderColor = Theme.hairline.cgColor
+        commitOptionsButton.bezelColor = Theme.raised
+        commitOptionsButton.contentTintColor = Theme.textPrimary
         commitTextView.textColor = Theme.textPrimary
         commitTextView.insertionPointColor = Theme.accent
         commitTextView.needsDisplay = true
@@ -115,11 +118,21 @@ extension GitView {
     func refreshCommitBox() {
         let staged = stagedPaths.count
         let unstaged = unstagedPaths.count
-        commitButton.title = GitBranchOps.commitButtonTitle(
+        let title = GitBranchOps.commitButtonTitle(
             stagedCount: staged, unstagedCount: unstaged, amend: amendMode
         )
-        commitButton.isEnabled = gitRoot != nil && (staged > 0 || unstaged > 0 || amendMode)
-        commitButton.contentTintColor = amendMode ? Theme.accent : nil
+        let enabled = gitRoot != nil && (staged > 0 || unstaged > 0 || amendMode)
+        commitButton.isEnabled = enabled
+        // Bezel and title both come from the palette rather than from AppKit's
+        // appearance: a stock bezel is drawn for the window's NSAppearance,
+        // which a theme switch doesn't change, so under a light palette the
+        // button faded into the sidebar. Amber title while amending, matching
+        // how the rest of the app marks a mode that changes what an action does.
+        commitButton.bezelColor = Theme.raised
+        commitButton.attributedTitle = NSAttributedString(string: title, attributes: [
+            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .foregroundColor: enabled ? (amendMode ? Theme.accent : Theme.textPrimary) : Theme.textFaint,
+        ])
         commitOptionsButton.isEnabled = gitRoot != nil
         commitTextView.placeholder = amendMode
             ? "Amend message (empty keeps the previous one)"
