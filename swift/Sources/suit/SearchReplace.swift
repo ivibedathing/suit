@@ -22,11 +22,13 @@ enum SearchReplace {
     // The rg options the visible results were built from, expressed as the
     // FindQuery that reproduces them.
     //
-    // wholeWord is always off: the search bar never passes rg -w, so switching it
-    // on here would match *less* than the search did and quietly skip hits the
-    // user is looking at.
-    static func query(pattern: String, isRegex: Bool, caseSensitive: Bool) -> FindQuery {
-        FindQuery(text: pattern, caseSensitive: caseSensitive, wholeWord: false, regex: isRegex)
+    // Every flag has to travel: a query that matches *less* than the search did
+    // quietly skips hits the user is looking at, and one that matches more
+    // rewrites text they were never shown. wholeWord in particular defaults off
+    // so a caller that predates the ab toggle can't accidentally turn rg -w on.
+    static func query(pattern: String, isRegex: Bool, caseSensitive: Bool,
+                      wholeWord: Bool = false) -> FindQuery {
+        FindQuery(text: pattern, caseSensitive: caseSensitive, wholeWord: wholeWord, regex: isRegex)
     }
 
     // MARK: - Gate
@@ -64,6 +66,20 @@ enum SearchReplace {
         if truncated { return .truncated }
         if matchCount == 0 || fileCount == 0 { return .noMatches }
         return .ready(files: fileCount, replacements: matchCount)
+    }
+
+    // The same gate for the single file behind a result row's ⇄ button.
+    //
+    // Truncation deliberately isn't a refusal here. The cap makes the *file
+    // list* partial, which is what makes Replace All unsafe; this pass rewrites
+    // one whole file, so every match in it is replaced whether or not the list
+    // got to show them all. A still-streaming search is still a refusal, because
+    // the row's own match count is mid-flight.
+    static func fileGate(pattern: String, matchCount: Int, isSearching: Bool) -> Gate {
+        if pattern.isEmpty { return .noPattern }
+        if isSearching { return .stillSearching }
+        if matchCount == 0 { return .noMatches }
+        return .ready(files: 1, replacements: matchCount)
     }
 
     // MARK: - Prose
@@ -121,7 +137,7 @@ enum SearchReplace {
     // Returns the text unchanged (and 0) when nothing matches, so a caller can
     // skip dirtying a file over a no-op.
     static func replaceAll(inFileText text: String, query: FindQuery,
-                           template: String) -> (text: String, count: Int) {
+                           template: String, preserveCase: Bool = false) -> (text: String, count: Int) {
         guard !query.isEmpty else { return (text, 0) }
         var lines = text.components(separatedBy: "\n")
         var total = 0
@@ -132,13 +148,64 @@ enum SearchReplace {
             // of the line, so it is peeled off and re-attached.
             let hasCarriageReturn = line.hasSuffix("\r")
             let body = hasCarriageReturn ? String(line.dropLast()) : line
-            let replaced = FindReplace.replaceAll(in: body, query: query, template: template)
+            let replaced = replaceLine(body, query: query, template: template, preserveCase: preserveCase)
             guard replaced.count > 0 else { continue }
             total += replaced.count
             lines[index] = hasCarriageReturn ? replaced.text + "\r" : replaced.text
         }
         guard total > 0 else { return (text, 0) }
         return (lines.joined(separator: "\n"), total)
+    }
+
+    // One line. With preserve-case off this is FindReplace's one-pass rewrite
+    // verbatim; with it on the loop has to be unrolled here, because the
+    // transform needs the text each individual match consumed and
+    // FindReplace.replaceAll only hands back the finished line.
+    private static func replaceLine(_ body: String, query: FindQuery, template: String,
+                                    preserveCase: Bool) -> (text: String, count: Int) {
+        guard preserveCase else {
+            return FindReplace.replaceAll(in: body, query: query, template: template)
+        }
+        let ranges = FindReplace.matchRanges(in: body, query: query)
+        guard !ranges.isEmpty else { return (body, 0) }
+        let ns = body as NSString
+        var result = ""
+        var cursor = 0
+        for range in ranges {
+            result += ns.substring(with: NSRange(location: cursor, length: range.location - cursor))
+            let expanded = FindReplace.replacementText(in: body, matchRange: range,
+                                                       query: query, template: template)
+            result += preservingCase(expanded, matching: ns.substring(with: range))
+            cursor = range.location + range.length
+        }
+        result += ns.substring(from: cursor)
+        return (result, ranges.count)
+    }
+
+    // The AB toggle: carry the *matched* text's capitalization onto the
+    // replacement, so replacing "widget" also fixes "Widget" and "WIDGET"
+    // without three passes.
+    //
+    // This only ever raises case, never lowers it. VS Code additionally
+    // lowercases the replacement when the match was all-lowercase, which
+    // silently destroys a deliberately-cased template — replacing "handler"
+    // with "onKeyDown" would write "onkeydown". Leaving a lowercase match
+    // verbatim gives the same answer for the case everyone actually types
+    // (a lowercase template) and stops mangling the case that they don't.
+    static func preservingCase(_ replacement: String, matching matched: String) -> String {
+        let letters = matched.filter(\.isLetter)
+        guard let firstLetter = letters.first, let firstCharacter = replacement.first else {
+            return replacement
+        }
+        // A single uppercase letter is ambiguous between ALLCAPS and Titlecase;
+        // it falls through to the title branch, which agrees with both.
+        if letters.count > 1, letters.allSatisfy(\.isUppercase) {
+            return replacement.uppercased()
+        }
+        if firstLetter.isUppercase {
+            return String(firstCharacter).uppercased() + replacement.dropFirst()
+        }
+        return replacement
     }
 
     // Apply across the files the search listed, in order.
@@ -148,6 +215,7 @@ enum SearchReplace {
     // read and FileEditWriter's atomic write — the same writer ⌘S uses, so a
     // crash mid-pass can't leave a half-written source file.
     static func apply(root: String, relativePaths: [String], query: FindQuery, template: String,
+                      preserveCase: Bool = false,
                       read: (String) throws -> String,
                       write: (String, String) throws -> Void) -> Outcome {
         var outcome = Outcome()
@@ -161,7 +229,8 @@ enum SearchReplace {
                 outcome.skipped.append(Skip(relativePath: relativePath, reason: "unreadable as UTF-8 text"))
                 continue
             }
-            let result = replaceAll(inFileText: text, query: query, template: template)
+            let result = replaceAll(inFileText: text, query: query, template: template,
+                                    preserveCase: preserveCase)
             guard result.count > 0 else {
                 // Two ways to land here, both worth reporting rather than
                 // writing the file back byte-identical: the file changed since

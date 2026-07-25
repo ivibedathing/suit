@@ -65,6 +65,16 @@ enum Theme {
     /// Amber-tinted row selection (sidebar lists, search results).
     static var selection: NSColor { accent.withAlphaComponent(0.22) }
 
+    /// Project-search hits in an open file: the wash behind every occurrence of
+    /// the Search tab's pattern, and the minimap tick that answers "where else
+    /// is it". Derived from the needs-input yellow rather than added to every
+    /// palette (the `diffHeader` precedent) — a hue each theme already owns, and
+    /// one step off the amber the ⌘F bar washes with, so a project highlight and
+    /// a typed find stay tellable apart when both are lit.
+    static var searchHit: NSColor { sessionNeedsInput.withAlphaComponent(0.28) }
+    /// The minimap tick for the same hits — full strength, since it is 2px tall.
+    static var searchHitMark: NSColor { sessionNeedsInput }
+
     static var sessionBusy: NSColor { current.sessionBusy }
     static var sessionNeedsInput: NSColor { current.sessionNeedsInput }
     static var sessionDone: NSColor { current.sessionDone }
