@@ -56,8 +56,9 @@ working.
 
 - **Browser-style tabs & splits** for terminals, files, diffs and transcripts, with full state
   restoration across launches.
-- **Integrated sidebar** — file tree, ripgrep search, git status / branches / PRs, blame, file
-  history, notes and bookmarks — kept gitignore-consistent with a live file index.
+- **Integrated sidebar** — file tree, ripgrep search and project-wide replace on its own tab, git
+  status / branches / PRs, blame, file history, notes and bookmarks — kept gitignore-consistent
+  with a live file index.
 - **Claude Code awareness** — per-pane session state and context %, attention notifications,
   talk-back into any session, live transcripts and cross-transcript search.
 - **Autopilot** — autonomous, budget-aware execution of a project's roadmap with build and

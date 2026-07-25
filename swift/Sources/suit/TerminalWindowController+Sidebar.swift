@@ -11,6 +11,27 @@ extension TerminalWindowController {
         sidebar.isHidden.toggle()
         layoutSidebarSplit()
         UserDefaults.standard.set(!sidebar.isHidden, forKey: "sidebarVisible")
+        // Collapsing the panel with the caret in it (the Search tab's fields,
+        // Notes) leaves a hidden view holding first responder, which then eats
+        // every keystroke; hand focus back to a pane instead.
+        if sidebar.isHidden { returnFocusToPane() }
+    }
+
+    // Focus for a sidebar surface that just went away: the focused pane, else the
+    // last focused one, else any. Also what SidebarView.onFocusEscaped calls.
+    //
+    // A responder that is neither in the sidebar nor hidden already owns the
+    // caret legitimately (a terminal, a viewer) and is left alone — this must not
+    // turn ⌘B into "steal focus". Everything else, the no-responder-at-all case
+    // included, means nothing usable holds it.
+    func returnFocusToPane() {
+        if let responder = window.firstResponder as? NSView,
+           !responder.isDescendant(of: sidebar),
+           !responder.isHiddenOrHasHiddenAncestor {
+            return
+        }
+        guard let pane = displayTargetPane() else { return }
+        window.makeFirstResponder(pane.focusTarget)
     }
 
     // An activity-bar icon click, following VS Code: clicking the tab you're
@@ -21,8 +42,11 @@ extension TerminalWindowController {
     // Routed through toggleSidebar() so `sidebarVisible` is persisted in one place.
     func activateSidebarTab(_ tab: SidebarView.Tab) {
         if sidebar.isHidden {
-            sidebar.select(tab: tab)
+            // Unhide *before* selecting: a tab that claims the caret (Search,
+            // Notes) would otherwise put it on a still-hidden view, and the
+            // stranded-focus guard would immediately hand it back to a pane.
             toggleSidebar()
+            sidebar.select(tab: tab)
         } else if sidebar.selectedTab == tab {
             toggleSidebar()
         } else {
@@ -30,8 +54,8 @@ extension TerminalWindowController {
         }
     }
 
-    // Cmd-Shift-F: reveal the sidebar's Files tab and put the cursor in the
-    // search field above the file tree.
+    // Cmd-Shift-F: reveal the sidebar's Search tab and put the cursor in its
+    // pattern field.
     func focusProjectSearch() {
         if sidebar.isHidden {
             sidebar.isHidden = false
