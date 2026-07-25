@@ -63,6 +63,21 @@ final class FileRowView: NSTableCellView {
         iconView.contentTintColor = icon.tint
         badgeLabel.isHidden = node.badge == nil
         badgeLabel.stringValue = node.badge.map { " \($0) " } ?? ""
+        // The filename itself carries the git state as colour: grey ignored,
+        // green added/untracked, amber modified/renamed, red deleted. Every
+        // colour is a palette token read here at configure time (never cached
+        // at init, never a literal), so it follows a theme switch and stays
+        // legible against whatever ground that theme paints the sidebar with.
+        // Directories keep the plain text colour — their change dot is already
+        // coloured, and tinting whole folder chains reads as noise.
+        if node.isIgnored {
+            nameLabel.textColor = Theme.textDim
+            iconView.contentTintColor = Theme.textDim
+        } else if !node.isDirectory, let gitStatus {
+            nameLabel.textColor = GitStatusMonitor.badgeColor(for: gitStatus)
+        } else {
+            nameLabel.textColor = Theme.textPrimary
+        }
         if let gitStatus {
             gitLabel.isHidden = false
             gitLabel.stringValue = node.isDirectory ? "•" : String(gitStatus)
@@ -148,6 +163,12 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
     // by path relative to the index root, pruned to still-existing dirs on
     // every rebuild, and reset when the browsed root changes.
     var createdDirectories: Set<String> = []
+    // Children of ignored directories the user has expanded, keyed by the
+    // directory's index-relative path. The index deliberately collapses an
+    // ignored tree to its root (see FileIndex.IgnoredEntry), so this is where
+    // the rest of it accumulates — filled from disk on expand, replayed into
+    // every rebuild so an FSEvents rescan doesn't empty an open folder.
+    var expandedIgnoredChildren: [String: [FileIndex.IgnoredEntry]] = [:]
     private let header = ProjectHeaderView(frame: .zero)
     var rootNodes: [FileNode] = []
     var index: FileIndex?
@@ -230,10 +251,22 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         addSubview(scrollView)
 
         addSubview(header)
+
+        // Row text colours are tokens read when a row is configured, so a live
+        // theme switch has to reconfigure the visible rows: the controller's
+        // recursive needsDisplay sweep repaints drawn chrome, never an
+        // NSTextField's textColor.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(themeChanged), name: Theme.didChange, object: nil
+        )
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    @objc private func themeChanged() {
+        outlineView.reloadData()
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -281,6 +314,7 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         // browser repoints somewhere else.
         if self.index?.root != index.root {
             createdDirectories.removeAll()
+            expandedIgnoredChildren.removeAll()
         }
         self.index = index
         NotificationCenter.default.addObserver(
@@ -343,7 +377,17 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
             var isDir: ObjCBool = false
             return FileManager.default.fileExists(atPath: root + "/" + rel, isDirectory: &isDir) && isDir.boolValue
         }
-        rootNodes = FileNode.buildTree(from: index, extraDirectories: Array(createdDirectories))
+        // Same treatment for expanded ignored folders: a `build/` that has been
+        // deleted since must not keep re-seeding rows from a stale listing.
+        expandedIgnoredChildren = expandedIgnoredChildren.filter { rel, _ in
+            var isDir: ObjCBool = false
+            return FileManager.default.fileExists(atPath: root + "/" + rel, isDirectory: &isDir) && isDir.boolValue
+        }
+        rootNodes = FileNode.buildTree(
+            from: index,
+            extraDirectories: Array(createdDirectories),
+            ignored: index.ignored + expandedIgnoredChildren.values.flatMap { $0 }
+        )
         // Nodes compare by path (see FileNode), so reloadData keeps whatever
         // the user had expanded, even though every node object is new.
         outlineView.reloadData()

@@ -72,9 +72,18 @@ app does.
   Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
   search / choose-folder / unpin actions, and, inside a repo, a branch row carrying the branch
   switcher, the upstream sync badge and the git actions menu — and gives the rest of the tab to
-  the tree. The tree is
-  gitignore-consistent with the file index, shows sub-project badges (`go.mod`, `package.json`,
-  …) and git status letters, and can be pinned to any folder. Hidden folders and dotfiles
+  the tree. The tree shows sub-project badges (`go.mod`, `package.json`,
+  …) and git status letters, and can be pinned to any folder.
+- **Git status as colour** — inside a repo each filename is tinted by its own status: green for
+  added or untracked, amber for modified or renamed, red for deleted, grey for gitignored, plain
+  text for clean. The colours are the same palette tokens as the status letter beside them, so
+  they stay legible under every theme and follow a live theme switch. Folders keep the plain
+  colour and their amber dot for "something under here changed".
+- **Ignored files are shown, not hidden** — gitignored rows appear greyed out rather than missing.
+  A wholly-ignored folder (`build/`, `node_modules/`) arrives as a single collapsed row and is
+  read off disk only when you expand it, so the tree can show you what's there without ⌘P or
+  project search ever matching it — those still index tracked and untracked files only.
+- **Dotfiles** — hidden folders and dotfiles
   (`.claude`, `.github`, `.gitignore`) are shown like any other row — inside a repo because
   `git ls-files` reports them, outside one because the fallback walk indexes them too, pruning
   only noise (`.git`, `.Trash`, `node_modules`, `.DS_Store`).
