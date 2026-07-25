@@ -17,6 +17,12 @@ final class SidebarView: NSView {
     static let minWidth: CGFloat = 180
     static let maxWidth: CGFloat = 420
 
+    // Breathing room above the tab content, so the Files header doesn't start
+    // hard against the window's top edge. ActivityBarView reads the same value
+    // for its own first icon, which is what keeps the icon strip and the panel
+    // beside it starting on one line rather than 8pt apart.
+    static let topInset: CGFloat = 16
+
     enum Tab: Int, CaseIterable {
         case files
         case notes
@@ -177,13 +183,15 @@ final class SidebarView: NSView {
         let foldersHeight = recentFolders.isHidden ? 0 : recentFolders.desiredHeight
         recentFolders.frame = NSRect(x: 0, y: usageHeight, width: bounds.width, height: foldersHeight)
         let footerHeight = usageHeight + foldersHeight
-        // Tab content now runs to the top edge: the icons that used to reserve
-        // a band up there live in the activity bar beside this view.
+        // The icons that used to reserve a band at the top live in the activity
+        // bar beside this view, but running the content flush to the edge left
+        // it sitting too high; topInset gives it back a margin, shared with the
+        // bar so both start on the same line.
         let contentFrame = NSRect(
             x: 0,
             y: footerHeight,
             width: bounds.width,
-            height: max(0, bounds.height - footerHeight)
+            height: max(0, bounds.height - footerHeight - Self.topInset)
         )
         fileBrowser.frame = contentFrame
         searchView.frame = contentFrame
