@@ -65,9 +65,11 @@ app does.
 ### Files & sidebar
 
 - **Activity bar** — a full-height icon strip pinned to the window's far-left edge, holding the
-  sidebar's tabs: Files, Search, Sessions, SSH Hosts and Notes, top to bottom. It stays put
-  when the sidebar is collapsed, so clicking any icon reopens the sidebar on that tab. Clicking
-  the icon of the tab you're already on collapses the sidebar again (as ⌘B does).
+  sidebar's tabs: Files, Search, Source Control, Sessions, SSH Hosts and Notes, top to bottom. It
+  stays put when the sidebar is collapsed, so clicking any icon reopens the sidebar on that tab.
+  Clicking the icon of the tab you're already on collapses the sidebar again (as ⌘B does). The
+  Source Control icon carries a count badge of the changed files in the shown repo, so a dirty
+  tree is visible with the sidebar closed.
 - **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. The
   Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
   search / choose-folder / unpin actions, and, inside a repo, a branch row carrying the branch
@@ -89,13 +91,34 @@ app does.
   only noise (`.git`, `.Trash`, `node_modules`, `.DS_Store`).
 - **Project search** (⇧⌘F, the activity bar's magnifier, or the Files header's magnifier) — its own
   sidebar tab directly below Files, so searching never costs you sight of the file tree and your
-  matches are still there when you come back to it. Live ripgrep with regex/case toggles, a glob
-  filter, and Project / Sub-project / Pane Directory scopes tucked behind the options button;
-  results stream in grouped by file, and clicking a match opens it in the viewer at that line.
+  matches are still there when you come back to it. Live ripgrep, laid out like VS Code's search
+  panel: **Aa** (match case), **ab** (match whole word, `rg -w`) and **.\*** (regular expression)
+  sit *inside* the pattern field, and the chevron in the left gutter folds the replacement row
+  away. **⋯** below the fields holds the glob filter and the Project / Sub-project / Pane
+  Directory scope, and glows amber whenever one of them is shaping results while hidden. Results
+  stream in grouped by file — name, path and match count, with the Files tree's type icon — and
+  clicking a match opens it in the viewer at that line.
   **Esc** clears the pattern; **Esc** on an already-empty field hands the sidebar back to Files.
+- **Search toolbar** — the header carries **Refresh** (re-run without retyping), **Clear**,
+  **View as List / Tree** (one flat row per match, each naming its file, versus the file tree) and
+  **Collapse All / Expand All**. Hovering a file row swaps its match count for two actions:
+  **Replace All in File**, and **✕** to drop that file from the results — Replace All then only
+  touches what is still listed, so you can prune the noise before committing to a rewrite.
+- **Search hits are highlighted in the file** — while the Search tab holds a pattern, every open
+  text viewer washes each occurrence of it in yellow and ticks the lines carrying one down the
+  right-hand lane of its minimap, so "where else is this in the file" is answered without going
+  back to the results list. It applies to every open viewer in that window, not only the file you
+  clicked through to, and to files opened afterwards; the regex, case and whole-word toggles carry
+  over, so what a pane highlights is exactly what the list matched. Clearing the pattern (**Esc**,
+  or the header's Clear button) takes the wash and the ticks away. The ⌘F bar still paints over
+  it — its current match stays the
+  strongest mark on screen — and editing a file re-derives the hits as you type.
 - **Project-wide replace** — the Search tab's second row: type a replacement and **Replace All**
   (or Enter in that field) rewrites every listed match. It confirms first, with the file and match
   counts, because it edits files that aren't open in any pane and there's no ⌘Z waiting for those.
+  **AB** in the replacement field preserves case: a match spelled `Widget` or `WIDGET` takes the
+  replacement capitalized or upper-cased to match. It only ever raises case, never lowers it, so a
+  deliberately-cased replacement (`onKeyDown`) survives a lowercase match intact.
   Regex mode interpolates capture groups (`$1`) exactly as the viewer's ⌘F bar does, and an empty
   replacement deletes the matches. Each file is rewritten atomically — the same writer ⌘S uses —
   and the results re-run afterwards so the list reflects what's now on disk. Two deliberate
@@ -208,7 +231,7 @@ app does.
 - **Blame gutter** — Toggle Blame (⌃⌘B) shows a per-line column of the last-touching commit
   (short sha + author, tinted by age) beside the line numbers; the full commit subject is on
   hover, and clicking a line's sha opens that commit's diff.
-- **File history** — Show File History opens the Git tab's list of commits touching the open
+- **File history** — Show File History opens the Source Control tab's list of commits touching the open
   file (`git log --follow`) — sha, subject, author, age; click a commit to open its per-file
   diff.
 - **Time travel** — **Time Travel** (⌃⌘H, the palette, or the viewer's right-click menu) turns
@@ -220,7 +243,7 @@ app does.
   commit's per-file change into the diff tab. It's read-only and non-destructive — nothing is
   ever checked out — untracked files say "no history", and **Exit** (or toggling the command
   off) restores the working-tree view.
-- **Commit graph** — **Show Commit Graph** (the Git tab's graph button, or the command palette)
+- **Commit graph** — **Show Commit Graph** (the Source Control tab's graph button, or the command palette)
   opens a read-only, clickable rendering of the whole commit DAG (`git log --all --date-order`):
   nodes laid out in lanes with edges for merges and forks, short sha · subject · author · age
   (tinted by age like the blame gutter), and branch / tag / HEAD badges on their tips (the current
@@ -328,17 +351,36 @@ app does.
   Refresh) available on it. The diff is taken against the merge base (`origin/main...main`), so a
   branch that's both ahead and behind reads as *your work* rather than as reversed upstream
   commits. The counts come from the last fetch, not the network — **Fetch** refreshes them.
-- **Git surface** — the git review surface has no activity-bar icon; reach it with
-  **Show Git** in the command palette. It shows staged / changed files (click to open the scoped
-  diff) and, below them, a **Branches** list: every local branch with its ahead/behind vs
-  upstream (green ↑ / amber ↓), a worktree glyph, and a dirty dot; the current branch is
-  highlighted. Click a branch to check it out (or switch the sidebar to its worktree).
+- **Source Control tab** (⌃⌘G, the activity bar's branch icon, or **Show Source Control** in the
+  palette) — the whole local git loop in the sidebar. Top to bottom: a **branch row** (the
+  worktree/branch switcher, plus the ⚑ marker, ± full-diff and commit-graph buttons), a **sync
+  row** (the upstream badge and a ⋯ actions menu — the same fetch/pull/push/stash/branches set the
+  Files header offers), the **commit box**, and then the file list: **Staged** and **Changes**
+  sections (click a file to open its scoped diff; untracked files open in the viewer) followed by
+  a **Branches** list — every local branch with its ahead/behind vs upstream (green ↑ / amber ↓),
+  a worktree glyph, and a dirty dot, the current one highlighted. Click a branch to check it out
+  (or switch the sidebar to its worktree).
+- **Staging** — every file row ends in a **+** (stage) or **−** (unstage), and each section header
+  has the bulk twin: **+** on Changes stages everything (`add -A`, untracked files included), **−**
+  on Staged empties the index with a mixed reset, so nothing on disk moves. Right-click a row for
+  **Stage / Unstage Changes**, **Discard Changes…**, **Open Diff** and **Open File**. Discard is
+  offered on the working-tree column only — unstage first — and asks before it runs, because it
+  restores tracked files and *deletes* untracked ones.
+- **Committing** — type a message in the box (⌘↩ commits without touching the mouse; **Commit
+  Changes…** in the palette jumps straight there) and press the button. It says what it will do:
+  **Commit 3** with three files staged, **Commit All 5** when nothing is staged — in which case
+  committing stages everything first, rather than quietly committing nothing. The ▾ beside it
+  holds **Commit Staged**, **Stage All & Commit**, **Commit & Push**, **Amend Last Commit** (a
+  toggle: it pulls the previous message into the box, and an empty box keeps that message
+  unchanged), and the bulk stage/unstage entries. The message box only clears once the commit has
+  actually landed, so a rejected pre-commit hook doesn't cost you what you typed. Nothing here
+  force-pushes: amending something already pushed fails at the push, loudly.
 - **Branch → PR** — right-click a branch for gh actions: **Create PR…** (title prefilled from
   the branch, body from its commits), **Open on GitHub**, and **Checkout**. When a PR exists it
   shows a `#N` badge with a ✓/✕/• checks glyph. Everything degrades gracefully without the `gh`
   CLI — the menu still checks out, and shows a hint to install gh.
 - **"What changed while I was away"** — start Claude sessions across a repo's worktrees, step
-  away, and come back to *one* diff of everything that moved. The Git tab's ⚑ button (or the
+  away, and come back to *one* diff of everything that moved. The Source Control tab's ⚑ button (or the
   palette's **Mark Now**) records a per-repo checkpoint — every worktree's HEAD plus a timestamp,
   in `~/.suit/markers.json`; the flag fills once a mark is set. **What Changed Since Mark**
   (⚑ menu or palette) then composes an aggregate diff across *all* the repo's worktrees — each
@@ -347,7 +389,7 @@ app does.
   files-touched and `+ins −del` per worktree, and which Claude session (matched by cwd) is
   working there, so the catch-up reads as "session X changed these 6 files". Worktrees created
   after the mark diff from their merge-base, so only their new work shows.
-- **Feedback inbox** — a **Feedback** section at the top of the Git tab surfaces machine feedback
+- **Feedback inbox** — a **Feedback** section at the top of the Source Control tab surfaces machine feedback
   across the repo's worktrees: **CI failures** (failing checks + a tail of the failed run's log,
   via `gh`), **PR review comments** (reviews + conversation comments, via `gh`), and **merge
   conflicts** (unmerged files, pure git — shown even when GitHub is unreachable). Each row is
@@ -358,7 +400,7 @@ app does.
   when the match is ambiguous, never a guess. Right-click ▸ **Start Review Pass in Worktree**
   kicks a fresh `claude` in the worktree primed to review the branch. Palette: **Show Feedback
   Inbox**, **Route Feedback to Session…**.
-- **PR review inbox** — a **PR Review Inbox** section in the Git tab lists open PRs that involve
+- **PR review inbox** — a **PR Review Inbox** section in the Source Control tab lists open PRs that involve
   you — authored, assigned, or review-requested (via `gh`, loaded off the main thread; hidden
   without `gh`). Each row shows the PR title, `#N` with a check-rollup glyph (✓/✕/•), author, and
   branch. Click a row (or right-click ▸ **Review Changes**) to fetch the PR's diff (`gh pr diff`)

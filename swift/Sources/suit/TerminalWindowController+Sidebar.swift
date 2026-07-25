@@ -271,7 +271,7 @@ extension TerminalWindowController {
         sidebar.select(tab: .notes)
     }
 
-    // Reveal the Git tab (palette).
+    // Reveal the Source Control tab (rail icon, ⌃⌘G, palette).
     func showGit() {
         if sidebar.isHidden {
             sidebar.isHidden = false
@@ -279,6 +279,13 @@ extension TerminalWindowController {
             UserDefaults.standard.set(true, forKey: "sidebarVisible")
         }
         sidebar.select(tab: .git)
+    }
+
+    // Same, then put the caret in the commit box — "Commit Changes…" from the
+    // palette is meant to be type-message-⌘↩ without touching the mouse.
+    func focusCommitMessage() {
+        showGit()
+        window.makeFirstResponder(sidebar.gitView.commitTextView)
     }
 
     // Reveal the Bookmarks tab (palette).

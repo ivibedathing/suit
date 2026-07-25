@@ -42,6 +42,9 @@ struct RipgrepOptions {
     var pattern: String
     var isRegex: Bool
     var caseSensitive: Bool
+    // rg -w. Defaults off so the callers that only ever wanted a substring
+    // (transcript search, the references pane) keep their behavior.
+    var wholeWord = false
     // Comma/space-separated rg -g globs, e.g. "*.swift, go/**".
     var globs: String
     var rootDirectory: String
@@ -99,6 +102,14 @@ final class RipgrepSearcher {
         }
         if !options.isRegex {
             arguments.append("--fixed-strings")
+        }
+        // --word-regexp rather than wrapping the pattern in \b: rg applies the
+        // boundary to the whole match, so it behaves for a pattern that starts
+        // or ends in punctuation, where \b would silently match nothing. It is
+        // also what FindReplace's whole-word filter does, which is what the
+        // replace pass re-matches with.
+        if options.wholeWord {
+            arguments.append("--word-regexp")
         }
         if options.searchHidden {
             arguments.append("--hidden")

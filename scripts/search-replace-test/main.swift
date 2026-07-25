@@ -22,11 +22,18 @@ func query(_ text: String, caseSensitive: Bool = false, regex: Bool = false) -> 
 
 print("== query mapping ==")
 do {
-    let mapped = SearchReplace.query(pattern: "foo", isRegex: true, caseSensitive: true)
-    check(mapped.text == "foo" && mapped.regex && mapped.caseSensitive,
-          "pattern, regex and case flags carry over from the search bar")
-    check(!mapped.wholeWord,
-          "whole-word stays off: rg was never given -w, so a replace must not match less")
+    let mapped = SearchReplace.query(pattern: "foo", isRegex: true, caseSensitive: true, wholeWord: true)
+    check(mapped.text == "foo" && mapped.regex && mapped.caseSensitive && mapped.wholeWord,
+          "pattern, regex, case and whole-word flags all carry over from the search bar")
+    check(!SearchReplace.query(pattern: "foo", isRegex: false, caseSensitive: false).wholeWord,
+          "whole-word defaults off, so a caller that predates the ab toggle can't turn rg -w on")
+
+    let words = SearchReplace.replaceAll(inFileText: "foo foobar\n",
+                                         query: SearchReplace.query(pattern: "foo", isRegex: false,
+                                                                    caseSensitive: false, wholeWord: true),
+                                         template: "baz")
+    check(words.text == "baz foobar\n" && words.count == 1,
+          "the whole-word query replaces exactly what rg -w listed, leaving foobar alone")
 }
 
 print("== line-wise replacement ==")
@@ -88,6 +95,37 @@ do {
           "case-sensitive touches only the exact spelling")
 }
 
+print("== preserve case (the AB toggle) ==")
+do {
+    let text = "widget Widget WIDGET widgetise\n"
+    let plain = SearchReplace.replaceAll(inFileText: text, query: query("widget"), template: "gadget")
+    check(plain.text == "gadget gadget gadget gadgetise\n",
+          "off, every match takes the template exactly as typed")
+
+    let kept = SearchReplace.replaceAll(inFileText: text, query: query("widget"),
+                                        template: "gadget", preserveCase: true)
+    check(kept.text == "gadget Gadget GADGET gadgetise\n",
+          "on, each match's own capitalization is carried onto the replacement (got \(kept.text.trimmingCharacters(in: .newlines)))")
+    check(kept.count == 4, "preserve-case doesn't change how many matches are replaced")
+
+    check(SearchReplace.preservingCase("onKeyDown", matching: "handler") == "onKeyDown",
+          "a lowercase match leaves a deliberately-cased template alone rather than flattening it")
+    check(SearchReplace.preservingCase("bar", matching: "F") == "Bar",
+          "a lone uppercase letter reads as Titlecase, not as ALLCAPS")
+    check(SearchReplace.preservingCase("bar", matching: "42") == "bar",
+          "a match with no letters has no case to preserve")
+    check(SearchReplace.preservingCase("", matching: "FOO") == "",
+          "an empty template (a delete) survives the transform")
+
+    // Regex mode expands the template first, so the case transform lands on the
+    // finished text rather than on "$1".
+    let captured = SearchReplace.replaceAll(inFileText: "Alpha beta\n",
+                                            query: query("(alpha)", regex: true),
+                                            template: "x$1", preserveCase: true)
+    check(captured.text == "XAlpha beta\n",
+          "capture groups interpolate before the case transform (got \(captured.text.trimmingCharacters(in: .newlines)))")
+}
+
 print("== the replace gate ==")
 do {
     check(SearchReplace.gate(pattern: "", fileCount: 2, matchCount: 4,
@@ -109,6 +147,20 @@ do {
           "ready carries no refusal to show")
     check(SearchReplace.Gate.truncated.refusal?.contains("narrow the search") == true,
           "the truncated refusal says what to do about it")
+}
+
+print("== the single-file gate (a result row's replace button) ==")
+do {
+    check(SearchReplace.fileGate(pattern: "", matchCount: 3, isSearching: false) == .noPattern,
+          "no pattern, nothing to replace")
+    check(SearchReplace.fileGate(pattern: "foo", matchCount: 3, isSearching: true) == .stillSearching,
+          "refuses mid-search: the row's own match count is still moving")
+    check(SearchReplace.fileGate(pattern: "foo", matchCount: 0, isSearching: false) == .noMatches,
+          "a row with no matches left has nothing to replace")
+    check(SearchReplace.fileGate(pattern: "foo", matchCount: 3, isSearching: false)
+            == .ready(files: 1, replacements: 3),
+          "one settled file is ready — and, unlike Replace All, a capped result set doesn't stop it: "
+            + "the pass rewrites the whole file either way")
 }
 
 print("== applying across files ==")

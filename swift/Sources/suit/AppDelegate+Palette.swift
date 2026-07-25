@@ -33,8 +33,15 @@ extension AppDelegate {
         activeWindowController()?.showNotes()
     }
 
+    // The Source Control tab (⌃⌘G). Still named showGit: the tab's enum case,
+    // its persisted rawValue and every existing caller say `git`.
     @objc func showGit(_ sender: Any?) {
         activeWindowController()?.showGit()
+    }
+
+    // Same tab, with the caret already in the commit message box.
+    @objc func focusCommitMessage(_ sender: Any?) {
+        activeWindowController()?.focusCommitMessage()
     }
 
     // Reveal the Git tab's Feedback inbox and refresh it.
@@ -426,7 +433,8 @@ extension AppDelegate {
             PaletteCommand(title: "Toggle Sidebar", shortcut: "⌘B") { [weak self] in self?.toggleSidebar(nil) },
             PaletteCommand(title: "Select Sidebar Folder…", shortcut: nil) { [weak self] in self?.selectSidebarFolder(nil) },
             PaletteCommand(title: "Show Notes", shortcut: nil) { [weak self] in self?.showNotes(nil) },
-            PaletteCommand(title: "Show Git", shortcut: nil) { [weak self] in self?.showGit(nil) },
+            PaletteCommand(title: "Show Source Control", shortcut: "⌃⌘G") { [weak self] in self?.showGit(nil) },
+            PaletteCommand(title: "Commit Changes…", shortcut: nil) { [weak self] in self?.focusCommitMessage(nil) },
             PaletteCommand(title: "Show Bookmarks", shortcut: nil) { [weak self] in self?.showBookmarks(nil) },
             PaletteCommand(title: "Mark Now (checkpoint for “what changed”)", shortcut: nil) { [weak self] in self?.markAwayPoint(nil) },
             PaletteCommand(title: "What Changed Since Mark", shortcut: nil) { [weak self] in self?.showCatchUpDiff(nil) },

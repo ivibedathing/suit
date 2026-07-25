@@ -56,9 +56,9 @@ working.
 
 - **Browser-style tabs & splits** for terminals, files, diffs and transcripts, with full state
   restoration across launches.
-- **Integrated sidebar** — file tree, ripgrep search and project-wide replace on its own tab, git
-  status / branches / PRs, blame, file history, notes and bookmarks — kept gitignore-consistent
-  with a live file index.
+- **Integrated sidebar** — file tree, ripgrep search and project-wide replace on its own tab, a
+  Source Control tab (stage, commit, fetch/pull/push, branches, worktrees, PRs), blame, file
+  history, notes and bookmarks — kept gitignore-consistent with a live file index.
 - **Claude Code awareness** — per-pane session state and context %, attention notifications,
   talk-back into any session, live transcripts and cross-transcript search.
 - **Autopilot** — autonomous, budget-aware execution of a project's roadmap with build and
@@ -149,6 +149,7 @@ or the command palette (which also offers **Rename Layout…** and **Delete Layo
 
 | Shortcut | Action |
 | --- | --- |
+| ⌃⌘G | Show Source Control (⌘↩ in the message box commits) |
 | ⌃⌘D | Show git diff |
 | ⌃⌘B | Toggle blame gutter (file viewer) |
 | ⌃⌘H | Time travel through the file's history (file viewer) |
@@ -159,17 +160,17 @@ or the command palette (which also offers **Rename Layout…** and **Delete Layo
 | ⌃⌘K | Compact focused session (/compact) |
 | ⇧⌘O | Show fleet dashboard |
 
-Show File History (palette / viewer right-click) lists the open file's commits in the Git tab.
+Show File History (palette / viewer right-click) lists the open file's commits in the Source Control tab.
 
 In a focused diff pane, `n` / `p` walk the changed files, `o` opens the file under review, and
 `c` adds a review comment on the line at the caret (batched to a Claude session with Send
 Review to Session…).
 
-The Git tab's Feedback section (CI failures / PR review comments / merge conflicts) routes each
+The Source Control tab's Feedback section (CI failures / PR review comments / merge conflicts) routes each
 item to its originating Claude session — click a row or use the palette's **Show Feedback Inbox**
 and **Route Feedback to Session…**.
 
-The Git tab's PR Review Inbox lists open PRs that involve you; click one (or **Show PR Review
+The Source Control tab's PR Review Inbox lists open PRs that involve you; click one (or **Show PR Review
 Inbox**) to review its diff, then **Submit as PR Review…** posts an Approve / Request Changes /
 Comment verdict via `gh pr review`.
 

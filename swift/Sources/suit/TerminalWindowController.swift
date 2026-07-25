@@ -79,6 +79,14 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     // the focused pane's project (the default follow-the-pane behavior).
     var pinnedSidebarRoot: String?
 
+    // The Search tab's live pattern, mirrored onto every viewer in this window
+    // so each highlights its own occurrences (FileViewerPane+SearchHits). Held
+    // here rather than read back off the sidebar because a file opened *after*
+    // the search ran has to pick it up too — openFile() applies it on the way in.
+    // Per window, not global: two windows searching different projects would
+    // otherwise wash each other's files with the wrong pattern.
+    var searchHighlightQuery: FindQuery?
+
     init(appDelegate: AppDelegate, startDirectory: String, restoring saved: SavedWindow? = nil, adopting adopted: Tab? = nil) {
         self.appDelegate = appDelegate
 
@@ -188,6 +196,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.searchView.onOpenMatch = { [weak self] path, line in
             self?.openFile(atPath: path, line: line)
         }
+        sidebar.searchView.onHighlightQueryChange = { [weak self] query in
+            self?.applySearchHighlight(query)
+        }
         sidebar.searchView.scopeResolver = { [weak self] scope in
             self?.resolveSearchScope(scope)
         }
@@ -222,6 +233,23 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         }
         sidebar.fileBrowser.onNewBranch = { [weak self] root in
             self?.promptForNewBranch(root: root)
+        }
+        // Source Control tab: staging, committing and the ⋯ menu all end up in
+        // the same runner the Files header's branch row uses, so one place owns
+        // confirmation, off-thread git, the failure alert and the refresh.
+        sidebar.gitView.onRunAction = { [weak self] root, action, completion in
+            self?.runBranchAction(root: root, action: action, completion: completion)
+        }
+        sidebar.gitView.onNewBranch = { [weak self] root in
+            self?.promptForNewBranch(root: root)
+        }
+        sidebar.gitView.onShowUpstreamDiff = { [weak self] root, branch in
+            self?.openUpstreamDiff(root: root, branch: branch)
+        }
+        // The rail icon carries the changed-file count, so a dirty tree is
+        // visible even with the sidebar collapsed.
+        sidebar.gitView.onChangeCountChanged = { [weak self] count in
+            self?.activityBar?.setBadge(count, for: .git)
         }
         sidebar.gitView.onOpenDiff = { [weak self] root, path in
             self?.openGitDiff(root: root, file: path)

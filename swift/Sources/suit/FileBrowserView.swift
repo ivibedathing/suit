@@ -227,11 +227,23 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         outlineView.addTableColumn(column)
         outlineView.outlineTableColumn = column
         outlineView.headerView = nil
-        outlineView.rowHeight = 20
+        // 24, not the 20 this asked for before: .sourceList silently inflated
+        // rows to 24 and that inflation is what shipped, so the height is stated
+        // here rather than inherited from a style we no longer use — dropping the
+        // style would otherwise tighten the whole tree as a side effect.
+        outlineView.rowHeight = 24
         outlineView.indentationPerLevel = 12
         outlineView.autoresizesOutlineColumn = false
+        // .inset, not .sourceList: the source-list style makes AppKit install an
+        // NSVisualEffectView (material .sidebar, blendingMode .behindWindow) as
+        // the scroll view's backdrop. Behind-window blending samples the desktop
+        // rather than the views under it, so it punched a hole straight through
+        // the sidebar's flat barChrome ground — the tree read as transparent.
+        // .inset keeps the same cell insets without the vibrancy, and selection
+        // and hover are drawn from tokens anyway (ThemedTableRowView, HoverRowView).
+        // Order matters: the style resets backgroundColor, so clear it after.
+        outlineView.style = .inset
         outlineView.backgroundColor = .clear
-        outlineView.style = .sourceList
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.target = self

@@ -33,6 +33,10 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         // are now stale — re-derive them so the count tracks the edit (and so no
         // highlight is ever painted at a range that no longer exists).
         findBarDidSeeEdit()
+        // Same reasoning for the project-search wash and its minimap ticks: they
+        // were derived from the pre-edit text and would otherwise paint at ranges
+        // the edit has moved.
+        searchHitsDidSeeEdit()
 
         scheduleAutosave()
         scheduleRehighlight()

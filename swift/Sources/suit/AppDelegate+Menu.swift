@@ -240,6 +240,12 @@ extension AppDelegate {
         let dictateItem = viewMenu.addItem(withTitle: "Dictate (hold 🌐+V to talk)", action: #selector(startDictation(_:)), keyEquivalent: "")
         dictateItem.target = self
 
+        // Ctrl-Cmd-G, not Ctrl-Shift-G (VS Code's): ⌃⇧G would shadow a control
+        // character the terminal owns, and ⌃⌘ is already this app's git family.
+        let sourceControlItem = viewMenu.addItem(withTitle: "Show Source Control", action: #selector(showGit(_:)), keyEquivalent: "g")
+        sourceControlItem.keyEquivalentModifierMask = [.command, .control]
+        sourceControlItem.target = self
+
         // Ctrl-Cmd-D: Cmd-D/Cmd-Shift-D are the split commands.
         let gitDiffItem = viewMenu.addItem(withTitle: "Show Git Diff", action: #selector(showGitDiff(_:)), keyEquivalent: "d")
         gitDiffItem.keyEquivalentModifierMask = [.command, .control]

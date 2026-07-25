@@ -3,10 +3,15 @@ import Cocoa
 // One changed-file row: status letter (colored like the Files tree's badges),
 // then one label carrying "name  directory" as a single attributed string —
 // name in primary, directory in faint — so the name never gets squeezed by a
-// separately-framed sibling; tail truncation eats the directory first.
+// separately-framed sibling; tail truncation eats the directory first. A
+// trailing +/− stages or unstages the file: always visible rather than
+// hover-revealed, because a sidebar row is a small target and a gesture you
+// have to discover by hovering isn't one.
 final class GitChangeRowView: NSTableCellView {
     private let letterLabel = NSTextField(labelWithString: "")
     private let pathLabel = NSTextField(labelWithString: "")
+    private let stageButton = NSButton(frame: .zero)
+    private var onStage: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -16,13 +21,32 @@ final class GitChangeRowView: NSTableCellView {
 
         pathLabel.lineBreakMode = .byTruncatingTail
         addSubview(pathLabel)
+
+        stageButton.isBordered = false
+        stageButton.imagePosition = .imageOnly
+        stageButton.contentTintColor = Theme.textDim
+        stageButton.target = self
+        stageButton.action = #selector(stageClicked)
+        addSubview(stageButton)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(path: String, letter: Character) {
+    @objc private func stageClicked() { onStage?() }
+
+    func configure(path: String, letter: Character, staged: Bool = false, onStage: (() -> Void)? = nil) {
+        self.onStage = onStage
+        stageButton.isHidden = onStage == nil
+        stageButton.image = NSImage(
+            systemSymbolName: staged ? "minus" : "plus",
+            accessibilityDescription: staged ? "Unstage" : "Stage"
+        )?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold))
+        stageButton.contentTintColor = Theme.textDim
+        stageButton.toolTip = staged ? "Unstage this file" : "Stage this file"
+        stageButton.setAccessibilityLabel(stageButton.toolTip)
+
         letterLabel.stringValue = String(letter)
         letterLabel.textColor = GitStatusMonitor.badgeColor(for: letter)
         // Untracked directories arrive as "dir/" from porcelain.
@@ -58,27 +82,62 @@ final class GitChangeRowView: NSTableCellView {
     override func layout() {
         super.layout()
         letterLabel.frame = NSRect(x: 6, y: (bounds.height - 13) / 2, width: 14, height: 13)
-        pathLabel.frame = NSRect(x: 24, y: (bounds.height - 16) / 2, width: max(0, bounds.width - 32), height: 16)
+        let buttonSize: CGFloat = 18
+        var right = bounds.width - 6
+        if !stageButton.isHidden {
+            stageButton.frame = NSRect(
+                x: right - buttonSize, y: (bounds.height - buttonSize) / 2,
+                width: buttonSize, height: buttonSize
+            )
+            right = stageButton.frame.minX - 2
+        }
+        pathLabel.frame = NSRect(x: 24, y: (bounds.height - 16) / 2, width: max(0, right - 24), height: 16)
     }
 }
 
-// A "STAGED — 2" / "CHANGES — 5" section divider row.
+// A "STAGED — 2" / "CHANGES — 5" section divider row, with an optional trailing
+// button for the bulk action that section has (stage all / unstage all).
 final class GitSectionRowView: NSTableCellView {
     private let label = NSTextField(labelWithString: "")
+    private let actionButton = NSButton(frame: .zero)
+    private var onAction: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         label.font = .systemFont(ofSize: 9.5, weight: .semibold)
         label.textColor = Theme.textFaint
         addSubview(label)
+
+        actionButton.isBordered = false
+        actionButton.imagePosition = .imageOnly
+        actionButton.contentTintColor = Theme.textDim
+        actionButton.target = self
+        actionButton.action = #selector(actionClicked)
+        actionButton.isHidden = true
+        addSubview(actionButton)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(title: String) {
+    @objc private func actionClicked() { onAction?() }
+
+    // A recycled row keeps the previous section's button and closure, so both
+    // are re-set on every configure — including the no-action form, which has
+    // to clear them.
+    func configure(title: String, actionSymbol: String? = nil, tooltip: String? = nil, onAction: (() -> Void)? = nil) {
         label.stringValue = title.uppercased()
+        label.textColor = Theme.textFaint
+        self.onAction = onAction
+        actionButton.isHidden = actionSymbol == nil || onAction == nil
+        if let actionSymbol {
+            actionButton.image = NSImage(systemSymbolName: actionSymbol, accessibilityDescription: tooltip)?
+                .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold))
+            actionButton.contentTintColor = Theme.textDim
+            actionButton.toolTip = tooltip
+            actionButton.setAccessibilityLabel(tooltip)
+        }
         needsLayout = true
     }
 
@@ -89,7 +148,13 @@ final class GitSectionRowView: NSTableCellView {
 
     override func layout() {
         super.layout()
-        label.frame = NSRect(x: 8, y: 2, width: max(0, bounds.width - 16), height: 13)
+        var right = bounds.width - 8
+        if !actionButton.isHidden {
+            let buttonSize: CGFloat = 16
+            actionButton.frame = NSRect(x: right - buttonSize, y: 1, width: buttonSize, height: buttonSize)
+            right = actionButton.frame.minX - 2
+        }
+        label.frame = NSRect(x: 8, y: 2, width: max(0, right - 8), height: 13)
     }
 }
 

@@ -26,6 +26,13 @@ final class ActivityBarView: NSView {
 
     private var icons: [RailIconView] = []
 
+    // A count in the corner of one tab's icon — the Source Control tab's
+    // changed-file count, so a dirty tree is visible with the sidebar
+    // collapsed. A tab with no icon here (Bookmarks) silently ignores it.
+    func setBadge(_ count: Int, for tab: SidebarView.Tab) {
+        icons.first { $0.tab == tab }?.badgeCount = count
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
@@ -65,7 +72,10 @@ final class ActivityBarView: NSView {
     // Layout and NSSplitView's frame management don't mix here).
     private func layoutContents() {
         let size = RailIconView.size
-        let topPadding: CGFloat = 8
+        // Shared with the sidebar's own top inset so the first icon and the tab
+        // content beside it start on one line — 8pt of its own read as the strip
+        // hanging off the window's top edge.
+        let topPadding = SidebarView.topInset
         let gap: CGFloat = 4
         // Unflipped coords: start at the top edge and walk down.
         var y = bounds.height - topPadding - size

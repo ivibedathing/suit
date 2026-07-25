@@ -129,6 +129,98 @@ for action in [GitBranchOps.Action.fetch, .push, .publish(branch: "b"), .deleteB
     check(!GitBranchOps.plan(for: action).touchesWorkingTree, "\(action) leaves the tree alone")
 }
 
+// MARK: - Staging (the Source Control tab's index actions)
+
+print("== GitBranchOps.plan — staging ==")
+// Every pathspec-carrying action puts `--` before the paths, or a file named
+// "-f" would be read as a flag by the command about to act on it.
+check(GitBranchOps.plan(for: .stage(paths: ["a.swift", "b.swift"])).commands
+        == [["add", "--", "a.swift", "b.swift"]], "stage adds after a -- separator")
+check(GitBranchOps.plan(for: .unstage(paths: ["a.swift"])).commands
+        == [["restore", "--staged", "--", "a.swift"]], "unstage touches the index only")
+check(GitBranchOps.plan(for: .stageAll).commands == [["add", "-A"]], "stage-all is add -A")
+// A bare mixed reset: no --hard anywhere near it, or unstaging would silently
+// throw the edits away.
+check(GitBranchOps.plan(for: .unstageAll).commands == [["reset", "--quiet"]], "unstage-all is a mixed reset")
+check(!GitBranchOps.plan(for: .unstageAll).commands.flatMap { $0 }.contains("--hard"),
+      "unstage-all never resets --hard")
+for action in [GitBranchOps.Action.stage(paths: ["a"]), .unstage(paths: ["a"]), .stageAll, .unstageAll] {
+    check(GitBranchOps.plan(for: action).confirmation == nil, "\(action) runs without a prompt")
+    check(!GitBranchOps.plan(for: action).touchesWorkingTree, "\(action) leaves the tree alone")
+}
+
+print("== GitBranchOps.plan — per-file discard ==")
+// Tracked files are restored, untracked ones deleted — two different commands,
+// and asking `restore` for a path it has never seen would fail the whole plan.
+let discardTracked = GitBranchOps.plan(for: .discardPaths(tracked: ["a.swift"], untracked: []))
+check(discardTracked.commands == [["restore", "--staged", "--worktree", "--", "a.swift"]],
+      "a tracked discard restores index and worktree")
+let discardUntracked = GitBranchOps.plan(for: .discardPaths(tracked: [], untracked: ["new.swift"]))
+check(discardUntracked.commands == [["clean", "-fd", "--", "new.swift"]],
+      "an untracked discard cleans just that path")
+let discardBoth = GitBranchOps.plan(for: .discardPaths(tracked: ["a.swift"], untracked: ["new.swift"]))
+check(discardBoth.commands.count == 2, "a mixed discard runs both commands")
+// The load-bearing one: an empty list must compose *no* command, because a
+// pathspec-less `clean -fd` would wipe every untracked file in the repo.
+check(GitBranchOps.plan(for: .discardPaths(tracked: [], untracked: [])).commands.isEmpty,
+      "discarding nothing composes no command at all")
+check(discardTracked.confirmation?.isDestructive == true, "a per-file discard is confirmed as destructive")
+check(discardTracked.confirmation?.messageText.contains("a.swift") == true,
+      "the confirmation names the file it is about to revert")
+check(discardBoth.confirmation?.messageText.contains("2 files") == true,
+      "a multi-file discard counts them instead")
+check(discardTracked.touchesWorkingTree, "a discard rescans the file index")
+
+// MARK: - Commit
+
+print("== GitBranchOps.plan — commit ==")
+check(GitBranchOps.plan(for: .commit(.init(message: "Fix the thing"))).commands
+        == [["commit", "-m", "Fix the thing"]], "a plain commit is commit -m")
+check(GitBranchOps.plan(for: .commit(.init(message: "msg", stageAll: true))).commands
+        == [["add", "-A"], ["commit", "-m", "msg"]], "stageAll stages before committing")
+check(GitBranchOps.plan(for: .commit(.init(message: "msg", push: true))).commands
+        == [["commit", "-m", "msg"], ["push"]], "push follows the commit")
+check(GitBranchOps.plan(for: .commit(.init(message: "msg", stageAll: true, push: true))).commands
+        == [["add", "-A"], ["commit", "-m", "msg"], ["push"]], "the full sequence keeps its order")
+check(GitBranchOps.plan(for: .commit(.init(message: "new subject", amend: true))).commands
+        == [["commit", "--amend", "-m", "new subject"]], "amend with a message rewrites it")
+// Empty + amend means "keep the previous message" — the one case where an
+// empty message is legal, and --no-edit is what stops git opening an editor
+// this app has no terminal to host.
+check(GitBranchOps.plan(for: .commit(.init(message: "  ", amend: true))).commands
+        == [["commit", "--amend", "--no-edit"]], "an empty amend keeps the previous message")
+check(GitBranchOps.plan(for: .commit(.init(message: "  padded  "))).commands
+        == [["commit", "-m", "padded"]], "the message is trimmed before it becomes argv")
+check(GitBranchOps.plan(for: .commit(.init(message: "m"))).confirmation == nil, "committing asks nothing")
+check(GitBranchOps.plan(for: .commit(.init(message: "m", amend: true))).failureTitle == "Amend Failed",
+      "an amend failure is named as one")
+// Nothing in the commit path may force: an amend of something already pushed
+// must fail at the push, loudly, rather than rewrite the remote.
+let commitArgv = GitBranchOps.plan(for: .commit(.init(message: "m", amend: true, push: true)))
+    .commands.flatMap { $0 }
+check(!commitArgv.contains("--force") && !commitArgv.contains("--force-with-lease") && !commitArgv.contains("-f"),
+      "amend + push never forces")
+
+print("== GitBranchOps.validateCommitMessage ==")
+check(GitBranchOps.validateCommitMessage("Fix it") == nil, "a real message passes")
+check(GitBranchOps.validateCommitMessage("") != nil, "an empty message is refused")
+check(GitBranchOps.validateCommitMessage("   \n\t ") != nil, "whitespace is not a message")
+check(GitBranchOps.validateCommitMessage("", amend: true) == nil, "amending may leave it empty")
+
+print("== GitBranchOps.commitButtonTitle ==")
+// The title has to carry the behaviour: with nothing staged, committing stages
+// everything, and the button says so rather than looking like a no-op.
+check(GitBranchOps.commitButtonTitle(stagedCount: 3, unstagedCount: 0, amend: false) == "Commit 3",
+      "staged files are counted")
+check(GitBranchOps.commitButtonTitle(stagedCount: 0, unstagedCount: 5, amend: false) == "Commit All 5",
+      "nothing staged reads as commit-all")
+check(GitBranchOps.commitButtonTitle(stagedCount: 0, unstagedCount: 0, amend: false) == "Commit",
+      "a clean tree leaves a bare title")
+check(GitBranchOps.commitButtonTitle(stagedCount: 2, unstagedCount: 0, amend: true) == "Amend Commit",
+      "amend renames the button")
+check(GitBranchOps.commitButtonTitle(stagedCount: 0, unstagedCount: 0, amend: true) == "Amend Message",
+      "amending a clean tree only touches the message")
+
 // MARK: - Branch-name validation
 
 print("== GitBranchOps.validateBranchName ==")
