@@ -2,8 +2,8 @@ import Cocoa
 
 // The window's activity bar: a fixed-width, full-height strip pinned to the far
 // left edge, outside the sidebar split (WindowRootView lays it out beside the
-// body). It holds the tab icons — Files / Sessions / SSH / Notes / Bookmarks,
-// in SidebarView.Tab.railOrder — that used to sit as a horizontal row inside the
+// body). It holds the tab icons — Files / Search / Sessions / SSH / Notes /
+// Bookmarks, in SidebarView.Tab.railOrder — that used to sit as a row inside the
 // sidebar's own top edge. Moving them out is the point: the tabs stay on screen
 // and clickable while the sidebar itself is collapsed with Cmd-B, so the bar is
 // how you bring a collapsed sidebar back on the tab you want.

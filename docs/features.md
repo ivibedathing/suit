@@ -65,7 +65,7 @@ app does.
 ### Files & sidebar
 
 - **Activity bar** — a full-height icon strip pinned to the window's far-left edge, holding the
-  sidebar's tabs: Files, Sessions, SSH Hosts, Notes and Bookmarks, top to bottom. It stays put
+  sidebar's tabs: Files, Search, Sessions, SSH Hosts, Notes and Bookmarks, top to bottom. It stays put
   when the sidebar is collapsed, so clicking any icon reopens the sidebar on that tab. Clicking
   the icon of the tab you're already on collapses the sidebar again (as ⌘B does).
 - **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. The
@@ -78,11 +78,22 @@ app does.
   (`.claude`, `.github`, `.gitignore`) are shown like any other row — inside a repo because
   `git ls-files` reports them, outside one because the fallback walk indexes them too, pruning
   only noise (`.git`, `.Trash`, `node_modules`, `.DS_Store`).
-- **Project search** (⇧⌘F, or the header's magnifier) — search isn't a permanent field: it
-  drops a compact search bar over the tree only when you invoke it, and **Esc** (or the ✕)
-  returns you to the file tree. Live ripgrep with regex/case toggles, a glob filter, and
-  Project / Sub-project / Pane Directory scopes tucked behind the options button; results
-  stream in grouped by file.
+- **Project search** (⇧⌘F, the activity bar's magnifier, or the Files header's magnifier) — its own
+  sidebar tab directly below Files, so searching never costs you sight of the file tree and your
+  matches are still there when you come back to it. Live ripgrep with regex/case toggles, a glob
+  filter, and Project / Sub-project / Pane Directory scopes tucked behind the options button;
+  results stream in grouped by file, and clicking a match opens it in the viewer at that line.
+  **Esc** clears the pattern; **Esc** on an already-empty field hands the sidebar back to Files.
+- **Project-wide replace** — the Search tab's second row: type a replacement and **Replace All**
+  (or Enter in that field) rewrites every listed match. It confirms first, with the file and match
+  counts, because it edits files that aren't open in any pane and there's no ⌘Z waiting for those.
+  Regex mode interpolates capture groups (`$1`) exactly as the viewer's ⌘F bar does, and an empty
+  replacement deletes the matches. Each file is rewritten atomically — the same writer ⌘S uses —
+  and the results re-run afterwards so the list reflects what's now on disk. Two deliberate
+  refusals: it won't run while the search is still streaming, and it won't run on a result set that
+  hit ripgrep's 2,000-match cap, since replacing a partial list would silently leave the rest of the
+  repo behind (narrow the scope or add a glob). Files that stopped matching, can't be read as UTF-8
+  text, or fail to write are reported in the status line rather than skipped in silence.
 - **Open quickly** (⌘P) — fuzzy-find any file in the project index; ⌘K opens the command
   palette over every app command plus your prompt library.
 - **Command history search** (⌃R) — the shell's reverse-i-search, made native and cross-pane. A
