@@ -1,6 +1,6 @@
 # Builds Suit and runs its logic harnesses.
 #
-# Suit has no SwiftPM/Xcode project (see CLAUDE.md "Why no SwiftPM"): sources are
+# Suit has no SwiftPM/Xcode project (see CLAUDE.md, "No SwiftPM, no Xcode project"): sources are
 # compiled directly with swiftc via ./build.sh, and UI-free logic is verified by
 # standalone harnesses via scripts/test.sh. So this workflow drives those, not
 # `swift build` / `swift test`.

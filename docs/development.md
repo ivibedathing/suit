@@ -7,8 +7,8 @@ is the human-oriented setup guide.
 ## Build & run
 
 There is no Xcode project and no SwiftPM package — Suit is compiled directly with `swiftc` and
-assembled into an app bundle by `build.sh` (see the "Why no SwiftPM" note in `CLAUDE.md` for the
-reasoning).
+assembled into an app bundle by `build.sh` (see the "No SwiftPM, no Xcode project" note in
+`CLAUDE.md` for the reasoning).
 
 ```sh
 ./build.sh                 # builds swift/, assembles build/Suit.app (ad-hoc code signed)
@@ -23,7 +23,7 @@ swiftc -O -j $(sysctl -n hw.ncpu) swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell && /tmp/suit-shell
 ```
 
-`-j` is not optional in practice. `swiftc` compiles this module as one frontend job per file — 253
+`-j` is not optional in practice. `swiftc` compiles this module as one frontend job per file — 267
 of them — and runs them serially unless told otherwise, which is why an unparallelized build takes
 about three minutes with a single core busy. With `-j` it's ~30 s, and the emitted code is
 identical; only the scheduling changes. Adding `-Onone` gets you to ~16 s when you just need a
@@ -34,7 +34,7 @@ binary that runs.
 There is no XCTest target; the pure, UI-free logic is covered by standalone harnesses — each
 compiles the relevant Foundation-only source file(s) against a small assertion driver and runs
 it. Run them all with `scripts/test.sh` (fast suite) or `scripts/test.sh --all` (includes the
-~2-minute Autopilot pipeline harness) — see the "Testing" section in `CLAUDE.md`.
+~2-minute Autopilot pipeline harness) — see the "Build & test" section in `CLAUDE.md`.
 
 UI/chrome changes are guarded by the committed reference render instead: re-run
 `design/render-reference.sh` after chrome edits so visual drift shows up in review diffs.
@@ -62,7 +62,8 @@ Two integrations are set up from inside the app rather than by hand:
 | `Resources/Info.plist` | App bundle metadata and permission usage strings |
 | `build.sh` | Builds everything and assembles `build/Suit.app` |
 | `CLAUDE.md` | Full agent & contributor guidance — architecture, file map, workflow rules |
-| `.claude/commands/` | Repo slash commands: `/build`, `/test`, `/find-file`, `/orient`, … |
+| `.claude/settings.json` | Shared Claude Code permission allowlist (no auto `git push`) |
+| `ROADMAP.md` | Phase list Autopilot works through; its heading grammar is load-bearing |
 
 ## Contributing workflow
 
