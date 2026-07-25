@@ -115,7 +115,10 @@ enum Theme {
     static let captionFont = NSFont.monospacedSystemFont(ofSize: 9, weight: .semibold)
     static let captionKern: CGFloat = 0.8
 
-    fileprivate static func rgb(_ hex: Int) -> NSColor {
+    /// 0xRRGGBB → NSColor. Internal (not fileprivate) so color tables outside
+    /// this file — the pane background presets in `Pane.swift` — can state their
+    /// values as hex too, rather than re-deriving the same three divisions.
+    static func rgb(_ hex: Int) -> NSColor {
         NSColor(
             calibratedRed: CGFloat((hex >> 16) & 0xFF) / 255,
             green: CGFloat((hex >> 8) & 0xFF) / 255,
@@ -289,7 +292,11 @@ extension Theme.Palette {
     static let suitDark = Theme.Palette(
         name: "Suit Dark",
         bg: Theme.rgb(0x17191D),
-        terminalBg: Theme.rgb(0x0E1013),
+        // The terminal ground carries a blue-violet undertone the near-neutral
+        // chrome doesn't: it reads as a deeper layer rather than one more grey,
+        // and the cool cast is what makes the amber accent (and warm ANSI
+        // yellows/reds) sit forward instead of sinking into the background.
+        terminalBg: Theme.rgb(0x0A0C15),
         barChrome: Theme.rgb(0x1F2228),
         raised: Theme.rgb(0x2A2E36),
         hover: Theme.rgb(0x262A31),
@@ -309,7 +316,7 @@ extension Theme.Palette {
     static let midnight = Theme.Palette(
         name: "Midnight",
         bg: Theme.rgb(0x0F1420),
-        terminalBg: Theme.rgb(0x080B12),
+        terminalBg: Theme.rgb(0x05081A),
         barChrome: Theme.rgb(0x151B2A),
         raised: Theme.rgb(0x1E273B),
         hover: Theme.rgb(0x1A2233),

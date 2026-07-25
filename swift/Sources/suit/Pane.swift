@@ -84,17 +84,35 @@ final class Pane: NSObject {
     private static var unfocusedBorder: CGColor { Theme.hairline.cgColor }
 
     // Shared with Pane+BackgroundColor and Pane+Screensaver.
+    //
+    // Deliberately not a grey ramp. Past the two theme grounds and the one
+    // neutral, every preset carries real hue at very low lightness, so a pane
+    // reads as a *place* — you can tell two splits apart at a glance instead of
+    // squinting at two shades of dark. They all stay inside roughly the 3–20%
+    // lightness band the foreground colors were picked against: anything
+    // lighter washes out dim ANSI text, and heavy saturation at this lightness
+    // costs nothing in contrast (the hue lives in ~30 levels of chroma while
+    // the text sits 200 levels above it).
     static let presetColors: [(String, NSColor)] = [
+        // The first two follow the active theme rather than stating a hex:
         // "Midnight" is the terminal ground — a step darker than the chrome —
         // and the default for terminal panes. "Slate" is the chrome ground
         // itself for anyone who wants the one-surface look back.
         ("Midnight", Theme.terminalBg),
         ("Slate", Theme.bg),
-        ("Charcoal", NSColor(calibratedRed: 0.118, green: 0.118, blue: 0.118, alpha: 1)),
-        ("Dracula", NSColor(calibratedRed: 0.157, green: 0.165, blue: 0.212, alpha: 1)),
-        ("Nord", NSColor(calibratedRed: 0.180, green: 0.204, blue: 0.251, alpha: 1)),
-        ("Solarized Dark", NSColor(calibratedRed: 0.000, green: 0.169, blue: 0.212, alpha: 1)),
-        ("Deep Plum", NSColor(calibratedRed: 0.102, green: 0.078, blue: 0.137, alpha: 1)),
+        // The one true neutral, for when hue is a distraction.
+        ("Graphite", Theme.rgb(0x15171B)),
+        // Hued grounds, cool to warm.
+        ("Ink", Theme.rgb(0x0E1130)),
+        ("Abyss", Theme.rgb(0x03202C)),
+        ("Evergreen", Theme.rgb(0x08201A)),
+        ("Deep Plum", Theme.rgb(0x1C0F2E)),
+        ("Oxblood", Theme.rgb(0x230D14)),
+        ("Ember", Theme.rgb(0x21100A)),
+        // Canonical community themes, at their published values.
+        ("Dracula", Theme.rgb(0x282A36)),
+        ("Nord", Theme.rgb(0x2E3440)),
+        ("Solarized Dark", Theme.rgb(0x002B36)),
     ]
 
     // Shared with Pane+Screensaver.
