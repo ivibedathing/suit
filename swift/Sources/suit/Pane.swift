@@ -93,7 +93,12 @@ final class Pane: NSObject {
     // lighter washes out dim ANSI text, and heavy saturation at this lightness
     // costs nothing in contrast (the hue lives in ~30 levels of chroma while
     // the text sits 200 levels above it).
-    static let presetColors: [(String, NSColor)] = [
+    // Computed, not a stored `let`: the first two entries are theme tokens, and a
+    // stored table would snapshot whichever palette happened to be active the
+    // first time the Background Color menu was built — pick a theme afterwards
+    // and "Midnight" would hand you the *previous* theme's ground.
+    static var presetColors: [(String, NSColor)] {
+        [
         // The first two follow the active theme rather than stating a hex:
         // "Midnight" is the terminal ground — a step darker than the chrome —
         // and the default for terminal panes. "Slate" is the chrome ground
@@ -113,7 +118,8 @@ final class Pane: NSObject {
         ("Dracula", Theme.rgb(0x282A36)),
         ("Nord", Theme.rgb(0x2E3440)),
         ("Solarized Dark", Theme.rgb(0x002B36)),
-    ]
+        ]
+    }
 
     // Shared with Pane+Screensaver.
     static let screensaverFontColors: [(String, NSColor)] = [
@@ -277,17 +283,37 @@ final class Pane: NSObject {
 
     // Re-reads the Theme tokens this pane's chrome baked in once (the container
     // ground, its header and tab-bar cached colors) after a live theme switch.
-    // Non-terminal panes also re-ground on the new theme background (a viewer /
-    // markdown / diff pane defaults to Theme.bg); terminals keep their color,
-    // which is a separate user setting (defaultTerminalBackground). The focus
-    // border is repainted by the controller's setFocused pass afterward.
-    func reapplyTheme() {
+    // Non-terminal panes re-ground on the new theme background (a viewer /
+    // markdown / diff pane defaults to Theme.bg). The focus border is repainted
+    // by the controller's setFocused pass afterward.
+    //
+    // Terminals are the interesting case: their ground is a user setting
+    // (defaultTerminalBackground, or a per-pane override from the Background
+    // Color menu), so it must survive a theme switch — *unless* it is still one
+    // of the two theme-derived presets, in which case the user never picked a
+    // color and leaving it would strand a black terminal in a light theme. So we
+    // compare against the outgoing palette, which is the only way to tell those
+    // apart, and move only the panes that were following along.
+    func reapplyTheme(previous: Theme.Palette?) {
         container.layer?.backgroundColor = Theme.bg.cgColor
         container.reapplyTheme()
         if terminalContent == nil {
             setBackgroundColor(content.initialBackgroundColor)
+        } else if let previous {
+            if Pane.sameColor(backgroundRGB, previous.terminalBg) {
+                setBackgroundColor(Theme.terminalBg)
+            } else if Pane.sameColor(backgroundRGB, previous.bg) {
+                setBackgroundColor(Theme.bg)
+            }
         }
         refreshChrome()
+    }
+
+    // Color identity by canonical hex: the pane's stored background has been
+    // round-tripped through deviceRGB persistence, so component-wise NSColor
+    // comparison (and `==`) can miss a color that is visually the same one.
+    static func sameColor(_ a: NSColor, _ b: NSColor) -> Bool {
+        Theme.Palette.hex(a) == Theme.Palette.hex(b)
     }
 
     // MARK: - Drag & drop rearrangement (forwarded to the host, which owns the tree)

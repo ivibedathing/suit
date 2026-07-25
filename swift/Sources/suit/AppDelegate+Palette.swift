@@ -185,7 +185,10 @@ extension AppDelegate {
         commandPalette.show(
             relativeTo: controller.window,
             commands: store.allThemes.map { info in
-                let tag = info.isBuiltIn ? " · built-in" : ""
+                // "dark"/"light" rather than a swatch: the palette is a text list,
+                // and which end of the ramp a theme sits on is the thing you're
+                // most often reaching for at 2am.
+                let tag = " · \(info.isBuiltIn ? "built-in" : "custom") \(info.palette.isLight ? "light" : "dark")"
                 let tick = info.id == activeId ? "  ✓" : ""
                 return PaletteCommand(title: "\(info.palette.name)\(tag)\(tick)", shortcut: nil) {
                     ThemeStore.shared.apply(id: info.id)
