@@ -4,7 +4,7 @@ Guidance for Claude Code (claude.ai/code) working in this repository.
 
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app: a native AppKit bundle
 whose windows host split trees of panes showing browser-style tabs — terminals (`/bin/zsh -l -i`
-on SwiftTerm's pty), file viewers, diffs, transcripts, dashboards. One module, 207 Swift files,
+on SwiftTerm's pty), file viewers, diffs, transcripts, dashboards. One module, 209 Swift files,
 nothing beyond AppKit and vendored SwiftTerm.
 
 `README.md` is the pitch, `docs/features.md` the shipped-behavior reference, `docs/development.md`
@@ -70,7 +70,7 @@ swiftc -O -j $(sysctl -n hw.ncpu) swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell-$TASK && /tmp/suit-shell-$TASK
 ```
 
-**Always pass `-j`.** `swiftc` plans one frontend job per file (268 — 207 sources plus 61 vendored)
+**Always pass `-j`.** `swiftc` plans one frontend job per file (270 — 209 sources plus 61 vendored)
 and runs them *serially* by default: ~3 minutes on one core with ten idle. `-j` drops it to ~30 s
 and changes nothing but scheduling. Add `-Onone` (~16 s) when you only need a binary that runs —
 it's the wrong build for judging scroll smoothness or anything perf-shaped.
