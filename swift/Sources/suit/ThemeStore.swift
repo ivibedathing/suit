@@ -98,10 +98,14 @@ final class ThemeStore {
     @discardableResult
     func apply(id: String) -> Bool {
         guard let t = theme(id: id) else { return false }
+        let previous = Theme.current
         Theme.current = t.palette
         selectedId = id
         saveSelection(id)
-        NotificationCenter.default.post(name: Theme.didChange, object: self)
+        NotificationCenter.default.post(
+            name: Theme.didChange, object: self,
+            userInfo: [Theme.previousPaletteKey: previous]
+        )
         NotificationCenter.default.post(name: Self.didUpdate, object: self)
         return true
     }
@@ -134,8 +138,12 @@ final class ThemeStore {
         writeUserTheme(theme)
         loadUserThemes()
         if selectedId == theme.id {
+            let previous = Theme.current
             Theme.current = theme.palette
-            NotificationCenter.default.post(name: Theme.didChange, object: self)
+            NotificationCenter.default.post(
+                name: Theme.didChange, object: self,
+                userInfo: [Theme.previousPaletteKey: previous]
+            )
         }
         NotificationCenter.default.post(name: Self.didUpdate, object: self)
     }

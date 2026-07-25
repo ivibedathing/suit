@@ -198,6 +198,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             name: FileIndex.didUpdate, object: nil
         )
         loadSettings()
+        // After loadSettings, so the persisted terminal ground is in place before
+        // the first theme switch can decide whether it is still following along.
+        startObservingThemeForDefaults()
         buildMenu()
         // Push-to-talk dictation: hold 🌐 (Fn/Globe) + V to speak into the focused
         // pane (see AppDelegate+Dictation / Dictation.swift).

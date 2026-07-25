@@ -467,8 +467,13 @@ extension SettingsWindowController {
         listScroll.backgroundColor = Theme.barChrome
         listScroll.borderType = .lineBorder
         listScroll.translatesAutoresizingMaskIntoConstraints = false
-        listScroll.heightAnchor.constraint(equalToConstant: 148).isActive = true
-        listScroll.widthAnchor.constraint(equalToConstant: 240).isActive = true
+        listScroll.heightAnchor.constraint(equalToConstant: 180).isActive = true
+        listScroll.widthAnchor.constraint(equalToConstant: 300).isActive = true
+
+        // The two diff wash tokens are translucent by design, so the shared color
+        // panel has to offer an opacity slider — without it, editing a wash would
+        // silently flatten it into an opaque band across the diff.
+        NSColorPanel.shared.showsAlpha = true
 
         // A drop target so a shared ".suittheme" dragged in imports like the
         // Import… picker; it wraps the list so the whole area accepts the drop.
@@ -507,6 +512,13 @@ extension SettingsWindowController {
             listRow, buttonRow,
         ])
 
+        // The live preview sits directly under the list, above the wells: while
+        // editing you watch the mock window, not the swatch you are dragging.
+        themePreviewStrip.translatesAutoresizingMaskIntoConstraints = false
+        themePreviewStrip.heightAnchor.constraint(equalToConstant: 148).isActive = true
+        themePreviewStrip.widthAnchor.constraint(equalToConstant: 300).isActive = true
+        stack.addArrangedSubview(row(label: "Preview:", controls: [themePreviewStrip]))
+
         // Editable colors for the selected user theme. Built once (one well per
         // token, index-aligned with editableTokens); themeSelectionChanged()
         // repopulates and enables/disables them per selection.
@@ -516,24 +528,32 @@ extension SettingsWindowController {
         stack.addArrangedSubview(row(label: "", controls: [themeEditHint]))
 
         themeColorWells = []
-        // Lay the ~15 token wells out in two columns so the pane stays compact.
-        let tokens = Theme.Palette.editableTokens
-        var i = 0
-        while i < tokens.count {
-            let left = tokenWellControl(label: tokens[i].label)
-            var controls: [NSView] = left
-            if i + 1 < tokens.count {
-                controls += tokenWellControl(label: tokens[i + 1].label)
+        // Two wells per row so 26 tokens stay compact, with a sub-header at each
+        // group boundary (Chrome / Text / Accent & Status / Syntax / Diff) so the
+        // grid reads as a structure instead of a wall of squares. Rows are filled
+        // within a group only — a group never shares a row with the next one.
+        for group in Theme.Palette.tokenGroups {
+            stack.addArrangedSubview(row(label: "", controls: [groupCaption(group.name)]))
+            var i = 0
+            while i < group.tokens.count {
+                var controls = tokenWellControl(label: group.tokens[i].label)
+                if i + 1 < group.tokens.count {
+                    controls += tokenWellControl(label: group.tokens[i + 1].label)
+                }
+                stack.addArrangedSubview(row(label: "", controls: controls))
+                i += 2
             }
-            stack.addArrangedSubview(row(label: "", controls: controls))
-            i += 2
         }
-
-        themePreviewStrip.translatesAutoresizingMaskIntoConstraints = false
-        themePreviewStrip.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        themePreviewStrip.widthAnchor.constraint(equalToConstant: 300).isActive = true
-        stack.addArrangedSubview(row(label: "Preview:", controls: [themePreviewStrip]))
         return stack
+    }
+
+    // A group divider inside the token grid: quieter than sectionHeader (which
+    // labels whole panes) but louder than a well caption.
+    private func groupCaption(_ title: String) -> NSView {
+        let label = NSTextField(labelWithString: title.uppercased())
+        label.font = .systemFont(ofSize: 9, weight: .semibold)
+        label.textColor = Theme.textFaint
+        return label
     }
 
     // One labeled color well for a palette token, registered so themeTokenChanged
@@ -552,11 +572,17 @@ extension SettingsWindowController {
         return [caption, well]
     }
 
-    // One catalog row: the theme name, a "· built-in / author" subtitle, and a
-    // trailing checkmark on the active theme.
+    // One catalog row: a four-color chip of the theme's own palette, its name, a
+    // "built-in · dark / author · light" subtitle, and a trailing checkmark on the
+    // active theme. The chip is what makes a fourteen-item list scannable — you
+    // recognize a theme by its ground and accent long before you read its name.
     private func themeCell(row: Int) -> NSView {
         let info = themeRows[row]
         let cell = NSTableCellView()
+
+        let chip = ThemeSwatchChip()
+        chip.palette = info.palette
+        chip.translatesAutoresizingMaskIntoConstraints = false
 
         let label = NSTextField(labelWithString: info.palette.name)
         label.font = .systemFont(ofSize: 13)
@@ -564,8 +590,8 @@ extension SettingsWindowController {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.lineBreakMode = .byTruncatingTail
 
-        let subtitle = info.isBuiltIn ? "built-in" : (info.author.isEmpty ? "custom" : info.author)
-        let sub = NSTextField(labelWithString: subtitle)
+        let origin = info.isBuiltIn ? "built-in" : (info.author.isEmpty ? "custom" : info.author)
+        let sub = NSTextField(labelWithString: "\(origin) · \(info.palette.isLight ? "light" : "dark")")
         sub.font = .systemFont(ofSize: 10)
         sub.textColor = Theme.textFaint
         sub.translatesAutoresizingMaskIntoConstraints = false
@@ -578,11 +604,16 @@ extension SettingsWindowController {
         check.translatesAutoresizingMaskIntoConstraints = false
         check.isHidden = info.id != ThemeStore.shared.selected.id
 
+        cell.addSubview(chip)
         cell.addSubview(label)
         cell.addSubview(sub)
         cell.addSubview(check)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 12),
+            chip.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 10),
+            chip.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            chip.widthAnchor.constraint(equalToConstant: 30),
+            chip.heightAnchor.constraint(equalToConstant: 14),
+            label.leadingAnchor.constraint(equalTo: chip.trailingAnchor, constant: 9),
             label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             sub.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 8),
             sub.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
@@ -707,21 +738,196 @@ extension SettingsWindowController {
     }
 }
 
-// A live preview of a whole palette: its editable tokens drawn as equal-width
-// bars in editableTokens order, so an edit shows the theme's full colour set at
-// a glance. `palette` is set from the selected/edited theme; setting it redraws.
+// A live preview of a whole palette, drawn as a miniature Suit window rather than
+// a row of swatches: a tab strip with an active tab and its accent tick, a
+// sidebar rail, a block of "code" in the syntax tokens, two diff rows in their
+// washes, a terminal ground with a prompt, and a status dot row — plus a thin
+// token strip along the bottom so every editable token is still visible while you
+// drag one. Twenty-six squares tell you what a theme contains; this tells you
+// what it will look like, which is the question you actually have. Everything is
+// rectangles: at this size, mock text out-reads real text.
+//
+// `palette` is set from the selected/edited theme; setting it redraws.
 final class ThemePreviewStrip: NSView {
     var palette: Theme.Palette? { didSet { needsDisplay = true } }
 
     override func draw(_ dirtyRect: NSRect) {
+        // Ground the whole card in the *host* theme while empty, so a deselected
+        // list doesn't leave a black hole in the pane.
         Theme.raised.setFill()
         bounds.fill()
-        guard let colors = palette?.orderedTokenColors, !colors.isEmpty else { return }
+        guard let p = palette else { return }
+
+        let swatchHeight: CGFloat = 8
+        let card = NSRect(
+            x: 0, y: swatchHeight + 3,
+            width: bounds.width, height: bounds.height - swatchHeight - 3
+        )
+        NSGraphicsContext.saveGraphicsState()
+        let clip = NSBezierPath(roundedRect: card, xRadius: 6, yRadius: 6)
+        clip.addClip()
+
+        p.bg.setFill()
+        card.fill()
+
+        // Sidebar rail down the left, hairline-separated.
+        let railWidth: CGFloat = 26
+        let rail = NSRect(x: card.minX, y: card.minY, width: railWidth, height: card.height)
+        p.barChrome.setFill()
+        rail.fill()
+        p.hairline.setFill()
+        NSRect(x: rail.maxX, y: card.minY, width: 1, height: card.height).fill()
+        // Three sidebar icons; the first is "selected" (accent).
+        for i in 0..<3 {
+            (i == 0 ? p.accent : p.textFaint).setFill()
+            NSBezierPath(
+                roundedRect: NSRect(x: rail.minX + 9, y: card.maxY - 16 - CGFloat(i) * 13, width: 8, height: 8),
+                xRadius: 2, yRadius: 2
+            ).fill()
+        }
+
+        // Tab strip along the top of the content area: one raised active tab with
+        // its accent tick, two flat ones, and the hairline under the strip.
+        let content = NSRect(
+            x: rail.maxX + 1, y: card.minY,
+            width: card.maxX - rail.maxX - 1, height: card.height
+        )
+        let stripHeight: CGFloat = 16
+        let strip = NSRect(x: content.minX, y: content.maxY - stripHeight, width: content.width, height: stripHeight)
+        p.barChrome.setFill()
+        strip.fill()
+        var tabX = strip.minX + 4
+        for i in 0..<3 {
+            let tab = NSRect(x: tabX, y: strip.minY + 2, width: 40, height: stripHeight - 2)
+            (i == 0 ? p.raised : p.hover).setFill()
+            NSBezierPath(roundedRect: tab, xRadius: 3, yRadius: 3).fill()
+            (i == 0 ? p.textPrimary : p.textDim).setFill()
+            NSRect(x: tab.minX + 6, y: tab.midY - 1, width: 22, height: 2).fill()
+            if i == 0 {
+                p.accent.setFill()
+                NSRect(x: tab.minX + 6, y: tab.minY + 1, width: tab.width - 12, height: 1.5).fill()
+            }
+            tabX = tab.maxX + 2
+        }
+        p.hairline.setFill()
+        NSRect(x: content.minX, y: strip.minY - 1, width: content.width, height: 1).fill()
+
+        // A usage footer along the bottom, like the real window's: it grounds the
+        // card on bar chrome at both ends and shows one more accent-on-chrome pair.
+        let footerHeight: CGFloat = 11
+        let footer = NSRect(x: content.minX, y: card.minY, width: content.width, height: footerHeight)
+        p.barChrome.setFill()
+        footer.fill()
+        p.hairline.setFill()
+        NSRect(x: footer.minX, y: footer.maxY, width: footer.width, height: 1).fill()
+        p.textFaint.setFill()
+        NSRect(x: footer.minX + 8, y: footer.midY - 1, width: 30, height: 2).fill()
+        p.accent.setFill()
+        NSRect(x: footer.maxX - 40, y: footer.midY - 1, width: 22, height: 2).fill()
+        p.sessionDone.setFill()
+        NSRect(x: footer.maxX - 14, y: footer.midY - 1, width: 8, height: 2).fill()
+
+        // Left half: a block of code in the syntax tokens, then two diff rows.
+        let body = NSRect(
+            x: content.minX, y: footer.maxY + 1,
+            width: content.width * 0.55, height: strip.minY - 2 - footer.maxY
+        )
+        // Each line is a run of (token color, width) segments — the shape of real
+        // code (indent, keyword, type, string, trailing comment) at 1:8 scale.
+        let lines: [[(NSColor, CGFloat)]] = [
+            [(p.syntaxComment, 34)],
+            [(p.syntaxKeyword, 14), (p.syntaxType, 20), (p.textPrimary, 8)],
+            [(p.textFaint, 6), (p.syntaxKey, 12), (p.syntaxString, 26)],
+            [(p.textFaint, 6), (p.syntaxAttribute, 10), (p.syntaxNumber, 8), (p.textPrimary, 12)],
+            [(p.textFaint, 6), (p.syntaxComment, 22)],
+            [(p.textFaint, 6), (p.syntaxKeyword, 10), (p.syntaxType, 14), (p.textPrimary, 6)],
+            [(p.textFaint, 12), (p.syntaxString, 18), (p.syntaxNumber, 6)],
+            [(p.textPrimary, 8)],
+        ]
+        var y = body.maxY - 11
+        for line in lines {
+            var x = body.minX + 8
+            for (color, width) in line {
+                color.setFill()
+                NSRect(x: x, y: y, width: width, height: 2.5).fill()
+                x += width + 4
+            }
+            y -= 10
+        }
+        // Two diff rows: the wash spans the whole row, the changed text sits in it.
+        y -= 2
+        for (wash, ink) in [(p.diffAddedBg, p.diffAdded), (p.diffRemovedBg, p.diffRemoved)] {
+            wash.setFill()
+            NSRect(x: body.minX, y: y - 3, width: body.width, height: 9).fill()
+            ink.setFill()
+            NSRect(x: body.minX + 8, y: y + 1, width: 40, height: 2.5).fill()
+            y -= 11
+        }
+
+        // Right half: the terminal ground, a prompt in the accent, output lines,
+        // and the four status dots.
+        let term = NSRect(x: body.maxX, y: body.minY, width: content.maxX - body.maxX, height: body.height)
+        p.terminalBg.setFill()
+        term.fill()
+        p.hairline.setFill()
+        NSRect(x: term.minX, y: term.minY, width: 1, height: term.height).fill()
+        p.accent.setFill()
+        NSRect(x: term.minX + 8, y: term.maxY - 11, width: 4, height: 2.5).fill()
+        p.textPrimary.setFill()
+        NSRect(x: term.minX + 16, y: term.maxY - 11, width: 26, height: 2.5).fill()
+        // Output: dim lines with one success line and one failure line among them,
+        // so the semantic tokens appear where they actually appear in the app.
+        let output: [(NSColor, CGFloat)] = [
+            (p.textDim, 40), (p.textDim, 30), (p.sessionDone, 22),
+            (p.textDim, 36), (p.failed, 26), (p.textDim, 18),
+        ]
+        for (i, line) in output.enumerated() {
+            line.0.setFill()
+            NSRect(x: term.minX + 8, y: term.maxY - 21 - CGFloat(i) * 8, width: line.1, height: 2.5).fill()
+        }
+        for (i, color) in [p.sessionBusy, p.sessionNeedsInput, p.sessionDone, p.failed].enumerated() {
+            color.setFill()
+            NSBezierPath(ovalIn: NSRect(x: term.minX + 8 + CGFloat(i) * 9, y: term.minY + 5, width: 5, height: 5)).fill()
+        }
+
+        NSGraphicsContext.restoreGraphicsState()
+        p.hairline.setStroke()
+        clip.lineWidth = 1
+        clip.stroke()
+
+        // The full token set as a hairline strip under the card: the editor's
+        // ground truth, in colorTokens order (so it lines up with the wells).
+        let colors = p.orderedTokenColors
+        guard !colors.isEmpty else { return }
         let width = bounds.width / CGFloat(colors.count)
         for (i, color) in colors.enumerated() {
             color.setFill()
+            NSRect(x: CGFloat(i) * width, y: 0, width: width.rounded(.up), height: swatchHeight).fill()
+        }
+    }
+}
+
+// The little multi-color chip in front of each row of the theme list: ground,
+// bar chrome, accent, and a syntax hue, in four vertical bands with a rounded
+// outline. Enough to tell fourteen themes apart at a glance.
+final class ThemeSwatchChip: NSView {
+    var palette: Theme.Palette? { didSet { needsDisplay = true } }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let p = palette else { return }
+        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 3, yRadius: 3)
+        NSGraphicsContext.saveGraphicsState()
+        path.addClip()
+        let bands = [p.bg, p.barChrome, p.accent, p.syntaxString]
+        let width = bounds.width / CGFloat(bands.count)
+        for (i, color) in bands.enumerated() {
+            color.setFill()
             NSRect(x: CGFloat(i) * width, y: 0, width: width.rounded(.up), height: bounds.height).fill()
         }
+        NSGraphicsContext.restoreGraphicsState()
+        Theme.hairline.setStroke()
+        path.lineWidth = 1
+        path.stroke()
     }
 }
 

@@ -500,6 +500,19 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         minimap.backgroundColor = color
     }
 
+    // Live theme switch: syntax color is baked into the text storage as
+    // attributes, and the minimap into a cached image, so neither notices a new
+    // palette on its own — re-apply both from the already-scanned spans (no
+    // rescan, the tokens haven't moved). Markers are re-emitted because their
+    // colors are Theme tokens too. Base text color is a separate user setting
+    // (AppDelegate's text color), so it is deliberately left alone.
+    func reapplyTheme() {
+        applySyntaxAttributes()
+        updateMinimapMarkers()
+        rebuildMinimap()
+        ruler.needsDisplay = true
+    }
+
     func teardown() {
         dismissPeek()
         autosaveTimer?.invalidate()

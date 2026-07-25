@@ -19,13 +19,12 @@ func check(_ condition: Bool, _ message: String) {
     }
 }
 
-// Compare two palettes by their canonical "#RRGGBB" token set (Palette isn't
-// Equatable, and NSColor equality is color-space sensitive).
+// Compare two palettes by their canonical "#RRGGBB[AA]" token set (Palette isn't
+// Equatable, and NSColor equality is color-space sensitive). Driven off
+// orderedTokenColors rather than a hand-written list, so a token added to the
+// palette is covered by every comparison below without touching this file.
 func colors(_ p: Theme.Palette) -> [String] {
-    [p.bg, p.terminalBg, p.barChrome, p.raised, p.hover, p.hairline, p.overlay,
-     p.textPrimary, p.textDim, p.textFaint,
-     p.accent, p.sessionBusy, p.sessionNeedsInput, p.sessionDone, p.failed]
-        .map(Theme.Palette.hex)
+    p.orderedTokenColors.map(Theme.Palette.hex)
 }
 func sameColors(_ a: Theme.Palette, _ b: Theme.Palette) -> Bool { colors(a) == colors(b) }
 
@@ -52,6 +51,85 @@ do {
     check(Theme.Palette.colorFromHex("") == nil, "empty string rejected")
     check(Theme.Palette.colorFromHex("#ZZZZZZ") == nil, "non-hex chars rejected")
     check(Theme.Palette.colorFromHex("#12 34 56") == nil, "internal spaces rejected")
+
+    // The 8-digit form carries alpha (the diff row washes are translucent).
+    if let wash = Theme.Palette.colorFromHex("#338C4038") {
+        check(abs(wash.alphaComponent - 56.0 / 255) < 0.001, "#RRGGBBAA parses its alpha")
+        check(Theme.Palette.hex(wash) == "#338C4038", "translucent color round-trips as 8 digits")
+    } else { check(false, "8-digit hex parsed") }
+    check(Theme.Palette.colorFromHex("#338C40FF").map(Theme.Palette.hex) == "#338C40",
+          "fully opaque 8-digit form serializes back as 6 digits")
+    check(Theme.Palette.hex(Theme.rgba(0x338C40, 0.22)) == "#338C4038",
+          "rgba() token serializes with its alpha")
+    check(Theme.Palette.colorFromHex("#123456789") == nil, "wrong length (9) rejected")
+}
+
+// MARK: - Token table invariants
+//
+// colorTokens is the palette's single source of truth: Codable walks it and the
+// Settings editor builds one color well per entry, index-aligned. These are the
+// invariants that alignment rests on.
+
+print("== token table ==")
+do {
+    let tokens = Theme.Palette.colorTokens
+    check(!tokens.isEmpty, "the token table is populated")
+    check(Set(tokens.map { $0.key.stringValue }).count == tokens.count,
+          "every token has a distinct coding key")
+    check(Set(tokens.map(\.label)).count == tokens.count, "every token has a distinct label")
+    check(!tokens.contains { $0.key.stringValue == "name" }, "`name` is metadata, not a color token")
+    check(d.orderedTokenColors.count == tokens.count, "orderedTokenColors covers the whole table")
+
+    // The grouped view the editor lays out must be the flat table re-cut, in the
+    // same order — a regrouping that reordered tokens would point every color
+    // well at the wrong token.
+    let groups = Theme.Palette.tokenGroups
+    let flattened = groups.flatMap { $0.tokens }
+    check(flattened.count == tokens.count, "grouping loses no tokens")
+    check(flattened.map(\.label) == tokens.map(\.label), "grouping preserves token order")
+    check(groups.count > 1, "the table is actually grouped")
+    check(Set(groups.map(\.name)).count == groups.count, "each group appears exactly once (runs are contiguous)")
+}
+
+// MARK: - Built-in palettes
+
+print("== built-ins ==")
+do {
+    let builtIns = Theme.Palette.builtIns
+    check(builtIns.count >= 14, "the shipped set has all fourteen palettes")
+    check(builtIns.first.map { sameColors($0, .suitDark) } == true, "Suit Dark leads the list (the default)")
+    check(Set(builtIns.map(\.name)).count == builtIns.count, "no two built-ins share a display name")
+    check(Set(builtIns.map { ThemeStore.slug($0.name) }).count == builtIns.count,
+          "no two built-ins slug to the same id")
+
+    for p in builtIns {
+        // A palette that collapses onto a handful of colors is usually one where
+        // tokens were left unset. Some reuse is legitimate — the fixed-sixteen
+        // palettes (Dracula, Solarized, Gruvbox) deliberately spend one hue on
+        // several tokens — so the floor is loose; it only catches wholesale gaps.
+        let distinct = Set(colors(p)).count
+        check(distinct >= 18, "\(p.name): tokens are distinct (\(distinct) unique of \(colors(p).count))")
+        // The washes composite over the pane background — an opaque one would
+        // punch a band through a translucent pane.
+        check(p.diffAddedBg.alphaComponent < 1 && p.diffRemovedBg.alphaComponent < 1,
+              "\(p.name): both diff washes are translucent")
+        // Everything else is opaque: an accidentally translucent chrome or text
+        // token composites against whatever is behind it and looks like a bug.
+        let opaque = Theme.Palette.colorTokens
+            .filter { !$0.label.hasSuffix("Wash") }
+            .allSatisfy { p[keyPath: $0.keyPath].alphaComponent >= 1 }
+        check(opaque, "\(p.name): every non-wash token is opaque")
+        // Round-trip each built-in through its own file format.
+        let data = try! JSONEncoder().encode(ThemeFile(palette: p, author: "Suit"))
+        let back = try! JSONDecoder().decode(ThemeFile.self, from: data)
+        check(sameColors(back.palette, p), "\(p.name): survives a .suittheme round-trip")
+        check(back.palette.name == p.name, "\(p.name): name survives a round-trip")
+    }
+
+    // isLight drives the "dark"/"light" hint in both theme pickers.
+    check(Theme.Palette.suitLight.isLight && Theme.Palette.paper.isLight, "the light themes read as light")
+    check(!Theme.Palette.suitDark.isLight && !Theme.Palette.obsidian.isLight,
+          "the darks read as dark (including true black)")
 }
 
 // MARK: - Partial-theme decode with per-token fallback
@@ -83,6 +161,12 @@ do {
           "absent token (terminalBg) falls back to default")
     check(Theme.Palette.hex(file.palette.failed) == Theme.Palette.hex(d.failed),
           "absent token (failed) falls back to default")
+    // A theme file written before the syntax/diff tokens existed is exactly this
+    // shape — every new token must fall back rather than decode to black.
+    check(Theme.Palette.hex(file.palette.syntaxKeyword) == Theme.Palette.hex(d.syntaxKeyword),
+          "absent syntax token falls back (old theme files stay usable)")
+    check(Theme.Palette.hex(file.palette.diffAddedBg) == Theme.Palette.hex(d.diffAddedBg),
+          "absent diff wash falls back with its alpha intact")
 }
 
 // MARK: - Unknown-key tolerance

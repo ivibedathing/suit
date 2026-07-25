@@ -19,6 +19,17 @@ enum Theme {
     /// Posted after `current` is swapped so a central observer can repaint.
     static let didChange = Notification.Name("SuitThemeDidChange")
 
+    /// `didChange` userInfo key holding the palette that was active *before* the
+    /// swap. Observers need it to tell "this surface still carries the old
+    /// theme's ground, so re-ground it" from "the user picked this color on
+    /// purpose, leave it alone" — a distinction the new palette alone can't make.
+    static let previousPaletteKey = "previousPalette"
+
+    /// The pre-swap palette out of a `didChange` notification, if it carried one.
+    static func previousPalette(from note: Notification) -> Palette? {
+        note.userInfo?[previousPaletteKey] as? Palette
+    }
+
     // MARK: - Chrome
 
     /// Window/content ground — also the default viewer/diff background.
@@ -68,6 +79,48 @@ enum Theme {
     static func contextLevelColor(_ pct: Double) -> NSColor {
         pct >= 90 ? failed : pct >= 70 ? sessionBusy : textFaint
     }
+
+    // MARK: - Syntax
+    //
+    // Code color, one token per `SyntaxTokenKind` (see SyntaxHighlighter.swift,
+    // which is now nothing but the mapping). Foreground-only, so a pane's
+    // background/translucency shows through untouched — and because the file
+    // viewer, the markdown code blocks, the definition peek, and the minimap all
+    // render through the same kinds, a theme recolors every one of them at once.
+
+    static var syntaxKeyword: NSColor { current.syntaxKeyword }
+    static var syntaxString: NSColor { current.syntaxString }
+    static var syntaxComment: NSColor { current.syntaxComment }
+    static var syntaxNumber: NSColor { current.syntaxNumber }
+    static var syntaxType: NSColor { current.syntaxType }
+    static var syntaxAttribute: NSColor { current.syntaxAttribute }
+    static var syntaxKey: NSColor { current.syntaxKey }
+
+    /// The six commit-graph lane colors, borrowed from tokens rather than owned:
+    /// a graph drawn in fixed hex looked wrong the moment a light theme landed.
+    /// Ordered so adjacent lanes stay distinguishable.
+    static var graphLanes: [NSColor] {
+        [accent, sessionDone, syntaxKey, syntaxKeyword, syntaxType, sessionBusy]
+    }
+
+    // MARK: - Diff
+    //
+    // Added/removed line color, foreground plus the row wash behind it. The two
+    // background tokens carry alpha on purpose (`#RRGGBBAA`) — they composite
+    // over whatever the pane's background is, including a custom or translucent
+    // one, instead of punching an opaque band through it.
+
+    static var diffAdded: NSColor { current.diffAdded }
+    static var diffRemoved: NSColor { current.diffRemoved }
+    static var diffAddedBg: NSColor { current.diffAddedBg }
+    static var diffRemovedBg: NSColor { current.diffRemovedBg }
+    /// `@@` hunk headers — the one structural color in a diff, so it reuses the
+    /// type token rather than adding a near-duplicate to every palette.
+    static var diffHeader: NSColor { syntaxType }
+    /// `diff --git` / `index` / `+++` preamble lines, and "No changes."
+    static var diffMeta: NSColor { textDim }
+    /// The side-by-side filler behind a line that exists on only one side.
+    static var diffFiller: NSColor { hairline.withAlphaComponent(0.28) }
 
     // MARK: - Metrics
 
@@ -119,11 +172,18 @@ enum Theme {
     /// this file — the pane background presets in `Pane.swift` — can state their
     /// values as hex too, rather than re-deriving the same three divisions.
     static func rgb(_ hex: Int) -> NSColor {
+        rgba(hex, 1)
+    }
+
+    /// 0xRRGGBB + alpha → NSColor. Only the diff row washes use this: they have
+    /// to composite over the pane background, so their alpha is part of the token
+    /// (and survives a round-trip through the palette's `#RRGGBBAA` encoding).
+    static func rgba(_ hex: Int, _ alpha: CGFloat) -> NSColor {
         NSColor(
             calibratedRed: CGFloat((hex >> 16) & 0xFF) / 255,
             green: CGFloat((hex >> 8) & 0xFF) / 255,
             blue: CGFloat(hex & 0xFF) / 255,
-            alpha: 1
+            alpha: alpha
         )
     }
 }
@@ -161,59 +221,61 @@ extension Theme {
         var sessionDone: NSColor
         var failed: NSColor
 
-        // MARK: Codable ("#RRGGBB" strings, per-token fallback to suitDark)
+        // Syntax (one per SyntaxTokenKind)
+        var syntaxKeyword: NSColor
+        var syntaxString: NSColor
+        var syntaxComment: NSColor
+        var syntaxNumber: NSColor
+        var syntaxType: NSColor
+        var syntaxAttribute: NSColor
+        var syntaxKey: NSColor
+
+        // Diff (the two backgrounds are translucent washes — see Theme.diffAddedBg)
+        var diffAdded: NSColor
+        var diffRemoved: NSColor
+        var diffAddedBg: NSColor
+        var diffRemovedBg: NSColor
+
+        // MARK: Codable ("#RRGGBB[AA]" strings, per-token fallback to suitDark)
         //
         // `init(from:)` lives in an extension below so the struct body declares
         // no initializer and Swift keeps synthesizing the memberwise
         // `init(name:bg:…)` the built-ins are constructed with.
 
-        fileprivate enum CodingKeys: String, CodingKey {
+        enum CodingKeys: String, CodingKey {
             case name, bg, terminalBg, barChrome, raised, hover, hairline, overlay
             case textPrimary, textDim, textFaint
             case accent, sessionBusy, sessionNeedsInput, sessionDone, failed
+            case syntaxKeyword, syntaxString, syntaxComment, syntaxNumber
+            case syntaxType, syntaxAttribute, syntaxKey
+            case diffAdded, diffRemoved, diffAddedBg, diffRemovedBg
         }
 
+        /// Encode every color token from the one table (`colorTokens`), so a token
+        /// added to the palette can't be half-wired: it serializes, decodes, and
+        /// appears in the editor from a single declaration.
         func encode(to encoder: Encoder) throws {
             var c = encoder.container(keyedBy: CodingKeys.self)
             try c.encode(name, forKey: .name)
-            try c.encode(Palette.hex(bg), forKey: .bg)
-            try c.encode(Palette.hex(terminalBg), forKey: .terminalBg)
-            try c.encode(Palette.hex(barChrome), forKey: .barChrome)
-            try c.encode(Palette.hex(raised), forKey: .raised)
-            try c.encode(Palette.hex(hover), forKey: .hover)
-            try c.encode(Palette.hex(hairline), forKey: .hairline)
-            try c.encode(Palette.hex(overlay), forKey: .overlay)
-            try c.encode(Palette.hex(textPrimary), forKey: .textPrimary)
-            try c.encode(Palette.hex(textDim), forKey: .textDim)
-            try c.encode(Palette.hex(textFaint), forKey: .textFaint)
-            try c.encode(Palette.hex(accent), forKey: .accent)
-            try c.encode(Palette.hex(sessionBusy), forKey: .sessionBusy)
-            try c.encode(Palette.hex(sessionNeedsInput), forKey: .sessionNeedsInput)
-            try c.encode(Palette.hex(sessionDone), forKey: .sessionDone)
-            try c.encode(Palette.hex(failed), forKey: .failed)
+            for token in Palette.colorTokens {
+                try c.encode(Palette.hex(self[keyPath: token.keyPath]), forKey: token.key)
+            }
         }
 
-        /// Decode one color key, falling back to `fallback` on missing/invalid hex.
-        private static func color(
-            _ c: KeyedDecodingContainer<CodingKeys>,
-            _ key: CodingKeys,
-            _ fallback: NSColor
-        ) -> NSColor {
-            guard let raw = try? c.decode(String.self, forKey: key),
-                  let parsed = colorFromHex(raw) else { return fallback }
-            return parsed
-        }
-
-        /// Parse "#RRGGBB" / "RRGGBB" (case-insensitive, optional leading '#').
-        /// Returns nil on anything that isn't exactly six hex digits.
+        /// Parse "#RRGGBB" / "RRGGBB" / "#RRGGBBAA" (case-insensitive, optional
+        /// leading '#'). The 8-digit form carries alpha, which the diff row washes
+        /// need; anything that isn't exactly six or eight hex digits returns nil.
         static func colorFromHex(_ raw: String) -> NSColor? {
             var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             if s.hasPrefix("#") { s.removeFirst() }
-            guard s.count == 6, let v = Int(s, radix: 16) else { return nil }
-            return Theme.rgb(v)
+            guard s.count == 6 || s.count == 8, let v = Int(s, radix: 16) else { return nil }
+            if s.count == 6 { return Theme.rgb(v) }
+            return Theme.rgba(v >> 8, CGFloat(v & 0xFF) / 255)
         }
 
-        /// Serialize a color as an uppercase "#RRGGBB" string. Colors are
+        /// Serialize a color as an uppercase "#RRGGBB" string — or "#RRGGBBAA"
+        /// when it is translucent, so the wash tokens round-trip their alpha
+        /// while every opaque token keeps the shorter, familiar form. Colors are
         /// normalized through genericRGB first so a color coming from a color
         /// well (device RGB) or a built-in (calibrated RGB) yields stable
         /// components; the built-in tokens round-trip byte-identical.
@@ -222,7 +284,9 @@ extension Theme {
             let r = Int((c.redComponent * 255).rounded())
             let g = Int((c.greenComponent * 255).rounded())
             let b = Int((c.blueComponent * 255).rounded())
-            return String(format: "#%02X%02X%02X", r, g, b)
+            let a = Int((c.alphaComponent * 255).rounded())
+            if a >= 255 { return String(format: "#%02X%02X%02X", r, g, b) }
+            return String(format: "#%02X%02X%02X%02X", r, g, b, a)
         }
     }
 }
@@ -230,132 +294,100 @@ extension Theme {
 // MARK: - Decodable (per-token fallback to suitDark)
 
 extension Theme.Palette {
+    /// Start from Suit Dark and overwrite only the tokens the file actually
+    /// carries. That *is* the per-token fallback: a partial theme (or one written
+    /// by an older Suit that predates the syntax and diff tokens) decodes to a
+    /// complete, coherent palette instead of a half-black one, and an unparseable
+    /// hex leaves its token at the default rather than failing the whole file.
     init(from decoder: Decoder) throws {
+        self = Self.suitDark
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        let d = Self.suitDark
-        name = (try? c.decode(String.self, forKey: .name)) ?? d.name
-        bg = Self.color(c, .bg, d.bg)
-        terminalBg = Self.color(c, .terminalBg, d.terminalBg)
-        barChrome = Self.color(c, .barChrome, d.barChrome)
-        raised = Self.color(c, .raised, d.raised)
-        hover = Self.color(c, .hover, d.hover)
-        hairline = Self.color(c, .hairline, d.hairline)
-        overlay = Self.color(c, .overlay, d.overlay)
-        textPrimary = Self.color(c, .textPrimary, d.textPrimary)
-        textDim = Self.color(c, .textDim, d.textDim)
-        textFaint = Self.color(c, .textFaint, d.textFaint)
-        accent = Self.color(c, .accent, d.accent)
-        sessionBusy = Self.color(c, .sessionBusy, d.sessionBusy)
-        sessionNeedsInput = Self.color(c, .sessionNeedsInput, d.sessionNeedsInput)
-        sessionDone = Self.color(c, .sessionDone, d.sessionDone)
-        failed = Self.color(c, .failed, d.failed)
+        if let decodedName = try? c.decode(String.self, forKey: .name) { name = decodedName }
+        for token in Self.colorTokens {
+            guard let raw = try? c.decode(String.self, forKey: token.key),
+                  let parsed = Self.colorFromHex(raw) else { continue }
+            self[keyPath: token.keyPath] = parsed
+        }
     }
 }
 
-// MARK: - Editable token map
+// MARK: - Token map
 
 extension Theme.Palette {
-    /// The editable color tokens in display order: a human-readable label paired
-    /// with a writable key path into the palette. The Settings theme editor
-    /// builds one color well per entry and commits edits generically, so adding
-    /// a token to the palette is the only change needed to expose it in the UI.
-    /// `name` and derived colors (focusBorder / selection) are intentionally
-    /// absent — the former is metadata, the latter derive from `accent`.
-    static let editableTokens: [(label: String, keyPath: WritableKeyPath<Theme.Palette, NSColor>)] = [
-        ("Background", \.bg),
-        ("Terminal", \.terminalBg),
-        ("Bar Chrome", \.barChrome),
-        ("Raised", \.raised),
-        ("Hover", \.hover),
-        ("Hairline", \.hairline),
-        ("Overlay", \.overlay),
-        ("Text", \.textPrimary),
-        ("Text Dim", \.textDim),
-        ("Text Faint", \.textFaint),
-        ("Accent", \.accent),
-        ("Session Busy", \.sessionBusy),
-        ("Needs Input", \.sessionNeedsInput),
-        ("Session Done", \.sessionDone),
-        ("Failed", \.failed),
+    /// One color token: its on-disk key, the editor group it belongs to, a
+    /// human-readable label, and a writable key path into the palette. This table
+    /// is the palette's single source of truth — Codable walks it, and the
+    /// Settings theme editor builds one grouped color well per entry — so adding
+    /// a token here is all it takes to make it serializable *and* editable.
+    /// `name` and derived colors (focusBorder / selection / diff header) are
+    /// intentionally absent: the former is metadata, the latter derive from other
+    /// tokens so a theme can't contradict itself.
+    struct TokenSpec {
+        let key: CodingKeys
+        let group: String
+        let label: String
+        let keyPath: WritableKeyPath<Theme.Palette, NSColor>
+    }
+
+    static let colorTokens: [TokenSpec] = [
+        TokenSpec(key: .bg, group: "Chrome", label: "Background", keyPath: \.bg),
+        TokenSpec(key: .terminalBg, group: "Chrome", label: "Terminal", keyPath: \.terminalBg),
+        TokenSpec(key: .barChrome, group: "Chrome", label: "Bar Chrome", keyPath: \.barChrome),
+        TokenSpec(key: .raised, group: "Chrome", label: "Raised", keyPath: \.raised),
+        TokenSpec(key: .hover, group: "Chrome", label: "Hover", keyPath: \.hover),
+        TokenSpec(key: .hairline, group: "Chrome", label: "Hairline", keyPath: \.hairline),
+        TokenSpec(key: .overlay, group: "Chrome", label: "Overlay", keyPath: \.overlay),
+        TokenSpec(key: .textPrimary, group: "Text", label: "Text", keyPath: \.textPrimary),
+        TokenSpec(key: .textDim, group: "Text", label: "Text Dim", keyPath: \.textDim),
+        TokenSpec(key: .textFaint, group: "Text", label: "Text Faint", keyPath: \.textFaint),
+        TokenSpec(key: .accent, group: "Accent & Status", label: "Accent", keyPath: \.accent),
+        TokenSpec(key: .sessionBusy, group: "Accent & Status", label: "Session Busy", keyPath: \.sessionBusy),
+        TokenSpec(key: .sessionNeedsInput, group: "Accent & Status", label: "Needs Input", keyPath: \.sessionNeedsInput),
+        TokenSpec(key: .sessionDone, group: "Accent & Status", label: "Session Done", keyPath: \.sessionDone),
+        TokenSpec(key: .failed, group: "Accent & Status", label: "Failed", keyPath: \.failed),
+        TokenSpec(key: .syntaxKeyword, group: "Syntax", label: "Keyword", keyPath: \.syntaxKeyword),
+        TokenSpec(key: .syntaxString, group: "Syntax", label: "String", keyPath: \.syntaxString),
+        TokenSpec(key: .syntaxComment, group: "Syntax", label: "Comment", keyPath: \.syntaxComment),
+        TokenSpec(key: .syntaxNumber, group: "Syntax", label: "Number", keyPath: \.syntaxNumber),
+        TokenSpec(key: .syntaxType, group: "Syntax", label: "Type", keyPath: \.syntaxType),
+        TokenSpec(key: .syntaxAttribute, group: "Syntax", label: "Attribute", keyPath: \.syntaxAttribute),
+        TokenSpec(key: .syntaxKey, group: "Syntax", label: "Key / Prop", keyPath: \.syntaxKey),
+        TokenSpec(key: .diffAdded, group: "Diff", label: "Added", keyPath: \.diffAdded),
+        TokenSpec(key: .diffRemoved, group: "Diff", label: "Removed", keyPath: \.diffRemoved),
+        TokenSpec(key: .diffAddedBg, group: "Diff", label: "Added Wash", keyPath: \.diffAddedBg),
+        TokenSpec(key: .diffRemovedBg, group: "Diff", label: "Removed Wash", keyPath: \.diffRemovedBg),
     ]
 
-    /// The tokens in `editableTokens` order, for the preview swatch strip.
+    /// The editable tokens, in editor display order — the same table Codable
+    /// walks, so the two can never disagree about what a theme contains.
+    static var editableTokens: [TokenSpec] { colorTokens }
+
+    /// `colorTokens` cut into consecutive runs of the same `group`, for the
+    /// editor's grouped layout. Derived by scanning the table in order (rather
+    /// than bucketing by name) so the flat token order and the grouped order are
+    /// the same sequence — the Settings wells are index-aligned with
+    /// `editableTokens`, and a regrouping that reordered them would silently
+    /// point every well at the wrong token.
+    static var tokenGroups: [(name: String, tokens: [TokenSpec])] {
+        var groups: [(name: String, tokens: [TokenSpec])] = []
+        for token in colorTokens {
+            if groups.last?.name == token.group {
+                groups[groups.count - 1].tokens.append(token)
+            } else {
+                groups.append((name: token.group, tokens: [token]))
+            }
+        }
+        return groups
+    }
+
+    /// The tokens in `colorTokens` order, for the preview's swatch strip.
     var orderedTokenColors: [NSColor] {
-        Theme.Palette.editableTokens.map { self[keyPath: $0.keyPath] }
+        Theme.Palette.colorTokens.map { self[keyPath: $0.keyPath] }
     }
 }
 
-// MARK: - Built-in palettes
-
-extension Theme.Palette {
-    /// Today's exact token values — the default, so nothing changes out of the box.
-    static let suitDark = Theme.Palette(
-        name: "Suit Dark",
-        bg: Theme.rgb(0x17191D),
-        // The terminal ground carries a blue-violet undertone the near-neutral
-        // chrome doesn't: it reads as a deeper layer rather than one more grey,
-        // and the cool cast is what makes the amber accent (and warm ANSI
-        // yellows/reds) sit forward instead of sinking into the background.
-        terminalBg: Theme.rgb(0x0A0C15),
-        barChrome: Theme.rgb(0x1F2228),
-        raised: Theme.rgb(0x2A2E36),
-        hover: Theme.rgb(0x262A31),
-        hairline: Theme.rgb(0x34383F),
-        overlay: Theme.rgb(0x23262C),
-        textPrimary: Theme.rgb(0xD7DAE0),
-        textDim: Theme.rgb(0x8B909C),
-        textFaint: Theme.rgb(0x4C515B),
-        accent: Theme.rgb(0xD99A3D),
-        sessionBusy: Theme.rgb(0xE08A3C),
-        sessionNeedsInput: Theme.rgb(0xE5C453),
-        sessionDone: Theme.rgb(0x57B36B),
-        failed: Theme.rgb(0xD95757)
-    )
-
-    /// A cooler, deeper dark with a blue accent.
-    static let midnight = Theme.Palette(
-        name: "Midnight",
-        bg: Theme.rgb(0x0F1420),
-        terminalBg: Theme.rgb(0x05081A),
-        barChrome: Theme.rgb(0x151B2A),
-        raised: Theme.rgb(0x1E273B),
-        hover: Theme.rgb(0x1A2233),
-        hairline: Theme.rgb(0x2A3448),
-        overlay: Theme.rgb(0x18202F),
-        textPrimary: Theme.rgb(0xD4DAE6),
-        textDim: Theme.rgb(0x838CA3),
-        textFaint: Theme.rgb(0x464F63),
-        accent: Theme.rgb(0x6C9BE6),
-        sessionBusy: Theme.rgb(0xE0913C),
-        sessionNeedsInput: Theme.rgb(0xE5C453),
-        sessionDone: Theme.rgb(0x5BB37E),
-        failed: Theme.rgb(0xE05C6E)
-    )
-
-    /// A light palette — proves layout survives a bright theme.
-    static let suitLight = Theme.Palette(
-        name: "Suit Light",
-        bg: Theme.rgb(0xF5F6F8),
-        terminalBg: Theme.rgb(0xFBFBFC),
-        barChrome: Theme.rgb(0xEBEDF1),
-        raised: Theme.rgb(0xFFFFFF),
-        hover: Theme.rgb(0xE2E5EA),
-        hairline: Theme.rgb(0xD2D6DD),
-        overlay: Theme.rgb(0xFFFFFF),
-        textPrimary: Theme.rgb(0x1D2026),
-        textDim: Theme.rgb(0x5B6270),
-        textFaint: Theme.rgb(0x9AA1AE),
-        accent: Theme.rgb(0xC07A1F),
-        sessionBusy: Theme.rgb(0xC2701E),
-        sessionNeedsInput: Theme.rgb(0xB8971C),
-        sessionDone: Theme.rgb(0x2F8F4E),
-        failed: Theme.rgb(0xC43A3A)
-    )
-
-    /// All built-in palettes, in display order. Built-ins always exist and
-    /// cannot be edited or deleted (duplicate to get an editable copy).
-    static let builtIns: [Theme.Palette] = [suitDark, midnight, suitLight]
-}
+// The built-in palettes themselves live in Theme+Palettes.swift — one file of
+// color, so this one stays about the token *system*.
 
 // Amber-tinted selection for list rows (palette, sidebar lists), replacing
 // the emphasized controlAccentColor highlight. isEmphasized stays false so

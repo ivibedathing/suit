@@ -11,8 +11,8 @@ extension TerminalWindowController {
     func startObservingTheme() {
         themeObserver = NotificationCenter.default.addObserver(
             forName: Theme.didChange, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.applyTheme()
+        ) { [weak self] note in
+            self?.applyTheme(previous: Theme.previousPalette(from: note))
         }
     }
 
@@ -25,11 +25,14 @@ extension TerminalWindowController {
     //    read their tokens live at draw time), plus the file-viewer gutters;
     //  - the focus border, repainted from the actual first responder (the same
     //    single-writer path a focus change uses).
-    func applyTheme() {
+    // `previous` is the outgoing palette (nil if the notification carried none):
+    // panes need it to tell a theme-derived terminal ground, which should follow
+    // the switch, from a color the user picked, which shouldn't.
+    func applyTheme(previous: Theme.Palette? = nil) {
         window.backgroundColor = Theme.bg
 
         for pane in panes {
-            pane.reapplyTheme()
+            pane.reapplyTheme(previous: previous)
         }
         // Background tabs aren't in any pane, so reach their content directly.
         for tab in store.tabs {

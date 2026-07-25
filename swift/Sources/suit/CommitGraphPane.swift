@@ -170,16 +170,11 @@ private final class CommitGraphView: NSView {
     private static let textGap: CGFloat = 12
     private static let minWidth: CGFloat = 480
 
-    // A small lane palette (Theme has no dedicated lane hues); the HEAD / tip
-    // nodes override with the accent.
-    private static let laneColors: [NSColor] = [
-        NSColor(calibratedRed: 0.85, green: 0.60, blue: 0.24, alpha: 1), // amber
-        NSColor(calibratedRed: 0.34, green: 0.70, blue: 0.42, alpha: 1), // green
-        NSColor(calibratedRed: 0.36, green: 0.60, blue: 0.90, alpha: 1), // blue
-        NSColor(calibratedRed: 0.80, green: 0.45, blue: 0.75, alpha: 1), // magenta
-        NSColor(calibratedRed: 0.45, green: 0.72, blue: 0.74, alpha: 1), // teal
-        NSColor(calibratedRed: 0.82, green: 0.52, blue: 0.40, alpha: 1), // clay
-    ]
+    // Six lane hues borrowed from the active theme (Theme.graphLanes) rather than
+    // stated here: fixed hex lanes were tuned against a dark ground and turned
+    // pale and muddy the moment a light theme was selected. Read per draw, so a
+    // theme switch recolors the graph. The HEAD / tip nodes override with accent.
+    private static var laneColors: [NSColor] { Theme.graphLanes }
 
     override var isFlipped: Bool { true }
 
