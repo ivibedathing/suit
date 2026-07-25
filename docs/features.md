@@ -105,6 +105,18 @@ app does.
   first-class tabs: every open (sidebar click, ⌘P, search hit, Cmd-click link) opens the
   file's own tab or re-activates it if the path is already open — files never load one on top
   of another, so opening three files leaves three tabs.
+- **Syntax highlighting** — colour arrives from a bundled scanner (no language server, no
+  download) covering ~40 languages: Swift, Go, C/C++/Objective-C, Rust, Zig, Java, Kotlin,
+  Scala, Groovy/Gradle, C#, Dart, JavaScript/TypeScript, Python, Ruby, PHP, Perl, Lua, R,
+  Elixir, Haskell, PowerShell, shell, SQL, and the config/markup family — HTML, XML/SVG/plist,
+  CSS, SCSS/Sass/Less, JSON, YAML, TOML, INI, Markdown, GraphQL, Protobuf, Terraform/HCL,
+  Makefile, and Dockerfile. Extensionless files that carry real syntax are recognised by name
+  (`Makefile`, `Dockerfile`, `Gemfile`, `Rakefile`, `.zshrc`, `.gitconfig`). HTML understands
+  tags, attributes and entities, and hands embedded `<script>` and `<style>` bodies to the
+  JavaScript and CSS scanners, so a single-file page is coloured throughout; style sheets
+  distinguish a selector from a declaration, so `color` reads as an element in one place and a
+  property in the other. The scan runs off the main thread and skips files over 2 MB, which
+  render as plain text.
 - **Edit files** — the viewer is editable: type into the buffer (undo with ⌘Z) and it
   **autosaves** to disk on a short debounce, or save now with **⌘S** (File ▸ Save / palette
   "Save File"). An accent dot on the tab (in place of its close ✕ until you hover) and in the

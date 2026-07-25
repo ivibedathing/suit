@@ -32,12 +32,30 @@ enum EditorLanguage {
         case "yaml", "yml": return .yaml
         case "md", "markdown": return .markdown
         case "c", "h", "m", "mm", "cpp", "hpp", "cc": return .c
-        case "rb": return .ruby
+        case "rb", "rake", "gemspec": return .ruby
         case "sql": return .sql
         case "el", "lisp", "clj", "scm": return .lisp
+        // The languages below are aliased onto whichever case already carries
+        // the right comment marker and block style — this enum exists so ⌘/ and
+        // auto-indent behave, not to name every language the highlighter knows
+        // (SyntaxLanguages.swift does that). `.c` is the `//` + braces shape,
+        // `.shell` is `#`, `.sql` is `--`.
+        // Plain CSS is deliberately absent: it has no line comment, so ⌘/ must
+        // no-op rather than insert an invalid `//` (the same reason JSON maps to
+        // a nil comment token). SCSS/Less/Sass do have `//`.
+        case "rs", "java", "kt", "kts", "cs", "php", "dart", "scala", "sbt",
+             "zig", "groovy", "gradle", "proto", "scss", "less", "sass":
+            return .c
+        case "toml", "ini", "cfg", "conf", "properties", "tf", "tfvars", "hcl",
+             "ex", "exs", "ps1", "psm1", "mk", "pl", "pm", "graphql", "gql", "r":
+            return .shell
+        case "lua", "hs": return .sql
         default:
             switch name {
-            case "makefile", "dockerfile", ".zshrc", ".zprofile", ".bashrc", "build.sh": return .shell
+            case "makefile", "dockerfile", ".zshrc", ".zprofile", ".bashrc", "build.sh",
+                 ".bash_profile", ".zshenv":
+                return .shell
+            case "gemfile", "rakefile", "podfile": return .ruby
             default: return .plain
             }
         }

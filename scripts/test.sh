@@ -32,6 +32,7 @@ HARNESSES=(
   "find-replace|scripts/find-replace-test.sh|fast"
   "editor-ops|scripts/editor-ops-test.sh|fast"
   "editor-nav|scripts/editor-nav-test.sh|fast"
+  "syntax-highlight|scripts/syntax-highlight-test.sh|fast"
   "activity|scripts/activity-test.sh|fast"
   "pr-review|scripts/pr-review-test.sh|fast"
   "diffparser|scripts/diffparser-test.sh|fast"
