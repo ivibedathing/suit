@@ -11,8 +11,10 @@
 #   - a fake `claude`           (interactive mode plays the worker: session
 #                                file working→done, commit+push, fake gh
 #                                pr create — but only after the engine's
-#                                missing-PR nudge; `-p` mode is the review
-#                                gate: REJECT once, APPROVE afterwards)
+#                                missing-PR nudge; `-p` mode serves both the
+#                                model-routing classifier and the review gate,
+#                                told apart by the prompt — the gate REJECTs
+#                                once, then APPROVEs)
 #   - a fake `gh`               (argv log + canned JSON for pr list/view/
 #                                create; pr merge does a real merge into the
 #                                bare origin so post-merge cleanup is honest)
@@ -26,7 +28,8 @@
 # prompt delivered only after the session file appears; nudge sent while the
 # PR is missing; rejection findings re-sent into the live session; merge argv
 # exactly `pr merge <N> --merge`; worktree + branch gone after the merge; the
-# history.jsonl row; the ⏸-marked phase skipped on the next pass.
+# history.jsonl row; the ⏸-marked phase skipped on the next pass; and that
+# model routing reached the classifier rather than the heuristic fallback.
 #
 # Re-runnable: everything lives under a fresh mktemp dir, removed on success
 # and kept (path printed) on failure. Prints PASS/FAIL per assertion and
@@ -125,18 +128,41 @@ cat > "$FAKEBIN/claude" <<'FAKECLAUDE'
 # fires, creates the PR on the nudge, and pushes a fix commit when the
 # review-rejection feedback arrives.
 #
-# `-p` mode (SUIT_CLAUDE_PATH, the headless review gate) consumes the prompt
-# from stdin and answers findings + "VERDICT: REJECT" on the first call,
-# "VERDICT: APPROVE" afterwards (counter file).
+# `-p` mode (SUIT_CLAUDE_PATH) serves two callers that share this one binary:
+# the model-routing classifier (ModelRouter.classify) and the headless review
+# gate. They are told apart by the prompt on stdin — answering one with the
+# other's script is precisely the bug this harness carried for a while. The
+# classifier resolves through AutopilotReviewGate.resolvedPath too, so it
+# landed here first and ate the gate's canned REJECT: routing then logged
+# "classifier unavailable" and fell back to the heuristic, the gate approved
+# on attempt 1, and the entire rejection cycle went untested while six
+# assertions failed pointing at symptoms rather than this.
+#
+# Classifier: one tier word. Review gate: findings + "VERDICT: REJECT" on the
+# first call, "VERDICT: APPROVE" afterwards (counter file).
 set -u
 . __CONFIG__
 
 if [ "${1:-}" = "-p" ]; then
+  prompt=$(cat)
+  case $prompt in
+    *"You are a model router"*)
+      r=0
+      [ -f "$STATE_DIR/routing-calls" ] && r=$(cat "$STATE_DIR/routing-calls")
+      r=$((r + 1))
+      echo "$r" > "$STATE_DIR/routing-calls"
+      printf '%s\n' "$prompt" > "$STATE_DIR/routing-prompt-$r.txt"
+      # SONNET is what the heuristic fallback also picks, so this fake moves
+      # the decision's *source* (heuristic → classifier) without moving the
+      # tier — keeping every other assertion insulated from routing.
+      echo "SONNET"
+      exit 0 ;;
+  esac
   n=0
   [ -f "$STATE_DIR/review-calls" ] && n=$(cat "$STATE_DIR/review-calls")
   n=$((n + 1))
   echo "$n" > "$STATE_DIR/review-calls"
-  cat > "$STATE_DIR/review-prompt-$n.txt"
+  printf '%s\n' "$prompt" > "$STATE_DIR/review-prompt-$n.txt"
   if [ "$n" -eq 1 ]; then
     echo "1. Widget.swift:1 — FAKE-FINDING-ALPHA the widget is misaligned; align it"
     echo "VERDICT: REJECT"
@@ -412,6 +438,11 @@ check "build gate ran twice (a log per attempt)" \
   test -s "$REPO_DIR/logs/$SLUG/build-1.log" -a -s "$REPO_DIR/logs/$SLUG/build-2.log"
 check "review gate ran twice (reject, then approve)" \
   test "$(cat "$STATE/review-calls" 2>/dev/null)" = 2
+# Routing is advisory — it can never fail a run — so nothing else here notices
+# when the classifier silently stops answering. Assert the source, not just the
+# tier: the heuristic picks sonnet too, which is how this went unseen.
+check "model routing consulted the classifier (not the heuristic fallback)" \
+  grep -qF 'model routing: sonnet (haiku classifier)' "$REPO_DIR/autopilot.log"
 check "first review log ends in VERDICT: REJECT" \
   grep -qxF 'VERDICT: REJECT' "$REPO_DIR/logs/$SLUG/review-1.log"
 check "second review log ends in VERDICT: APPROVE" \
