@@ -70,9 +70,28 @@ enum Theme {
     static var sessionDone: NSColor { current.sessionDone }
     static var failed: NSColor { current.failed }
 
-    /// Global usage readout (5h/7d): green under 50, amber to 80, red past it.
+    /// Global usage readout (5h/7d): a continuous ramp from the done green at
+    /// 0, through the busy amber at the halfway mark, to the failed red at the
+    /// cap. A gradient rather than thresholds because the number is watched for
+    /// *drift* — three buckets look unchanged for 30 points and then jump,
+    /// which hides exactly the approach you want to see coming. Interpolating
+    /// the palette's own session tokens keeps the ramp theme-aware, and
+    /// pivoting through amber avoids the muddy brown a direct green→red blend
+    /// crosses.
     static func usageLevelColor(_ pct: Double) -> NSColor {
-        pct >= 80 ? failed : pct >= 50 ? sessionBusy : sessionDone
+        let level = min(max(pct, 0), 100)
+        return level <= 50
+            ? blend(sessionDone, toward: sessionBusy, fraction: level / 50)
+            : blend(sessionBusy, toward: failed, fraction: (level - 50) / 50)
+    }
+
+    /// `NSColor.blended` returns nil for colors it can't bring into a common
+    /// space, so both ends are pinned to device RGB first and the start color
+    /// is the fallback.
+    private static func blend(_ from: NSColor, toward to: NSColor, fraction: Double) -> NSColor {
+        let start = from.usingColorSpace(.deviceRGB) ?? from
+        let end = to.usingColorSpace(.deviceRGB) ?? to
+        return start.blended(withFraction: CGFloat(fraction), of: end) ?? from
     }
 
     /// Context-window fill %: neutral until 70, amber to 90, red past it.

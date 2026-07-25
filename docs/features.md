@@ -349,6 +349,10 @@ app does.
   Claude Code's statusline and hooks to `~/.suit`. Panes running Claude sessions show a state
   dot (busy / pulsing needs-input / done) and a context-fill %, the sidebar footer shows global
   5h/7d usage, and the Sessions sidebar tab lists every open tab with its live session dot.
+- **Usage color ramp** — each usage row's percentage and fill bar ride a continuous gradient from
+  the theme's done green at 0%, through its busy amber at 50%, to its failed red at 100%, so a
+  limit you're drifting toward shifts color the whole way up instead of jumping at a threshold.
+  The ramp interpolates the active palette's own session colors, so it follows a theme switch.
 - **Attention** — a session that needs input while Suit is inactive posts a notification
   (click to jump to its pane) and badges the Dock with the needs-input count. Additionally,
   Suit plays a macOS system sound when a Claude session finishes a task and a different one
