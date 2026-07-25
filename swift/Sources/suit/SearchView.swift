@@ -29,6 +29,11 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
     // Fired after a Replace All rewrote files, so the window can refresh what it
     // derives from them (git status letters, file badges).
     var onFilesChanged: ((_ root: String, _ relativePaths: [String]) -> Void)?
+    // The live pattern as a FindQuery, for the open viewers to highlight their
+    // own occurrences of — nil once the field is empty. Fired on every state the
+    // results themselves change on (typing settles, Enter, a toggle, a clear), so
+    // the wash in the panes can never outlive the list that explains it.
+    var onHighlightQueryChange: ((FindQuery?) -> Void)?
 
     private let searchField = NSSearchField(frame: .zero)
     private let replaceField = NSTextField(frame: .zero)
@@ -188,6 +193,7 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
             searcher.cancel()
             searchField.stringValue = ""
             clearResults()
+            onHighlightQueryChange?(nil)
             statusLabel.stringValue = "Type to search this project"
             return
         }
@@ -257,6 +263,7 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
             debounce?.cancel()
             searcher.cancel()
             clearResults()
+            onHighlightQueryChange?(nil)
             statusLabel.stringValue = "Type to search this project"
             return
         }
@@ -326,6 +333,15 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
         clearResults()
 
         let pattern = searchField.stringValue
+        // The open viewers highlight from the same query the on-disk replace
+        // would use (SearchReplace.query), so what a pane washes is exactly what
+        // rg listed and what Replace All would rewrite — three readings of one
+        // pattern that must not drift apart.
+        onHighlightQueryChange?(pattern.isEmpty ? nil : SearchReplace.query(
+            pattern: pattern,
+            isRegex: regexToggle.state == .on,
+            caseSensitive: caseToggle.state == .on
+        ))
         guard !pattern.isEmpty else {
             statusLabel.stringValue = ""
             return

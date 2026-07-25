@@ -19,6 +19,18 @@ final class MinimapView: NSView {
     struct Marker {
         let line: Int
         let color: NSColor
+        // Where across the strip the tick sits. Full width is for marks that
+        // mean "this whole line is different" — changed regions, bookmarks, the
+        // jump target — and there are never many at once. Search hits get the
+        // right-hand lane instead: a live pattern can tick a third of the file,
+        // and at full width that reads as a barcode painted over the document
+        // shape the minimap exists to show.
+        var lane: Lane = .full
+
+        enum Lane {
+            case full
+            case right
+        }
     }
 
     // Scroll the document so `fraction` (0–1 through the file) is centered.
@@ -145,11 +157,12 @@ final class MinimapView: NSView {
         rendered?.draw(in: NSRect(x: 0, y: 0, width: bounds.width, height: contentHeight),
                        from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
 
-        // Markers: full-width ticks that stay visible at any compression.
+        // Markers: ticks that stay visible at any compression, in their lane.
         for marker in markers {
             marker.color.withAlphaComponent(0.85).setFill()
             let y = CGFloat(marker.line - 1) * lineHeight
-            NSRect(x: 0, y: y, width: bounds.width, height: max(2, lineHeight)).fill()
+            let x = marker.lane == .full ? 0 : bounds.width * 0.62
+            NSRect(x: x, y: y, width: bounds.width - x, height: max(2, lineHeight)).fill()
         }
 
         // Viewport.

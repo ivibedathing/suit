@@ -93,6 +93,14 @@ app does.
   filter, and Project / Sub-project / Pane Directory scopes tucked behind the options button;
   results stream in grouped by file, and clicking a match opens it in the viewer at that line.
   **Esc** clears the pattern; **Esc** on an already-empty field hands the sidebar back to Files.
+- **Search hits are highlighted in the file** — while the Search tab holds a pattern, every open
+  text viewer washes each occurrence of it in yellow and ticks the lines carrying one down the
+  right-hand lane of its minimap, so "where else is this in the file" is answered without going
+  back to the results list. It applies to every open viewer in that window, not only the file you
+  clicked through to, and to files opened afterwards; the regex and case toggles carry over, so
+  what a pane highlights is exactly what the list matched. Clearing the pattern (or **Esc**) takes
+  the wash and the ticks away. The ⌘F bar still paints over it — its current match stays the
+  strongest mark on screen — and editing a file re-derives the hits as you type.
 - **Project-wide replace** — the Search tab's second row: type a replacement and **Replace All**
   (or Enter in that field) rewrites every listed match. It confirms first, with the file and match
   counts, because it edits files that aren't open in any pane and there's no ⌘Z waiting for those.
