@@ -102,6 +102,14 @@ final class DictationController {
 
         let input = audioEngine.inputNode
         let format = input.outputFormat(forBus: 0)
+        // Deprecated in the macOS 27 SDK in favor of
+        // installTapOnBus:bufferSize:format:error:block:, which is
+        // NS_REFINED_FOR_SWIFT with no Swift overlay shipped yet — the importer
+        // exposes it only as __installTap, and every spelling of that call
+        // fails to type-check (it wants `()` where the NSError** goes). So the
+        // one build warning left is this line, deliberately: the replacement
+        // isn't callable from Swift until Apple ships the overlay. Revisit then
+        // and let the throwing form feed the do/catch below.
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
             request.append(buffer)
         }

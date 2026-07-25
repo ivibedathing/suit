@@ -7,7 +7,7 @@ extension AutopilotEngine {
     // MARK: - Merge (§2.8 step 3)
 
     func maybeStartMerge(_ run: AutopilotRun) {
-        guard !inFlight, let app = appDelegate else { return }
+        guard !inFlight, appDelegate != nil else { return }
         guard let prNumber = run.prNumber else {
             // Can't happen through the normal paths (verification records the
             // PR before the gates) — surface it rather than wedging.
@@ -118,7 +118,7 @@ extension AutopilotEngine {
     // MARK: - Cleanup + the loop (§2.8 step 4)
 
     func maybeStartCleanup(_ run: AutopilotRun) {
-        guard !inFlight, let app = appDelegate else { return }
+        guard !inFlight, appDelegate != nil else { return }
         let root = projectRoot
         store.log("cleanup: syncing the main checkout and removing the task worktree")
         let job = beginBackgroundJob()
