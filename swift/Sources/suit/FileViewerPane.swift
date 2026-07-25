@@ -65,6 +65,19 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     var findMatchIndex = 0
     var findMatchGeneration = -1
 
+    // MARK: - Project-search hits
+
+    // The sidebar Search tab's live pattern, mirrored onto this buffer: while it
+    // is set, every occurrence in this file is washed and ticked on the minimap,
+    // whether or not the file was opened from a result. Nil when no project
+    // search is running. Same generation guard as the find bar above — the
+    // ranges are temporary attributes, so a stale one is an out-of-bounds paint
+    // rather than a cosmetic slip. See FileViewerPane+SearchHits.swift.
+    var searchHitQuery: FindQuery?
+    var searchHitRanges: [NSRange] = []
+    var searchHitLines: [Int] = []
+    var searchHitGeneration = -1
+
     // Files past this stop being useful to scroll through and start being a
     // memory problem; the viewer refuses rather than beachballing.
     private static let maxFileSize = 8 * 1024 * 1024
@@ -285,6 +298,10 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         jumpMarkerLine = nil
         ruler.changedLines = IndexSet()
         ruler.blameByLine = [:]
+        // The hits belong to the old buffer; refreshSearchHits() below re-derives
+        // them against the new one (the query itself survives a reload — it is
+        // the project search's, not this file's).
+        searchHitGeneration = -1
         minimap.setMarkers([])
         rehighlight()
         refreshChangedLines()
@@ -302,6 +319,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         // different matches and possibly different editability; an open find bar
         // re-derives both rather than pointing into the old buffer.
         refreshFindEditability()
+        refreshSearchHits()
 
         if let line {
             jump(toLine: line)
@@ -350,8 +368,12 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
             value: Theme.accent.withAlphaComponent(0.3),
             forCharacterRange: range
         )
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak layoutManager] in
-            layoutManager?.removeTemporaryAttribute(.backgroundColor, forCharacterRange: range)
+        // Fading the flash goes through the shared repaint rather than removing
+        // its own range: the find bar and the project-search wash share the
+        // .backgroundColor layer, so a bare removal here would punch a hole in
+        // whichever of them covers this line until something else repainted.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            self?.repaintHighlightLayer()
         }
     }
 

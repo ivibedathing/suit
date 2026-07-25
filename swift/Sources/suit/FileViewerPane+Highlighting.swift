@@ -26,12 +26,19 @@ extension FileViewerPaneContent {
         scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
-    // The minimap shows git-changed regions in orange plus the last jump
-    // target in the accent color. Capped so a full-file rewrite doesn't drown
-    // the strip in ticks.
+    // The minimap shows git-changed regions in orange, project-search hits in
+    // the search yellow, plus bookmarks and the last jump target in the accent
+    // color. Capped so a full-file rewrite doesn't drown the strip in ticks.
+    //
+    // Order is paint order: search hits go over the changed bars but under the
+    // bookmarks and the jump target, so a deliberate mark the user placed is
+    // never buried under a pattern they are about to retype.
     func updateMinimapMarkers() {
         var markers: [MinimapView.Marker] = changedLines.prefix(2_000).map {
             MinimapView.Marker(line: $0, color: Theme.sessionBusy)
+        }
+        for line in currentSearchHitLines() {
+            markers.append(MinimapView.Marker(line: line, color: Theme.searchHitMark, lane: .right))
         }
         for line in bookmarkedLines {
             markers.append(MinimapView.Marker(line: line, color: Theme.accent))

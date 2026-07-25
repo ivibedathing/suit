@@ -102,6 +102,15 @@ app does.
   **Collapse All / Expand All**. Hovering a file row swaps its match count for two actions:
   **Replace All in File**, and **✕** to drop that file from the results — Replace All then only
   touches what is still listed, so you can prune the noise before committing to a rewrite.
+- **Search hits are highlighted in the file** — while the Search tab holds a pattern, every open
+  text viewer washes each occurrence of it in yellow and ticks the lines carrying one down the
+  right-hand lane of its minimap, so "where else is this in the file" is answered without going
+  back to the results list. It applies to every open viewer in that window, not only the file you
+  clicked through to, and to files opened afterwards; the regex, case and whole-word toggles carry
+  over, so what a pane highlights is exactly what the list matched. Clearing the pattern (**Esc**,
+  or the header's Clear button) takes the wash and the ticks away. The ⌘F bar still paints over
+  it — its current match stays the
+  strongest mark on screen — and editing a file re-derives the hits as you type.
 - **Project-wide replace** — the Search tab's second row: type a replacement and **Replace All**
   (or Enter in that field) rewrites every listed match. It confirms first, with the file and match
   counts, because it edits files that aren't open in any pane and there's no ⌘Z waiting for those.

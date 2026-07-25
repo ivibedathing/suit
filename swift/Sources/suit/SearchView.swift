@@ -45,6 +45,11 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
     // Fired after a replace rewrote files, so the window can refresh what it
     // derives from them (git status letters, file badges).
     var onFilesChanged: ((_ root: String, _ relativePaths: [String]) -> Void)?
+    // The live pattern as a FindQuery, for the open viewers to highlight their
+    // own occurrences of — nil once the field is empty. Fired on every state the
+    // results themselves change on (typing settles, Enter, a toggle, a clear), so
+    // the wash in the panes can never outlive the list that explains it.
+    var onHighlightQueryChange: ((FindQuery?) -> Void)?
 
     private static let headerHeight: CGFloat = 26
     // The left gutter the replace chevron lives in. Both field boxes start here,
@@ -284,6 +289,10 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
         searcher.cancel()
         searchBox.field.stringValue = ""
         clearResults()
+        // The wash in the open panes must not outlive the list that explains it,
+        // and this is the other way the list goes away (Escape, and the header's
+        // Clear button) besides emptying the field by hand.
+        onHighlightQueryChange?(nil)
         statusLabel.stringValue = "Type to search this project"
     }
 
@@ -372,6 +381,7 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
             debounce?.cancel()
             searcher.cancel()
             clearResults()
+            onHighlightQueryChange?(nil)
             statusLabel.stringValue = "Type to search this project"
             return
         }
@@ -518,6 +528,13 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
         clearResults()
 
         let pattern = searchBox.field.stringValue
+        // The open viewers highlight from the same query the on-disk replace
+        // would use (replaceQuery, i.e. SearchReplace.query), so what a pane
+        // washes is exactly what rg listed and what Replace All would rewrite —
+        // three readings of one pattern that must not drift apart. That is also
+        // why whole-word travels through the same property rather than being
+        // spelled out again here.
+        onHighlightQueryChange?(pattern.isEmpty ? nil : replaceQuery)
         guard !pattern.isEmpty else {
             statusLabel.stringValue = ""
             return
