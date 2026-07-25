@@ -103,7 +103,7 @@ extension AutopilotEngine {
                     guard let self else { return }
                     self.endBackgroundJob(job)
                     if self.activeGateHandle === handle { self.activeGateHandle = nil }
-                    guard let current = self.currentRun(ifGeneration: gen, run: run, stage: .gatingReview) else { return }
+                    guard self.currentRun(ifGeneration: gen, run: run, stage: .gatingReview) != nil else { return }
                     // A missing binary never consumes a review attempt.
                     self.store.updateRun { $0.reviewAttempts = max(0, $0.reviewAttempts - 1) }
                     self.block(.reviewGateBroken,
