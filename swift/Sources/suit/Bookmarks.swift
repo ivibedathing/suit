@@ -199,8 +199,11 @@ final class BookmarksView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
         tableView.headerView = nil
+        // .inset, not .sourceList: the source-list style blends AppKit's sidebar
+        // material with the desktop behind the window, which ignores the palette.
+        // The style resets backgroundColor, so clear it after.
+        tableView.style = .inset
         tableView.backgroundColor = .clear
-        tableView.style = .sourceList
         tableView.dataSource = self
         tableView.delegate = self
         tableView.target = self

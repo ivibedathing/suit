@@ -191,8 +191,14 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
         outlineView.rowHeight = 22
         outlineView.indentationPerLevel = 10
         outlineView.autoresizesOutlineColumn = false
+        // .inset, matching the Files tree — not .sourceList, which backs the
+        // scroll view with AppKit's sidebar material (blendingMode
+        // .behindWindow). Behind-window blending samples the desktop, not the
+        // views under it, so the results list took its ground from whatever
+        // wallpaper was behind the window instead of from the palette.
+        // Order matters: the style resets backgroundColor, so clear it after.
+        outlineView.style = .inset
         outlineView.backgroundColor = .clear
-        outlineView.style = .sourceList
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.target = self
