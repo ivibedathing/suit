@@ -133,6 +133,26 @@ extension FileBrowserView {
         return view
     }
 
+    // An ignored directory arrives from the index collapsed — one row, no
+    // children — because indexing every file under node_modules/ would cost
+    // more than the project itself. Open one and its first level is read off
+    // disk right then, cached, and folded into the tree by rebuild(); the
+    // listing is cheap enough (one contentsOfDirectory) to do inline, and doing
+    // it *after* the expand keeps NSOutlineView's own bookkeeping out of it.
+    func outlineViewItemDidExpand(_ notification: Notification) {
+        guard let node = notification.userInfo?["NSObject"] as? FileNode,
+              node.isDirectory, node.isIgnored,
+              expandedIgnoredChildren[node.relativePath] == nil else { return }
+        expandedIgnoredChildren[node.relativePath] = FileIndex.ignoredChildren(
+            ofDirectory: node.relativePath, root: rootPath
+        )
+        rebuild()
+        // Nodes compare by path, so the rebuilt node is the same item as far as
+        // the outline is concerned and its expansion survives — re-expanding is
+        // belt and braces for the first open, where it had no children to keep.
+        outlineView.expandItem(node)
+    }
+
     private func gitStatus(for node: FileNode) -> Character? {
         guard let gitMonitor else { return nil }
         let path = gitPathPrefix + node.relativePath

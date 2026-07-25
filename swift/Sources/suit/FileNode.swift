@@ -10,6 +10,10 @@ final class FileNode: NSObject {
     // Sub-project language badge ("go", "js", …) for directories that contain
     // a marker file (see FileIndex.subprojectMarkers).
     var badge: String?
+    // Git ignores this row (or it sits inside an ignored tree). Set after
+    // construction because a directory node can be created as an ordinary
+    // ancestor first and only later turn out to be the ignored entry itself.
+    var isIgnored = false
     var children: [FileNode] = []
     // The containing directory node, nil for top-level rows. Used by drag-drop
     // to retarget a drop hovering a file onto its parent folder.
@@ -36,8 +40,14 @@ final class FileNode: NSObject {
     // gitignore-consistent with the fuzzy opener for free. `extraDirectories`
     // are folder paths that hold no indexed files (empty folders the user just
     // created); `git ls-files` never reports those, so the browser injects them
-    // itself so a fresh New Folder shows up right away.
-    static func buildTree(from index: FileIndex, extraDirectories: [String] = []) -> [FileNode] {
+    // itself so a fresh New Folder shows up right away. `ignored` are the
+    // gitignored rows (index.ignored plus whatever the browser has since
+    // expanded from disk), which the tree shows greyed rather than hiding.
+    static func buildTree(
+        from index: FileIndex,
+        extraDirectories: [String] = [],
+        ignored: [FileIndex.IgnoredEntry] = []
+    ) -> [FileNode] {
         let root = FileNode(name: "", relativePath: "", isDirectory: true)
         var directories: [String: FileNode] = ["": root]
 
@@ -64,6 +74,25 @@ final class FileNode: NSObject {
         // pulled in. Idempotent: a folder already created from a file is reused.
         for path in extraDirectories where !path.isEmpty {
             _ = directoryNode(for: path)
+        }
+        // Ignored rows last, parents-first, so a collapsed `build/` is flagged
+        // before any child the user expanded into it reuses that same node.
+        // Ancestors git does *not* ignore — `.claude` above `.claude/worktrees/`
+        // — get created here as ordinary directories and stay uncoloured.
+        for entry in ignored.sorted(by: { $0.path < $1.path }) where !entry.path.isEmpty {
+            if entry.isDirectory {
+                directoryNode(for: entry.path).isIgnored = true
+            } else {
+                let parent = directoryNode(for: (entry.path as NSString).deletingLastPathComponent)
+                let node = FileNode(
+                    name: (entry.path as NSString).lastPathComponent,
+                    relativePath: entry.path,
+                    isDirectory: false
+                )
+                node.isIgnored = true
+                node.parent = parent === root ? nil : parent
+                parent.children.append(node)
+            }
         }
 
         func sortChildren(_ node: FileNode) {
