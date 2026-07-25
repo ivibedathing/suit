@@ -4,7 +4,7 @@ Guidance for Claude Code (claude.ai/code) working in this repository.
 
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app: a native AppKit bundle
 whose windows host split trees of panes showing browser-style tabs — terminals (`/bin/zsh -l -i`
-on SwiftTerm's pty), file viewers, diffs, transcripts, dashboards. One module, 206 Swift files,
+on SwiftTerm's pty), file viewers, diffs, transcripts, dashboards. One module, 207 Swift files,
 nothing beyond AppKit and vendored SwiftTerm.
 
 `README.md` is the pitch, `docs/features.md` the shipped-behavior reference, `docs/development.md`
@@ -70,7 +70,7 @@ swiftc -O -j $(sysctl -n hw.ncpu) swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell-$TASK && /tmp/suit-shell-$TASK
 ```
 
-**Always pass `-j`.** `swiftc` plans one frontend job per file (267 — 206 sources plus 61 vendored)
+**Always pass `-j`.** `swiftc` plans one frontend job per file (268 — 207 sources plus 61 vendored)
 and runs them *serially* by default: ~3 minutes on one core with ten idle. `-j` drops it to ~30 s
 and changes nothing but scheduling. Add `-Onone` (~16 s) when you only need a binary that runs —
 it's the wrong build for judging scroll smoothness or anything perf-shaped.
@@ -159,7 +159,7 @@ explaining the *why*, which is the real reference. A multi-file subsystem splits
 | App shell | `main.swift`, `AppDelegate.swift`, `TerminalWindowController.swift`, `CommandPalette.swift`, `SettingsWindowController.swift` |
 | Tabs & panes | `TabStore.swift`, `Pane.swift`, `PaneContent.swift`, `PaneTabBarView.swift`, `StateRestoration.swift` |
 | Theme | `Theme.swift` (tokens), `Theme+Palettes.swift` (the 14 built-ins), `ThemeStore.swift` (catalog, `.suittheme` files) |
-| Sidebar | `ActivityBarView.swift` (icon strip, laid out by `WindowRootView` *outside* the sidebar split so it survives ⌘B), `SidebarView.swift`, `FileBrowserView.swift`, `SearchView.swift`, `RipgrepSearch.swift` |
+| Sidebar | `ActivityBarView.swift` (icon strip, laid out by `WindowRootView` *outside* the sidebar split so it survives ⌘B), `SidebarView.swift`, `FileBrowserView.swift`, `SearchView.swift` + `SearchReplace.swift` (the Search tab's find/replace), `RipgrepSearch.swift` |
 | Viewer & editing | `FileViewerPane.swift`, `EditorOps.swift`, `FindReplace.swift`, `CodeFolding.swift`, `SymbolIndex.swift`, `SyntaxHighlighter.swift` + `SyntaxLanguages.swift`, `MarkdownPane.swift` |
 | Git & GitHub | `GitStatus.swift`, `GitView.swift`, `DiffPane.swift`, `DiffParser.swift`, `GitBranches.swift` (gh wrapper, degrades without gh), `CommitGraph.swift`, `WorktreeTasks.swift` |
 | Claude | `ClaudeSessions.swift`, `ClaudeIntegration.swift`, `TranscriptPane.swift`, `ModelRouting.swift`, `Recipes.swift`, `Dictation.swift`, `GoalComposition.swift` |

@@ -191,6 +191,12 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.searchView.scopeResolver = { [weak self] scope in
             self?.resolveSearchScope(scope)
         }
+        // A project-wide replace edits files outside any pane, so nothing else
+        // would notice: re-run git status so the tree's letters and the branch
+        // row catch up with what was just rewritten.
+        sidebar.searchView.onFilesChanged = { root, _ in
+            GitStatusMonitor.shared(forRoot: root).refresh()
+        }
         sidebar.fileBrowser.onChooseFolder = { [weak self] in
             self?.selectSidebarFolder()
         }
@@ -333,6 +339,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         activityBar.selectedTab = sidebar.selectedTab
         activityBar.onSelect = { [weak self] tab in self?.activateSidebarTab(tab) }
         sidebar.onTabChange = { [weak self] tab in self?.activityBar.selectedTab = tab }
+        sidebar.onFocusEscaped = { [weak self] in self?.returnFocusToPane() }
 
         rootContainer.addSubview(activityBar)
         rootContainer.addSubview(sidebarSplit)

@@ -25,7 +25,7 @@ final class ProjectHeaderView: NSView {
     static let topRowHeight: CGFloat = 32
     static let branchRowHeight: CGFloat = 22
 
-    // Reveal the search field over the tree (⌘⇧F does the same thing).
+    // Switch the sidebar to its Search tab (⌘⇧F does the same thing).
     var onSearch: (() -> Void)?
     var onChooseFolder: (() -> Void)?
     var onUnpin: (() -> Void)?
