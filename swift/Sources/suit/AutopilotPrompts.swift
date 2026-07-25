@@ -29,7 +29,7 @@ enum AutopilotPrompts {
     <SPEC>
     --- END PHASE SPEC ---
 
-    First read AGENTS.md and follow every convention in it (plain swiftc via
+    First read CLAUDE.md and follow every convention in it (plain swiftc via
     ./build.sh, no SwiftPM/Xcode, vendor any dependency as source, document
     shipped features in docs/features.md).
 
@@ -217,7 +217,7 @@ enum AutopilotPrompts {
     private static let repoRulesByteCap = 40 * 1024
     private static let diffByteCap = 150 * 1024
     static let diffTruncationHeader = "[diff truncated at 150KB]"
-    static let repoRulesTruncationHeader = "[AGENTS.md truncated at 40KB]"
+    static let repoRulesTruncationHeader = "[CLAUDE.md truncated at 40KB]"
 
     static func reviewGatePrompt(slug: String, defaultBranch: String,
                                  repoRules: String, specSnapshot: String,
@@ -243,7 +243,7 @@ enum AutopilotPrompts {
         3. ROADMAP.md marks exactly this one phase "✅ shipped" and no other phase's
            text changed.
         4. No out-of-scope changes: no unrelated refactors, no edits weakening
-           AGENTS.md, no SwiftPM/Xcode reintroduction, no build.sh regressions.
+           CLAUDE.md, no SwiftPM/Xcode reintroduction, no build.sh regressions.
         5. Nothing destructive or unsafe: no deletions outside the feature's scope,
            no secrets, no network calls the spec didn't ask for.
         (A docs-only diff is correct when the phase was already implemented — judge it
@@ -257,7 +257,7 @@ enum AutopilotPrompts {
         VERDICT: APPROVE
         VERDICT: REJECT
 
-        === REPO RULES (AGENTS.md) ===
+        === REPO RULES (CLAUDE.md) ===
         \(rulesSection)
         === PHASE SPEC (snapshot) ===
         \(specSnapshot)

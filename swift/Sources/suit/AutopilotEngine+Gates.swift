@@ -148,9 +148,12 @@ extension AutopilotEngine {
                 return
             }
             // Repo rules from the *main* checkout: a worker that weakened
-            // AGENTS.md must be judged against the original, not its edit.
-            // AGENTS.md, not CLAUDE.md — the latter is only a pointer stub.
-            let repoRules = (try? String(contentsOfFile: root + "/AGENTS.md", encoding: .utf8)) ?? ""
+            // CLAUDE.md must be judged against the original, not its edit.
+            // This read used to point at AGENTS.md, which `ba57a73` deleted when
+            // CLAUDE.md became self-contained — and `try?` turned that into an
+            // empty string, so the gate silently judged every diff against no
+            // rules at all. Keep this path pointing at a file that exists.
+            let repoRules = (try? String(contentsOfFile: root + "/CLAUDE.md", encoding: .utf8)) ?? ""
             let prompt = AutopilotPrompts.reviewGatePrompt(
                 slug: run.slug, defaultBranch: defaultBranch, repoRules: repoRules,
                 specSnapshot: run.specSnapshot, diff: diff
