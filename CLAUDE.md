@@ -82,7 +82,7 @@ link even an empty manifest; plain `swiftc` is unaffected. So SwiftTerm is vendo
 Vendor new Swift dependencies the same way.
 
 ```sh
-scripts/test.sh                 # 28 fast harnesses, ~seconds
+scripts/test.sh                 # 29 fast harnesses, ~seconds
 scripts/test.sh --all           # + the autopilot pipeline harness (~2 min)
 scripts/test.sh --list          # names, scripts, speed
 scripts/editor-ops-test.sh      # one harness directly — the inner loop

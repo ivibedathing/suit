@@ -93,8 +93,14 @@ app does.
   you can edit it first. A destructive-looking command (curl/wget piped into a shell, `rm -rf`)
   trips the same confirm a risky paste does before it runs. With no history file, it falls back to
   the per-pane commands alone.
-- **Notes** — a free-text scratch tab in the sidebar backed by `~/.suit/notes.txt`;
-  right-click a terminal selection to append it as a note.
+- **Notes** — plain `.txt` files in `~/.suit/notes/`, listed in the sidebar's Notes tab. Clicking a
+  row (or **Return**) opens the note as an ordinary file tab, so it edits exactly like a project
+  file: autosave, ⌘S, undo, ⌘F find/replace, line numbers, split and drag, restored at the next
+  launch. The filename is the title. **+** asks for a title and opens the new note; right-click a
+  row for **Open**, **Rename…**, **Reveal in Finder** or **Move to Trash**. Right-clicking a
+  terminal selection captures it as a new note (titled after its first line) and opens it. Notes
+  kept in the older `notes.json` / `notes.txt` are imported into the directory once, at first
+  launch, and the originals are left on disk untouched.
 
 ### File viewer & navigation
 

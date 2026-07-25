@@ -276,6 +276,12 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.bookmarksView.onOpen = { [weak self] path, line in
             self?.openFile(atPath: path, line: line)
         }
+        // Notes tab: a note is a .txt file under ~/.suit/notes, so it opens
+        // through the same path a project file does — deduped by path, editable,
+        // splittable, restored at launch.
+        sidebar.notesView.onOpen = { [weak self] path in
+            self?.openFile(atPath: path, line: nil)
+        }
         // Sessions tab: click a row to bring that tab forward in its pane, or
         // its close box to shut it (the cross-pane overview replacing the strip).
         sidebar.sessionsView.onSelectTab = { [weak self] id in

@@ -1,444 +1,322 @@
-import Cocoa
+import Foundation
 
-// One user note. The title is derived (first non-empty line, Apple Notes
-// style) rather than stored, so the list row always matches the text.
-struct Note: Codable, Equatable {
-    let id: UUID
-    var text: String
-    var createdAt: TimeInterval
-    var updatedAt: TimeInterval
+// Notes are plain `.txt` files in ~/.suit/notes/, not records inside a JSON
+// blob — and that swap is the whole design. A note opens as an ordinary file
+// tab in the pane tree, so it inherits everything the file viewer already does:
+// undo, ⌘S and the one-second autosave, ⌘F find/replace, line numbers, the
+// dirty chip, splits and tab drag, state restoration across a quit, and the
+// watcher that reconciles a rewrite by Claude or $EDITOR. The sidebar used to
+// carry its own NSTextView plus its own debounced save against a JSON list —
+// a second, weaker editor duplicating all of that. A note that *is* a file
+// needs none of it, and gains the rest for free.
+//
+// The filename is the title, the way it is for every other file in the app:
+// no derived-from-first-line title, because renaming a file is how you retitle
+// anything else here. The sidebar's Notes tab (NotesView.swift) is now only a
+// list that opens them.
+//
+// This file is Foundation-only — no AppKit — so scripts/notes-test.sh can
+// compile it standalone.
 
-    var title: String {
-        firstContentLines(1).first ?? "New Note"
-    }
+// One note on disk. `snippet` is read at scan time (the first 4 KB of the file)
+// so a list row can show a preview line without re-reading per draw.
+struct NoteFile: Equatable {
+    let path: String
+    let modifiedAt: Date
+    let snippet: String
 
-    // The line after the title, for the list row's detail text.
-    var snippet: String {
-        let lines = firstContentLines(2)
-        return lines.count > 1 ? lines[1] : ""
-    }
+    var fileName: String { (path as NSString).lastPathComponent }
+    var title: String { (fileName as NSString).deletingPathExtension }
+}
 
-    private func firstContentLines(_ count: Int) -> [String] {
-        var lines: [String] = []
-        for raw in text.split(separator: "\n") {
-            let line = raw.trimmingCharacters(in: .whitespaces)
-            guard !line.isEmpty else { continue }
-            lines.append(line)
-            if lines.count == count { break }
+// Turning what the user typed into a filename, and keeping filenames unique.
+// Pure, so the harness can pin the awkward cases (a slash in a title, a title
+// that is only punctuation, a collision that has to become "Name 2").
+enum NoteNaming {
+    static let fileExtension = "txt"
+    // Long enough for a real sentence-as-title, short enough that the sidebar
+    // row and every path length limit stay comfortable.
+    static let maxTitleLength = 60
+
+    // A note's filename for the title the user typed. `/` and `:` are the two
+    // characters the filesystem and Finder disagree about, so both become a
+    // dash rather than silently splitting the name into directories; newlines
+    // and other control characters collapse into the surrounding spaces. A
+    // leading dot is dropped — a hidden note is a note the list can't show.
+    static func fileName(forTitle raw: String) -> String {
+        var cleaned = ""
+        for scalar in raw.unicodeScalars {
+            if scalar == "/" || scalar == ":" {
+                cleaned.append("-")
+            } else if CharacterSet.controlCharacters.contains(scalar) {
+                cleaned.append(" ")
+            } else {
+                cleaned.unicodeScalars.append(scalar)
+            }
         }
-        return lines
+        // Collapse whitespace runs (including the ones the substitutions above
+        // just made) so "a    b" and "a\n\nb" both title as "a b".
+        let collapsed = cleaned.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        var title = String(collapsed.prefix(maxTitleLength)).trimmingCharacters(in: .whitespaces)
+        while title.hasPrefix(".") { title.removeFirst() }
+        title = title.trimmingCharacters(in: .whitespaces)
+        if title.isEmpty { title = "Untitled" }
+        return title + "." + fileExtension
+    }
+
+    // The title a note's text suggests: its first non-empty line. Used when a
+    // note is created from content rather than from a name the user typed
+    // (the terminal's selection capture).
+    static func title(fromText text: String) -> String {
+        for raw in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if !line.isEmpty { return line }
+        }
+        return ""
+    }
+
+    // "Note.txt" → "Note 2.txt" → "Note 3.txt" until free. Compared
+    // case-insensitively because the volume this lands on almost certainly is:
+    // "note.txt" and "Note.txt" are one file, and moveItem onto it would fail.
+    static func uniqueFileName(_ desired: String, existing: Set<String>) -> String {
+        let taken = Set(existing.map { $0.lowercased() })
+        guard taken.contains(desired.lowercased()) else { return desired }
+        let base = (desired as NSString).deletingPathExtension
+        let ext = (desired as NSString).pathExtension
+        var attempt = 2
+        while true {
+            let candidate = ext.isEmpty ? "\(base) \(attempt)" : "\(base) \(attempt).\(ext)"
+            if !taken.contains(candidate.lowercased()) { return candidate }
+            attempt += 1
+        }
     }
 }
 
-// The user's notes, backed by ~/.suit/notes.json — an ordered list (newest
-// first), not a single blob. One store owns the list: the sidebar's Notes tab
-// edits the selected note, and the terminal right-click "Create Note from
-// Selection" adds a new note. Saves are debounced (and flushed at quit);
-// didUpdate keeps every window's Notes tab in sync (the sender skips its own
-// editor refresh so the caret survives).
+// The notes directory, listed and mutated. Deliberately thin: it creates,
+// renames, trashes and lists files — the *contents* are the file viewer's
+// business, and nothing here caches or writes note text after creation.
+// A watcher on the directory means a note created, renamed or deleted by any
+// other window (or by hand in Finder, or by Claude) refreshes every list.
 final class NotesStore {
     static let shared = NotesStore()
     static let didUpdate = Notification.Name("dev.kosych.suit.NotesStore.didUpdate")
 
-    private(set) var notes: [Note]
+    private(set) var notes: [NoteFile] = []
 
-    private var saveTimer: Timer?
+    private var watcher: FileWatcher?
+
     // $HOME rather than NSHomeDirectory(), same as ClaudeIntegration: an
-    // overridden $HOME sandboxes the file for harness runs.
+    // overridden $HOME sandboxes the directory for harness runs. Computed, not
+    // stored, so a harness that re-points $HOME between cases is honored.
     private static var suitDirectory: String {
         (ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) + "/.suit"
     }
-    static var path: String { suitDirectory + "/notes.json" }
-    // The pre-list free-text file; imported once as the first note.
-    static var legacyPath: String { suitDirectory + "/notes.txt" }
+    static var directory: String { suitDirectory + "/notes" }
+    // The two shapes notes were kept in before they were files: the list in
+    // notes.json, and before that a single free-text notes.txt. Both are read
+    // once and then left alone on disk — never rewritten, never deleted, so a
+    // botched import is always recoverable by hand.
+    static var legacyJSONPath: String { suitDirectory + "/notes.json" }
+    static var legacyTextPath: String { suitDirectory + "/notes.txt" }
 
-    init() {
-        if let decoded = StoreFile.load([Note].self, from: Self.path) {
-            notes = decoded
-        } else if let legacy = try? String(contentsOfFile: Self.legacyPath, encoding: .utf8),
-                  !legacy.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let now = Date().timeIntervalSince1970
-            notes = [Note(id: UUID(), text: legacy, createdAt: now, updatedAt: now)]
-            // Persist the migration immediately so notes.txt is imported only
-            // once (the .txt itself is left in place, untouched).
-            flush()
-        } else {
-            notes = []
+    // `watching: false` is for harnesses: a DispatchSource on a directory the
+    // test is about to delete is noise, and there's no run loop to fire it.
+    init(watching: Bool = true) {
+        migrateIfNeeded()
+        reload()
+        guard watching else { return }
+        watcher = FileWatcher(path: Self.directory) { [weak self] in
+            self?.reload()
+            self?.post()
         }
     }
 
-    func note(withId id: UUID) -> Note? {
-        notes.first { $0.id == id }
+    // MARK: - Reading
+
+    // Rescans the directory: a flat listing plus a 4 KB head read per note —
+    // cheap at any plausible note count, and the only thing that has to be
+    // right after an outside change.
+    func reload() {
+        let fm = FileManager.default
+        var found: [NoteFile] = []
+        for name in (try? fm.contentsOfDirectory(atPath: Self.directory)) ?? [] {
+            guard !name.hasPrefix("."),
+                  (name as NSString).pathExtension.lowercased() == NoteNaming.fileExtension else { continue }
+            let path = Self.directory + "/" + name
+            var isDirectory: ObjCBool = false
+            guard fm.fileExists(atPath: path, isDirectory: &isDirectory), !isDirectory.boolValue else { continue }
+            let modified = (try? fm.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+            found.append(NoteFile(
+                path: path,
+                modifiedAt: modified ?? Date(timeIntervalSince1970: 0),
+                snippet: Self.snippet(ofFileAt: path, title: (name as NSString).deletingPathExtension)
+            ))
+        }
+        // Most-recently-edited first, the order the JSON list had. Ties (a bulk
+        // import stamps several files in the same second) fall back to the name
+        // so the list can't reshuffle between two equal scans.
+        notes = found.sorted {
+            $0.modifiedAt == $1.modifiedAt
+                ? $0.fileName.localizedStandardCompare($1.fileName) == .orderedAscending
+                : $0.modifiedAt > $1.modifiedAt
+        }
     }
 
+    func note(atPath path: String) -> NoteFile? {
+        notes.first { $0.path == path }
+    }
+
+    // The row's detail text: the first line of the file's head worth showing.
+    // A line identical to the title is skipped — a note captured from a
+    // selection, or imported from the old list, leads with the very line its
+    // title came from, and a row reading "Roadmap ideas · Roadmap ideas" spends
+    // its second line saying nothing. Only the head is read: a note is a text
+    // file and may be arbitrarily long.
+    private static func snippet(ofFileAt path: String, title: String) -> String {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return "" }
+        defer { try? handle.close() }
+        let data = (try? handle.read(upToCount: 4096)) ?? Data()
+        let text = String(decoding: data, as: UTF8.self)
+        for raw in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty || line == title { continue }
+            return String(line.prefix(200))
+        }
+        return ""
+    }
+
+    private func existingFileNames() -> Set<String> {
+        Set((try? FileManager.default.contentsOfDirectory(atPath: Self.directory)) ?? [])
+    }
+
+    // MARK: - Mutating
+
+    // Creates a note file and returns its path (nil if the write failed). The
+    // caller opens it — creating a note and not showing it would be pointless,
+    // but this store knows nothing about panes.
     @discardableResult
-    func addNote(text: String = "", from sender: AnyObject?) -> Note {
-        let now = Date().timeIntervalSince1970
-        let note = Note(id: UUID(), text: text, createdAt: now, updatedAt: now)
-        notes.insert(note, at: 0)
-        scheduleSave()
-        post(from: sender)
-        return note
+    func createNote(title: String = "", text: String = "") -> String? {
+        let fm = FileManager.default
+        try? fm.createDirectory(atPath: Self.directory, withIntermediateDirectories: true)
+        let wanted = title.isEmpty ? NoteNaming.title(fromText: text) : title
+        let name = NoteNaming.uniqueFileName(
+            NoteNaming.fileName(forTitle: wanted),
+            existing: existingFileNames()
+        )
+        let path = Self.directory + "/" + name
+        do {
+            try Data(text.utf8).write(to: URL(fileURLWithPath: path), options: .atomic)
+        } catch {
+            return nil
+        }
+        reload()
+        post()
+        return path
     }
 
-    // The Notes tab pushes every edit of the selected note here; other
-    // windows' tabs follow via didUpdate (the sender skips itself).
-    func setText(id: UUID, _ newText: String, from sender: AnyObject?) {
-        guard let index = notes.firstIndex(where: { $0.id == id }),
-              notes[index].text != newText else { return }
-        notes[index].text = newText
-        notes[index].updatedAt = Date().timeIntervalSince1970
-        scheduleSave()
-        post(from: sender)
+    // Renames a note to `raw` as a title, returning the new path. A rename onto
+    // a name already taken lands as "Name 2" rather than failing or clobbering.
+    @discardableResult
+    func renameNote(atPath path: String, toTitle raw: String) -> String? {
+        let desired = NoteNaming.fileName(forTitle: raw)
+        let current = (path as NSString).lastPathComponent
+        guard desired != current else { return path }
+        // Exclude the note's own name so re-casing it ("notes" → "Notes")
+        // doesn't collide with itself and land as "Notes 2".
+        var existing = existingFileNames()
+        existing.remove(current)
+        let name = NoteNaming.uniqueFileName(desired, existing: existing)
+        let destination = Self.directory + "/" + name
+        do {
+            try FileManager.default.moveItem(atPath: path, toPath: destination)
+        } catch {
+            return nil
+        }
+        reload()
+        post()
+        return destination
     }
 
-    func deleteNote(id: UUID, from sender: AnyObject?) {
-        guard let index = notes.firstIndex(where: { $0.id == id }) else { return }
-        notes.remove(at: index)
-        scheduleSave()
-        post(from: sender)
+    // Trashed, not unlinked: a note is the user's writing, and the Files tab's
+    // "Move to Trash" sets the expectation that deletion here is recoverable.
+    @discardableResult
+    func deleteNote(atPath path: String) -> Bool {
+        do {
+            try FileManager.default.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
+        } catch {
+            return false
+        }
+        reload()
+        post()
+        return true
     }
 
-    // Right-click "Create Note from Selection" in a terminal: each capture
-    // becomes its own note at the top of the list.
-    func addNoteFromSelection(_ raw: String) {
+    // Right-click "Create Note from Selection" in a terminal: the capture
+    // becomes a note file titled after its first line.
+    @discardableResult
+    func addNoteFromSelection(_ raw: String) -> String? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        addNote(text: trimmed, from: nil)
+        guard !trimmed.isEmpty else { return nil }
+        return createNote(text: trimmed + "\n")
     }
 
-    // Debounced so keystrokes don't each hit the disk; flush() forces the
-    // write (applicationWillTerminate — a pending timer dies with the app).
-    private func scheduleSave() {
-        saveTimer?.invalidate()
-        saveTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
-            self?.flush()
-        }
+    private func post() {
+        NotificationCenter.default.post(name: Self.didUpdate, object: nil)
     }
 
-    func flush() {
-        saveTimer?.invalidate()
-        saveTimer = nil
-        try? FileManager.default.createDirectory(
-            atPath: Self.suitDirectory,
-            withIntermediateDirectories: true
-        )
-        if let data = try? JSONEncoder().encode(notes) {
-            try? data.write(to: URL(fileURLWithPath: Self.path), options: .atomic)
-        }
+    // MARK: - Migration
+
+    // Only the shape the importer needs, and every field optional: a state file
+    // written by an older or newer Suit must still load.
+    private struct LegacyNote: Decodable {
+        let text: String?
+        let updatedAt: TimeInterval?
     }
 
-    private func post(from sender: AnyObject?) {
-        NotificationCenter.default.post(name: Self.didUpdate, object: sender)
-    }
-}
+    // The notes directory not existing *is* the "not yet migrated" marker — no
+    // flag file, and nothing to keep in sync. Once it exists (even empty, e.g.
+    // the user trashed every imported note) the legacy files are never read
+    // again, so a deleted note can't resurrect itself at the next launch.
+    private func migrateIfNeeded() {
+        let fm = FileManager.default
+        guard !fm.fileExists(atPath: Self.directory) else { return }
+        guard (try? fm.createDirectory(atPath: Self.directory, withIntermediateDirectories: true)) != nil else { return }
 
-// A note list row: derived title plus a dimmed date · snippet line.
-private final class NoteRowView: NSTableCellView {
-    static let height: CGFloat = 38
-
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let detailLabel = NSTextField(labelWithString: "")
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        titleLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        titleLabel.textColor = Theme.textPrimary
-        titleLabel.lineBreakMode = .byTruncatingTail
-        addSubview(titleLabel)
-
-        detailLabel.font = .systemFont(ofSize: 10)
-        detailLabel.textColor = Theme.textFaint
-        detailLabel.lineBreakMode = .byTruncatingTail
-        addSubview(detailLabel)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layout() {
-        super.layout()
-        titleLabel.frame = NSRect(x: 8, y: bounds.height - 21, width: max(0, bounds.width - 16), height: 15)
-        detailLabel.frame = NSRect(x: 8, y: bounds.height - 35, width: max(0, bounds.width - 16), height: 13)
-    }
-
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-    private static let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter
-    }()
-
-    func configure(note: Note) {
-        titleLabel.stringValue = note.title
-        let date = Date(timeIntervalSince1970: note.updatedAt)
-        let dateText = Calendar.current.isDateInToday(date)
-            ? Self.timeFormatter.string(from: date)
-            : Self.dayFormatter.string(from: date)
-        detailLabel.stringValue = note.snippet.isEmpty ? dateText : dateText + " · " + note.snippet
-        needsLayout = true
-    }
-}
-
-// The sidebar's Notes tab: the note list on top, an editor for the selected
-// note below — still the one deliberately editable text surface in the app
-// (notes are the user's words, not code; the viewer-first rule is about
-// source files). Typing with no note selected creates one on the fly.
-final class NotesView: NSView, NSTextViewDelegate, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
-    private static let headerHeight: CGFloat = 26
-
-    private let headerLabel = NSTextField(labelWithString: "")
-    private let addButton = NSButton(frame: .zero)
-    private let listScrollView = NSScrollView(frame: .zero)
-    private let tableView = NSTableView(frame: .zero)
-    private let separator = NSView(frame: .zero)
-    private let scrollView = NSScrollView(frame: .zero)
-    private let textView = NSTextView(frame: .zero)
-
-    private var selectedNoteID: UUID?
-    // Distinguishes programmatic table selection from a user click.
-    private var suppressSelectionCallback = false
-
-    override var isFlipped: Bool { true }
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-
-        headerLabel.attributedStringValue = NSAttributedString(
-            string: "NOTES",
-            attributes: [
-                .font: Theme.captionFont,
-                .foregroundColor: Theme.textFaint,
-                .kern: Theme.captionKern,
-            ]
-        )
-        addSubview(headerLabel)
-
-        addButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "New Note")
-        addButton.isBordered = false
-        addButton.bezelStyle = .regularSquare
-        addButton.contentTintColor = Theme.textDim
-        addButton.toolTip = "New Note"
-        addButton.target = self
-        addButton.action = #selector(addNoteClicked)
-        addSubview(addButton)
-
-        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("note"))
-        column.resizingMask = .autoresizingMask
-        tableView.addTableColumn(column)
-        tableView.headerView = nil
-        tableView.backgroundColor = .clear
-        tableView.style = .sourceList
-        tableView.dataSource = self
-        tableView.delegate = self
-
-        let menu = NSMenu()
-        menu.delegate = self
-        tableView.menu = menu
-
-        listScrollView.documentView = tableView
-        listScrollView.hasVerticalScroller = true
-        listScrollView.drawsBackground = false
-        addSubview(listScrollView)
-
-        separator.wantsLayer = true
-        separator.layer?.backgroundColor = Theme.hairline.cgColor
-        addSubview(separator)
-
-        textView.isRichText = false
-        textView.allowsUndo = true
-        textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        textView.textColor = Theme.textPrimary
-        textView.insertionPointColor = Theme.accent
-        textView.drawsBackground = false
-        textView.textContainerInset = NSSize(width: 8, height: 10)
-        textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = false
-        textView.autoresizingMask = [.width]
-        textView.textContainer?.widthTracksTextView = true
-        textView.delegate = self
-
-        scrollView.documentView = textView
-        scrollView.hasVerticalScroller = true
-        scrollView.drawsBackground = false
-        addSubview(scrollView)
-
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(storeChanged(_:)),
-            name: NotesStore.didUpdate, object: nil
-        )
-
-        reloadList()
-        select(NotesStore.shared.notes.first?.id)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
-    override func layout() {
-        super.layout()
-        let width = bounds.width
-
-        headerLabel.sizeToFit()
-        headerLabel.frame.origin = NSPoint(x: 10, y: (Self.headerHeight - headerLabel.frame.height) / 2)
-        addButton.frame = NSRect(x: width - 26, y: (Self.headerHeight - 18) / 2, width: 18, height: 18)
-
-        // The list only takes what its rows need (+ the sourceList style's
-        // built-in insets), capped so the editor always keeps the majority of
-        // the tab.
-        let count = NotesStore.shared.notes.count
-        let listHeight = count == 0
-            ? 0
-            : min(CGFloat(count) * NoteRowView.height + 14, floor(bounds.height * 0.35))
-        listScrollView.frame = NSRect(x: 0, y: Self.headerHeight, width: width, height: listHeight)
-        listScrollView.isHidden = count == 0
-        separator.frame = NSRect(x: 0, y: Self.headerHeight + listHeight, width: width, height: 1)
-        separator.isHidden = count == 0
-
-        let editorTop = Self.headerHeight + listHeight + (count == 0 ? 0 : 1)
-        scrollView.frame = NSRect(x: 0, y: editorTop, width: width, height: max(0, bounds.height - editorTop))
-        textView.frame.size.width = width
-    }
-
-    override func setFrameSize(_ newSize: NSSize) {
-        super.setFrameSize(newSize)
-        needsLayout = true
-    }
-
-    // What the sidebar focuses when this tab is selected.
-    var focusTarget: NSView { textView }
-
-    // MARK: - Selection / editor sync
-
-    // Points the editor at another note: table row, text, fresh undo stack.
-    private func select(_ id: UUID?) {
-        selectedNoteID = id
-        suppressSelectionCallback = true
-        if let id, let row = NotesStore.shared.notes.firstIndex(where: { $0.id == id }) {
-            tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-            tableView.scrollRowToVisible(row)
-        } else {
-            tableView.deselectAll(nil)
-        }
-        suppressSelectionCallback = false
-        textView.string = id.flatMap { NotesStore.shared.note(withId: $0)?.text } ?? ""
-        textView.setSelectedRange(NSRange(location: 0, length: 0))
-        textView.undoManager?.removeAllActions()
-    }
-
-    // Rebuilds the table (titles/dates/order) without disturbing the editor.
-    private func reloadList() {
-        suppressSelectionCallback = true
-        tableView.reloadData()
-        if let id = selectedNoteID,
-           let row = NotesStore.shared.notes.firstIndex(where: { $0.id == id }) {
-            tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-        }
-        suppressSelectionCallback = false
-        needsLayout = true
-    }
-
-    @objc private func addNoteClicked() {
-        let note = NotesStore.shared.addNote(from: self)
-        select(note.id)
-        window?.makeFirstResponder(textView)
-    }
-
-    func textDidChange(_ notification: Notification) {
-        if let id = selectedNoteID {
-            NotesStore.shared.setText(id: id, textView.string, from: self)
-        } else {
-            // No note yet (empty store) — the first keystroke creates one.
-            let note = NotesStore.shared.addNote(text: textView.string, from: self)
-            selectedNoteID = note.id
-        }
-        // The store posts with us as sender, so our storeChanged skipped the
-        // editor — but the row title/date still need to follow the keystroke.
-        reloadList()
-    }
-
-    // Another window's tab, a terminal selection-capture, or our own store
-    // call changed the list.
-    @objc private func storeChanged(_ notification: Notification) {
-        let store = NotesStore.shared
-        reloadList()
-        if let id = selectedNoteID, store.note(withId: id) == nil {
-            // The selected note was deleted — fall back to the top of the list.
-            select(store.notes.first?.id)
+        var used: Set<String> = []
+        if let data = fm.contents(atPath: Self.legacyJSONPath),
+           let legacy = try? JSONDecoder().decode([LegacyNote].self, from: data),
+           !legacy.isEmpty {
+            for note in legacy {
+                guard let text = note.text,
+                      !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+                // Each note keeps its own updatedAt as the file's mtime, so the
+                // imported list comes back in the order it was left in.
+                importNote(
+                    text: text,
+                    modified: note.updatedAt.map(Date.init(timeIntervalSince1970:)),
+                    used: &used
+                )
+            }
             return
         }
-        if selectedNoteID == nil, let first = store.notes.first, textView.string.isEmpty {
-            // Empty tab and a note appeared (e.g. terminal capture) — show it.
-            select(first.id)
-            return
-        }
-        guard notification.object as? NotesView !== self else { return }
-        if let id = selectedNoteID, let note = store.note(withId: id), textView.string != note.text {
-            let selection = textView.selectedRange()
-            textView.string = note.text
-            let length = (textView.string as NSString).length
-            textView.setSelectedRange(NSRange(location: min(selection.location, length), length: 0))
+        // Pre-list format: one free-text file, imported as a single note.
+        if let text = try? String(contentsOfFile: Self.legacyTextPath, encoding: .utf8),
+           !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let modified = (try? fm.attributesOfItem(atPath: Self.legacyTextPath))?[.modificationDate] as? Date
+            importNote(text: text, modified: modified, used: &used)
         }
     }
 
-    // MARK: - Context menu
-
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        menu.removeAllItems()
-        let row = tableView.clickedRow
-        guard row >= 0, row < NotesStore.shared.notes.count else { return }
-        let item = menu.addItem(withTitle: "Delete Note", action: #selector(deleteNoteFromMenu(_:)), keyEquivalent: "")
-        item.target = self
-        item.representedObject = NotesStore.shared.notes[row].id
-    }
-
-    @objc private func deleteNoteFromMenu(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? UUID else { return }
-        NotesStore.shared.deleteNote(id: id, from: nil)
-    }
-
-    // MARK: - NSTableViewDataSource / Delegate
-
-    func numberOfRows(in tableView: NSTableView) -> Int {
-        NotesStore.shared.notes.count
-    }
-
-    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-        NoteRowView.height
-    }
-
-    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        let notes = NotesStore.shared.notes
-        guard row < notes.count else { return nil }
-        let identifier = NSUserInterfaceItemIdentifier("noteRow")
-        let view = tableView.makeView(withIdentifier: identifier, owner: self) as? NoteRowView ?? {
-            let created = NoteRowView(frame: .zero)
-            created.identifier = identifier
-            return created
-        }()
-        view.configure(note: notes[row])
-        return view
-    }
-
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
-        ThemedTableRowView()
-    }
-
-    func tableViewSelectionDidChange(_ notification: Notification) {
-        guard !suppressSelectionCallback else { return }
-        let row = tableView.selectedRow
-        let notes = NotesStore.shared.notes
-        guard row >= 0, row < notes.count, notes[row].id != selectedNoteID else { return }
-        select(notes[row].id)
+    private func importNote(text: String, modified: Date?, used: inout Set<String>) {
+        let name = NoteNaming.uniqueFileName(
+            NoteNaming.fileName(forTitle: NoteNaming.title(fromText: text)),
+            existing: used
+        )
+        used.insert(name)
+        let path = Self.directory + "/" + name
+        guard (try? Data(text.utf8).write(to: URL(fileURLWithPath: path), options: .atomic)) != nil else { return }
+        if let modified {
+            try? FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: path)
+        }
     }
 }
