@@ -28,6 +28,19 @@ final class FileIndex {
     private(set) var subprojectBadges: [String: String] = [:]
     private(set) var isScanning = false
 
+    // The gitignored rows, kept *out* of `files` on purpose: the Files tree
+    // draws them greyed, while ⌘P and project search stay ignore-clean.
+    private(set) var ignored: [IgnoredEntry] = []
+
+    // One ignored row. Collapsed at the shallowest ignored directory (see
+    // scanIgnored), so `node_modules/` is a single entry rather than the
+    // 30,000 paths beneath it; FileBrowserView fills a collapsed directory in
+    // from disk only if the user actually expands it.
+    struct IgnoredEntry: Hashable {
+        let path: String          // root-relative, no trailing slash
+        let isDirectory: Bool
+    }
+
     private var eventStream: FSEventStreamRef?
     private var rescanDebounce: DispatchWorkItem?
     private static let scanQueue = DispatchQueue(label: "dev.kosych.suit.fileindex", qos: .userInitiated)
@@ -81,8 +94,10 @@ final class FileIndex {
         Self.scanQueue.async { [weak self] in
             guard let self else { return }
             let scanned = Self.scan(root: self.root)
+            let ignored = Self.scanIgnored(root: self.root)
             DispatchQueue.main.async {
                 self.files = scanned
+                self.ignored = ignored
                 self.subprojectBadges = Self.detectSubprojects(in: scanned)
                 self.isScanning = false
                 NotificationCenter.default.post(name: Self.didUpdate, object: self)
@@ -108,6 +123,57 @@ final class FileIndex {
         }
         return fallbackScan(root: root)
     }
+
+    // The ignored counterpart of scan()'s --others: same walk, opposite side of
+    // .gitignore. --directory is what makes it affordable — git reports a
+    // wholly-ignored directory as one entry (`build/`) instead of every file
+    // under it, so pointing the browser at a repo with a fat node_modules
+    // costs one row, not thirty thousand. Empty outside a repo: with no
+    // .gitignore to read, nothing is ignored (the fallback scan's pruning of
+    // node_modules/.git is a different thing, and stays hidden).
+    private static func scanIgnored(root: String) -> [IgnoredEntry] {
+        guard let output = runProcess("/usr/bin/git", [
+            "-C", root, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z",
+        ]) else { return [] }
+        return parseIgnoredEntries(output)
+    }
+
+    // Split from the git call so a harness can assert the parse: NUL-separated
+    // entries, a trailing slash marks a directory, and the result is sorted
+    // parents-first so the tree builder always meets `build/` before anything
+    // that lands beneath it.
+    static func parseIgnoredEntries(_ output: String) -> [IgnoredEntry] {
+        var seen = Set<String>()
+        var result: [IgnoredEntry] = []
+        for raw in output.split(separator: "\0") where !raw.isEmpty {
+            let text = String(raw)
+            let isDirectory = text.hasSuffix("/")
+            let path = isDirectory ? String(text.dropLast()) : text
+            guard !path.isEmpty, seen.insert(path).inserted else { continue }
+            result.append(IgnoredEntry(path: path, isDirectory: isDirectory))
+        }
+        return result.sorted { $0.path < $1.path }
+    }
+
+    // One level of a collapsed ignored directory, read straight off disk:
+    // everything inside an ignored tree is ignored too, so there is nothing
+    // left to ask git. Capped because an expanded node_modules is enormous and
+    // nobody scrolls 20,000 rows.
+    static func ignoredChildren(ofDirectory relativePath: String, root: String) -> [IgnoredEntry] {
+        let directory = root + "/" + relativePath
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory) else { return [] }
+        var result: [IgnoredEntry] = []
+        for name in names.sorted().prefix(ignoredChildCap) {
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: directory + "/" + name, isDirectory: &isDirectory) else {
+                continue
+            }
+            result.append(IgnoredEntry(path: relativePath + "/" + name, isDirectory: isDirectory.boolValue))
+        }
+        return result
+    }
+
+    private static let ignoredChildCap = 2_000
 
     // Outside a git repo there's no ignore file to honor, so filter the usual
     // machine-generated trees by name, and cap the walk so pointing a window at

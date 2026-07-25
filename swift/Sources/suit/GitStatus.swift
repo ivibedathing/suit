@@ -244,6 +244,10 @@ final class GitStatusMonitor {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
     }
 
+    // The colour a porcelain letter reads as, shared by the browser's status
+    // badge and the filename text beside it: green for content that is new
+    // (added or untracked), red for deleted, amber for everything else —
+    // modified, renamed, and the rarer letters that amount to "changed".
     static func badgeColor(for letter: Character) -> NSColor {
         switch letter {
         case "A", "?": return Theme.sessionDone
