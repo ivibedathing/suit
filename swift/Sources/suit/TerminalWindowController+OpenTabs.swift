@@ -20,6 +20,10 @@ extension TerminalWindowController {
         // jump where the kind supports it.
         if let tab = store.tabs.first(where: { ($0.content as? FileBackedPaneContent)?.filePath == standardized }) {
             (tab.content as? FileBackedPaneContent)?.load(path: standardized, line: line)
+            // A load resets the pane's highlight state, so the live search
+            // pattern is re-applied on the way in — including here, where the
+            // tab existed before the search did.
+            applySearchHighlight(searchHighlightQuery, to: tab.content)
             activate(tab)
             return
         }
@@ -28,7 +32,26 @@ extension TerminalWindowController {
         let tab = Tab(content: content)
         store.insert(tab)
         content.load(path: standardized, line: line)
+        applySearchHighlight(searchHighlightQuery, to: content)
         activate(tab)
+    }
+
+    // MARK: - Project-search highlighting
+
+    // The Search tab's pattern reaches every open viewer in this window, not
+    // just the file whose result was clicked: the reader's question after one
+    // hit is "where else", and the file they ask it about is as often one
+    // already open in another pane as the one they just jumped to. nil (an
+    // emptied field) is how the wash goes away everywhere at once.
+    func applySearchHighlight(_ query: FindQuery?) {
+        searchHighlightQuery = query
+        for tab in store.tabs {
+            applySearchHighlight(query, to: tab.content)
+        }
+    }
+
+    private func applySearchHighlight(_ query: FindQuery?, to content: PaneContent) {
+        (content as? FileViewerPaneContent)?.setSearchHitQuery(query)
     }
 
     // Routes a file to its preview pane by extension:

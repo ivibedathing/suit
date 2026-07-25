@@ -18,6 +18,11 @@ import Cocoa
 //     attributes: applySyntaxAttributes() strips foreground colour across the whole
 //     document on every re-highlight, and a document-level background would dirty
 //     the buffer. Temporary attributes survive both.
+//
+// Because .backgroundColor is a single layer with no ownership, every writer to it
+// goes through `repaintHighlightLayer()` here: it clears the whole document once
+// and repaints the project-search wash (FileViewerPane+SearchHits) underneath the
+// find bar's matches. Painting one of them on its own would erase the other.
 extension FileViewerPaneContent {
 
     // MARK: - Menu entry points
@@ -87,12 +92,14 @@ extension FileViewerPaneContent {
     }
 
     func closeFindBar() {
-        clearFindHighlights()
         findBar = nil
         container.findOverlay = nil
         findMatches = []
         findMatchIndex = 0
         findMatchGeneration = -1
+        // Repaint *after* dropping the bar, so the find wash goes and whatever
+        // project-search hits are lit stay lit.
+        repaintHighlightLayer()
         // Focus goes back to the text, not to whatever AppKit picks. The pane's
         // focus border is derived from firstResponder by the window controller,
         // so handing it back here is what keeps the border lit.
@@ -223,44 +230,49 @@ extension FileViewerPaneContent {
     // stepping past the cap still shows you where you are.
     private static let maxPaintedHighlights = 2000
 
-    private func applyFindHighlights() {
-        guard let layoutManager = textView.layoutManager else { return }
-        clearFindHighlights()
-        let matches = currentFindMatches()
-        guard !matches.isEmpty else { return }
-
-        func paint(_ range: NSRange, current: Bool) {
-            guard isRangeInBounds(range) else { return }
-            // The current match gets the stronger fill, so "which one am I on" is
-            // answerable without reading the counter.
-            let colour = current ? Theme.accent.withAlphaComponent(0.55) : Theme.selection
-            layoutManager.addTemporaryAttribute(.backgroundColor, value: colour, forCharacterRange: range)
-        }
-
-        for (index, range) in matches.prefix(Self.maxPaintedHighlights).enumerated() {
-            paint(range, current: index == findMatchIndex)
-        }
-        if findMatchIndex >= Self.maxPaintedHighlights, findMatchIndex < matches.count {
-            paint(matches[findMatchIndex], current: true)
-        }
+    func applyFindHighlights() {
+        repaintHighlightLayer()
     }
 
-    private func clearFindHighlights() {
+    // The one writer to the .backgroundColor temporary-attribute layer: clear it
+    // whole, then repaint what should be lit right now — project-search hits
+    // first, find-bar matches over them, since the bar is the thing the user is
+    // actively stepping through and has to win where the two overlap.
+    //
+    // It still shares the layer with the go-to-line jump flash, which paints
+    // directly and fades by calling back here. That is the only writer left that
+    // isn't this function, and it repaints rather than removing its own range.
+    func repaintHighlightLayer() {
         guard let layoutManager = textView.layoutManager else { return }
         // Cleared over the *current* full range rather than over the ranges we
         // painted: the painted ones may already be out of bounds after an edit,
         // and a full-range clear can't be stale.
-        //
-        // This shares .backgroundColor with the go-to-line jump flash, so the two
-        // step on each other in both directions: clearing here wipes a flash
-        // mid-fade, and the flash's own delayed removal (jump(toLine:)) clears any
-        // match highlight on that line until the next refresh. Both are cosmetic
-        // and both are rare — a jump and a find are seldom in flight together.
         let full = NSRange(location: 0, length: (textView.string as NSString).length)
         layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: full)
+
+        func paint(_ range: NSRange, _ colour: NSColor) {
+            guard isRangeInBounds(range) else { return }
+            layoutManager.addTemporaryAttribute(.backgroundColor, value: colour, forCharacterRange: range)
+        }
+
+        for range in currentSearchHits() {
+            paint(range, Theme.searchHit)
+        }
+
+        guard findBar != nil else { return }
+        let matches = currentFindMatches()
+        guard !matches.isEmpty else { return }
+        for (index, range) in matches.prefix(Self.maxPaintedHighlights).enumerated() {
+            // The current match gets the stronger fill, so "which one am I on" is
+            // answerable without reading the counter.
+            paint(range, index == findMatchIndex ? Theme.accent.withAlphaComponent(0.55) : Theme.selection)
+        }
+        if findMatchIndex >= Self.maxPaintedHighlights, findMatchIndex < matches.count {
+            paint(matches[findMatchIndex], Theme.accent.withAlphaComponent(0.55))
+        }
     }
 
-    private func isRangeInBounds(_ range: NSRange) -> Bool {
+    func isRangeInBounds(_ range: NSRange) -> Bool {
         let length = (textView.string as NSString).length
         return range.location >= 0 && range.length >= 0 && range.location + range.length <= length
     }

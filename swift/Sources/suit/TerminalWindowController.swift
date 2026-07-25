@@ -79,6 +79,14 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     // the focused pane's project (the default follow-the-pane behavior).
     var pinnedSidebarRoot: String?
 
+    // The Search tab's live pattern, mirrored onto every viewer in this window
+    // so each highlights its own occurrences (FileViewerPane+SearchHits). Held
+    // here rather than read back off the sidebar because a file opened *after*
+    // the search ran has to pick it up too — openFile() applies it on the way in.
+    // Per window, not global: two windows searching different projects would
+    // otherwise wash each other's files with the wrong pattern.
+    var searchHighlightQuery: FindQuery?
+
     init(appDelegate: AppDelegate, startDirectory: String, restoring saved: SavedWindow? = nil, adopting adopted: Tab? = nil) {
         self.appDelegate = appDelegate
 
@@ -187,6 +195,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         }
         sidebar.searchView.onOpenMatch = { [weak self] path, line in
             self?.openFile(atPath: path, line: line)
+        }
+        sidebar.searchView.onHighlightQueryChange = { [weak self] query in
+            self?.applySearchHighlight(query)
         }
         sidebar.searchView.scopeResolver = { [weak self] scope in
             self?.resolveSearchScope(scope)
