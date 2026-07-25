@@ -89,21 +89,34 @@ app does.
   only noise (`.git`, `.Trash`, `node_modules`, `.DS_Store`).
 - **Project search** (⇧⌘F, the activity bar's magnifier, or the Files header's magnifier) — its own
   sidebar tab directly below Files, so searching never costs you sight of the file tree and your
-  matches are still there when you come back to it. Live ripgrep with regex/case toggles, a glob
-  filter, and Project / Sub-project / Pane Directory scopes tucked behind the options button;
-  results stream in grouped by file, and clicking a match opens it in the viewer at that line.
+  matches are still there when you come back to it. Live ripgrep, laid out like VS Code's search
+  panel: **Aa** (match case), **ab** (match whole word, `rg -w`) and **.\*** (regular expression)
+  sit *inside* the pattern field, and the chevron in the left gutter folds the replacement row
+  away. **⋯** below the fields holds the glob filter and the Project / Sub-project / Pane
+  Directory scope, and glows amber whenever one of them is shaping results while hidden. Results
+  stream in grouped by file — name, path and match count, with the Files tree's type icon — and
+  clicking a match opens it in the viewer at that line.
   **Esc** clears the pattern; **Esc** on an already-empty field hands the sidebar back to Files.
+- **Search toolbar** — the header carries **Refresh** (re-run without retyping), **Clear**,
+  **View as List / Tree** (one flat row per match, each naming its file, versus the file tree) and
+  **Collapse All / Expand All**. Hovering a file row swaps its match count for two actions:
+  **Replace All in File**, and **✕** to drop that file from the results — Replace All then only
+  touches what is still listed, so you can prune the noise before committing to a rewrite.
 - **Search hits are highlighted in the file** — while the Search tab holds a pattern, every open
   text viewer washes each occurrence of it in yellow and ticks the lines carrying one down the
   right-hand lane of its minimap, so "where else is this in the file" is answered without going
   back to the results list. It applies to every open viewer in that window, not only the file you
-  clicked through to, and to files opened afterwards; the regex and case toggles carry over, so
-  what a pane highlights is exactly what the list matched. Clearing the pattern (or **Esc**) takes
-  the wash and the ticks away. The ⌘F bar still paints over it — its current match stays the
+  clicked through to, and to files opened afterwards; the regex, case and whole-word toggles carry
+  over, so what a pane highlights is exactly what the list matched. Clearing the pattern (**Esc**,
+  or the header's Clear button) takes the wash and the ticks away. The ⌘F bar still paints over
+  it — its current match stays the
   strongest mark on screen — and editing a file re-derives the hits as you type.
 - **Project-wide replace** — the Search tab's second row: type a replacement and **Replace All**
   (or Enter in that field) rewrites every listed match. It confirms first, with the file and match
   counts, because it edits files that aren't open in any pane and there's no ⌘Z waiting for those.
+  **AB** in the replacement field preserves case: a match spelled `Widget` or `WIDGET` takes the
+  replacement capitalized or upper-cased to match. It only ever raises case, never lowers it, so a
+  deliberately-cased replacement (`onKeyDown`) survives a lowercase match intact.
   Regex mode interpolates capture groups (`$1`) exactly as the viewer's ⌘F bar does, and an empty
   replacement deletes the matches. Each file is rewritten atomically — the same writer ⌘S uses —
   and the results re-run afterwards so the list reflects what's now on disk. Two deliberate
