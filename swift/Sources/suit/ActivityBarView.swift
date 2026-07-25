@@ -26,6 +26,13 @@ final class ActivityBarView: NSView {
 
     private var icons: [RailIconView] = []
 
+    // A count in the corner of one tab's icon — the Source Control tab's
+    // changed-file count, so a dirty tree is visible with the sidebar
+    // collapsed. A tab with no icon here (Bookmarks) silently ignores it.
+    func setBadge(_ count: Int, for tab: SidebarView.Tab) {
+        icons.first { $0.tab == tab }?.badgeCount = count
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 

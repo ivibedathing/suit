@@ -23,9 +23,19 @@ extension TerminalWindowController {
 
     // MARK: - Running an action
 
-    func runBranchAction(root: String, action: GitBranchOps.Action) {
+    // `completion` reports whether every command exited zero — declined
+    // confirmation counts as "didn't happen", so a cancelled discard never
+    // looks like a success. The Source Control tab's commit box uses it to
+    // decide whether to clear the message it just committed.
+    func runBranchAction(
+        root: String, action: GitBranchOps.Action, completion: ((Bool) -> Void)? = nil
+    ) {
         let plan = GitBranchOps.plan(for: action)
-        guard confirm(plan.confirmation) else { return }
+        // An action can compose to nothing (a discard with both path lists
+        // empty); running it would be a no-op, but reporting success would let
+        // a caller act as though work happened.
+        guard !plan.commands.isEmpty else { completion?(false); return }
+        guard confirm(plan.confirmation) else { completion?(false); return }
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             var failure: WorktreeTaskError?
@@ -37,6 +47,7 @@ extension TerminalWindowController {
             }
             DispatchQueue.main.async {
                 self?.finishBranchAction(root: root, action: action, plan: plan, failure: failure)
+                completion?(failure == nil)
             }
         }
     }

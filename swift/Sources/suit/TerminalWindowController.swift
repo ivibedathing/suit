@@ -223,6 +223,23 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.fileBrowser.onNewBranch = { [weak self] root in
             self?.promptForNewBranch(root: root)
         }
+        // Source Control tab: staging, committing and the ⋯ menu all end up in
+        // the same runner the Files header's branch row uses, so one place owns
+        // confirmation, off-thread git, the failure alert and the refresh.
+        sidebar.gitView.onRunAction = { [weak self] root, action, completion in
+            self?.runBranchAction(root: root, action: action, completion: completion)
+        }
+        sidebar.gitView.onNewBranch = { [weak self] root in
+            self?.promptForNewBranch(root: root)
+        }
+        sidebar.gitView.onShowUpstreamDiff = { [weak self] root, branch in
+            self?.openUpstreamDiff(root: root, branch: branch)
+        }
+        // The rail icon carries the changed-file count, so a dirty tree is
+        // visible even with the sidebar collapsed.
+        sidebar.gitView.onChangeCountChanged = { [weak self] count in
+            self?.activityBar?.setBadge(count, for: .git)
+        }
         sidebar.gitView.onOpenDiff = { [weak self] root, path in
             self?.openGitDiff(root: root, file: path)
         }
