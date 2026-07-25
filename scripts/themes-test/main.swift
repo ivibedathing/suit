@@ -310,6 +310,51 @@ do {
     }
 }
 
+// MARK: - usage level ramp
+
+// The 5h/week readout interpolates sessionDone → sessionBusy → failed rather
+// than switching at thresholds, so the assertions are about the endpoints, the
+// amber pivot, and monotonicity — not about any one color value.
+print("== usage level ramp ==")
+do {
+    func rgb(_ color: NSColor) -> (r: Double, g: Double, b: Double) {
+        let c = color.usingColorSpace(.deviceRGB) ?? color
+        return (Double(c.redComponent), Double(c.greenComponent), Double(c.blueComponent))
+    }
+    func near(_ a: NSColor, _ b: NSColor) -> Bool {
+        let (x, y) = (rgb(a), rgb(b))
+        return abs(x.r - y.r) < 0.01 && abs(x.g - y.g) < 0.01 && abs(x.b - y.b) < 0.01
+    }
+
+    check(near(Theme.usageLevelColor(0), Theme.sessionDone), "0% is the done green")
+    check(near(Theme.usageLevelColor(50), Theme.sessionBusy), "50% is the busy amber")
+    check(near(Theme.usageLevelColor(100), Theme.failed), "100% is the failed red")
+
+    // Out-of-range input clamps rather than extrapolating past the endpoints.
+    check(near(Theme.usageLevelColor(-10), Theme.sessionDone), "negative % clamps to green")
+    check(near(Theme.usageLevelColor(140), Theme.failed), "over 100% clamps to red")
+
+    // Between the anchors the color actually moves — a bucketed
+    // implementation would return an endpoint here.
+    check(!near(Theme.usageLevelColor(25), Theme.sessionDone)
+            && !near(Theme.usageLevelColor(25), Theme.sessionBusy),
+          "25% sits between green and amber, not on either")
+    check(!near(Theme.usageLevelColor(75), Theme.sessionBusy)
+            && !near(Theme.usageLevelColor(75), Theme.failed),
+          "75% sits between amber and red, not on either")
+
+    // "Closer to 100% is redder" stated so it holds for any palette: the green
+    // channel only falls, and red *dominance* (r − g) only rises. Not the raw
+    // red channel — a palette's amber is usually as red as its red (suit-dark:
+    // sessionBusy #E08A3C vs failed #D95757), so the shift is in how much
+    // green is left beside it, not in more red.
+    let samples = stride(from: 0.0, through: 100.0, by: 5).map { rgb(Theme.usageLevelColor($0)) }
+    let greenFalls = zip(samples, samples.dropFirst()).allSatisfy { $1.g <= $0.g + 0.001 }
+    let rednessRises = zip(samples, samples.dropFirst()).allSatisfy { ($1.r - $1.g) >= ($0.r - $0.g) - 0.001 }
+    check(greenFalls, "green never rises as the percentage climbs")
+    check(rednessRises, "red dominance never falls as the percentage climbs")
+}
+
 if failures == 0 {
     print("\nALL PASS")
     exit(0)
