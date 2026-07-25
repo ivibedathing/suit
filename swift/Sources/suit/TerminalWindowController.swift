@@ -351,7 +351,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
             }
         }
 
-        sidebarSplit = NSSplitView(frame: frame)
+        sidebarSplit = SuitSplitView(frame: frame)
         sidebarSplit.isVertical = true
         sidebarSplit.dividerStyle = .thin
         sidebarSplit.delegate = self

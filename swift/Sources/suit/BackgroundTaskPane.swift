@@ -20,7 +20,7 @@ final class BackgroundTaskPaneContent: NSObject, PaneContent, NSTableViewDataSou
     let rootShellPid: Int32
     private let paneTitle: String
 
-    private let splitView = NSSplitView(frame: .zero)
+    private let splitView = SuitSplitView(frame: .zero)
     private let tableScroll = NSScrollView(frame: .zero)
     private let table = NSTableView(frame: .zero)
     private let logScroll = NSScrollView(frame: .zero)

@@ -140,7 +140,7 @@ extension TerminalWindowController {
     // the root) with a new NSSplitView holding `container` and `target` side by
     // side, divider at the midpoint. `before` puts `container` on the left/top.
     func insert(_ container: NSView, besides target: NSView, orientation: SplitOrientation, before: Bool) {
-        let splitView = NSSplitView(frame: target.frame)
+        let splitView = SuitSplitView(frame: target.frame)
         splitView.isVertical = orientation == .vertical
         splitView.dividerStyle = .thin
         splitView.delegate = self

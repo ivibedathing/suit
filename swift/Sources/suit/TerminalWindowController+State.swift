@@ -130,7 +130,7 @@ extension TerminalWindowController {
             let b = buildNode(second, restored: restored)
             guard let a else { return b }
             guard let b else { return a }
-            let split = NSSplitView(frame: .zero)
+            let split = SuitSplitView(frame: .zero)
             split.isVertical = vertical
             split.dividerStyle = .thin
             split.delegate = self
