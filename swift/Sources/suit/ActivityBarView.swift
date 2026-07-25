@@ -2,7 +2,7 @@ import Cocoa
 
 // The window's activity bar: a fixed-width, full-height strip pinned to the far
 // left edge, outside the sidebar split (WindowRootView lays it out beside the
-// body). It holds the tab icons — Files / Sessions / SSH / Notes / Bookmarks,
+// body). It holds the tab icons — Files / Sessions / SSH / Notes,
 // in SidebarView.Tab.railOrder — that used to sit as a horizontal row inside the
 // sidebar's own top edge. Moving them out is the point: the tabs stay on screen
 // and clickable while the sidebar itself is collapsed with Cmd-B, so the bar is
@@ -11,8 +11,8 @@ import Cocoa
 // Deliberately dumb — it owns no tab state. SidebarView stays the model (the
 // enum, the rail order, the persisted selection); this view renders whatever
 // `selectedTab` it is handed and reports clicks through `onSelect`. A selected
-// tab with no icon here is legal and expected: Git is palette-only, absent from
-// railOrder, and simply leaves every icon unselected.
+// tab with no icon here is legal and expected: Git and Bookmarks are
+// palette-only, absent from railOrder, and simply leave every icon unselected.
 final class ActivityBarView: NSView {
     static let width: CGFloat = 48
 

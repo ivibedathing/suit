@@ -65,7 +65,7 @@ app does.
 ### Files & sidebar
 
 - **Activity bar** — a full-height icon strip pinned to the window's far-left edge, holding the
-  sidebar's tabs: Files, Sessions, SSH Hosts, Notes and Bookmarks, top to bottom. It stays put
+  sidebar's tabs: Files, Sessions, SSH Hosts and Notes, top to bottom. It stays put
   when the sidebar is collapsed, so clicking any icon reopens the sidebar on that tab. Clicking
   the icon of the tab you're already on collapses the sidebar again (as ⌘B does).
 - **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. The
@@ -254,7 +254,8 @@ app does.
   page-thumbnail rail. All three are ordinary tabs, so split, drag, path-dedupe, and state
   restoration (scroll / zoom / page) work unchanged.
 - **Bookmarks** — pin a specific `file:line` with ⇧⌘L (or click the gutter) — an amber tick
-  shows in the viewer gutter and minimap. The Bookmarks sidebar tab lists them; Enter or
+  shows in the viewer gutter and minimap. The palette's **Show Bookmarks** opens the sidebar's
+  bookmarks list (it has no activity-bar icon); Enter or
   double-click reopens the file at that line, right-click renames or removes. Saved in
   `~/.suit/bookmarks.json`, shared across windows, dead paths pruned automatically.
 

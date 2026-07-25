@@ -1,7 +1,7 @@
 import Cocoa
 
 // The window's left panel, toggled with Cmd-B: Files / Sessions / SSH Hosts /
-// Notes / Bookmarks (in that order — see `railOrder`), picked from the
+// Notes (in that order — see `railOrder`), picked from the
 // ActivityBarView strip to its left. The icons used to be a horizontal rail
 // inside this view's own top edge; they moved out to the activity bar so they
 // survive a Cmd-B collapse, but the tab *model* stayed here — this view still
@@ -9,9 +9,9 @@ import Cocoa
 // dumb renderer of `selectedTab`. The Files tab is the
 // SearchView with its search input on top and the FileBrowserView filling the
 // area below until a pattern is typed — then results take that space. Sessions
-// hosts the SessionsView (the open-tabs overview), SSH the SSHHostsView,
-// Notes the NotesView, and Bookmarks the BookmarksView. Git has no rail tab;
-// its GitView is reached on demand through the palette (see `railOrder`).
+// hosts the SessionsView (the open-tabs overview), SSH the SSHHostsView, and
+// Notes the NotesView. Git and Bookmarks have no rail tab; their GitView and
+// BookmarksView are reached on demand through the palette (see `railOrder`).
 final class SidebarView: NSView {
     static let defaultWidth: CGFloat = 240
     static let minWidth: CGFloat = 180
@@ -29,13 +29,16 @@ final class SidebarView: NSView {
 
         // The activity bar's top-to-bottom icon order, independent of rawValue.
         // Files leads (the primary surface), then Sessions (the open-tabs list,
-        // the replacement for the removed top tab strip), SSH, Notes, Bookmarks.
+        // the replacement for the removed top tab strip), SSH, Notes.
         // Git is intentionally absent — its changes/worktrees no longer get a
         // dedicated icon; the branch/worktree switcher lives on the Files
         // footer, and the diff / file-history / feedback / PR-inbox surfaces
         // are reached on demand through the palette (which still shows the
-        // GitView via showGit()).
-        static let railOrder: [Tab] = [.files, .sessions, .ssh, .notes, .bookmarks]
+        // GitView via showGit()). Bookmarks is absent for the same reason: the
+        // marks themselves live in the viewer gutter where they are made, so
+        // the list is a palette destination ("Show Bookmarks" / showBookmarks())
+        // rather than a permanent icon.
+        static let railOrder: [Tab] = [.files, .sessions, .ssh, .notes]
 
         // Tooltip / accessibility label; the activity bar shows only the icon.
         var label: String {
