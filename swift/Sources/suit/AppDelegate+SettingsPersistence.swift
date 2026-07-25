@@ -21,13 +21,6 @@ extension AppDelegate {
                 alpha: CGFloat(defaults.double(forKey: "textColorA"))
             )
         }
-        if defaults.object(forKey: "backgroundAlpha") != nil {
-            backgroundAlpha = CGFloat(defaults.double(forKey: "backgroundAlpha"))
-        }
-        blurEnabled = defaults.bool(forKey: "blurEnabled")
-        if defaults.object(forKey: "blurRadius") != nil {
-            blurRadius = min(maxBlurRadius, max(0, CGFloat(defaults.double(forKey: "blurRadius"))))
-        }
         if defaults.object(forKey: "wordWrapEnabled") != nil {
             wordWrapEnabled = defaults.bool(forKey: "wordWrapEnabled")
         }
@@ -141,9 +134,6 @@ extension AppDelegate {
         defaults.set(Double(color.greenComponent), forKey: "textColorG")
         defaults.set(Double(color.blueComponent), forKey: "textColorB")
         defaults.set(Double(color.alphaComponent), forKey: "textColorA")
-        defaults.set(Double(backgroundAlpha), forKey: "backgroundAlpha")
-        defaults.set(blurEnabled, forKey: "blurEnabled")
-        defaults.set(Double(blurRadius), forKey: "blurRadius")
         defaults.set(wordWrapEnabled, forKey: "wordWrapEnabled")
         let background = defaultTerminalBackground.usingColorSpace(.deviceRGB) ?? defaultTerminalBackground
         defaults.set(Double(background.redComponent), forKey: "defaultBgR")

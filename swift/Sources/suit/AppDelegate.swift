@@ -6,18 +6,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // the strip is the one tab system, and ⌘T opens a tab there.
     var windowControllers: [TerminalWindowController] = []
 
-    // These drive each pane's own background alpha (not window.alphaValue), so the
-    // terminal background becomes see-through/blurred while text stays fully opaque.
-    // Shared across every window/tab, so kept here rather than per-controller.
-    var blurEnabled = false
-    // Frost softness (gaussian radius, points). 30 is what the system frost
-    // ships with, so the default look is unchanged; 0 = tinted but sharp glass.
-    var blurRadius: CGFloat = 30
-    let maxBlurRadius: CGFloat = 64
-    var backgroundAlpha: CGFloat = 1
-    let opacityStep: CGFloat = 0.05
-    let minOpacity: CGFloat = 0.05
-
     // Same bounds as the settings window's font-size stepper.
     let minFontSize: CGFloat = 8
     let maxFontSize: CGFloat = 36

@@ -3,8 +3,8 @@ import Cocoa
 // MARK: - Background color
 //
 // The pane background-color preset menu and color-panel actions. Split out of
-// Pane.swift; the setters (setBackgroundColor/setBackgroundAlpha) stay in the
-// primary declaration since they touch stored state.
+// Pane.swift; the setter (setBackgroundColor) stays in the primary declaration
+// since it touches stored state.
 extension Pane {
     func backgroundColorMenu() -> NSMenu {
         let menu = NSMenu()

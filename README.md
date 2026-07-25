@@ -68,7 +68,7 @@ working.
 ## Features
 
 Suit has grown a broad feature set — browser-style tabs & panes, an integrated file/search/git
-sidebar, a full Claude Code cockpit, Autopilot, theming, glassmorphism, and more. To keep this
+sidebar, a full Claude Code cockpit, Autopilot, theming, and more. To keep this
 README readable, the complete, detailed feature reference now lives in
 **[docs/features.md](docs/features.md)**:
 
@@ -77,7 +77,6 @@ README readable, the complete, detailed feature reference now lives in
 - [Claude Code cockpit](docs/features.md#claude-code-cockpit)
 - [Autopilot](docs/features.md#autopilot)
 - [Appearance & settings](docs/features.md#appearance--settings)
-- [Glassmorphism (transparency & blur)](docs/features.md#glassmorphism-transparency--blur)
 - [Themes](docs/features.md#themes)
 - [Safety](docs/features.md#safety)
 
@@ -179,8 +178,6 @@ Comment verdict via `gh pr review`.
 | --- | --- |
 | ⌘= / ⌘- | Increase / decrease font size |
 | ⇧⌘= / ⇧⌘- | Increase / decrease font size (all panes) |
-| ⌘] / ⌘[ | Increase / decrease opacity |
-| ⇧⌘B | Toggle background blur |
 
 ### App & windows
 

@@ -17,7 +17,6 @@ app does.
     [Tasks & recipes](#tasks--recipes)
 - [Autopilot](#autopilot)
 - [Appearance & settings](#appearance--settings)
-- [Glassmorphism (transparency & blur)](#glassmorphism-transparency--blur)
 - [Themes](#themes)
 - [Safety](#safety)
 
@@ -607,7 +606,7 @@ app does.
 
 - **Settings** (⌘,) — a category sidebar (macOS System-Settings style) with one pane per topic,
   so only the settings you're changing are on screen: **Appearance** (font and default size,
-  text color, default pane background, opacity (⌘] / ⌘[), blur (⇧⌘B)), **Terminal** (the shell
+  text color, default pane background), **Terminal** (the shell
   new tabs run, cursor shape and blinking, bell responses — pane flash, Dock bounce),
   **File Viewer** (word wrap), **Claude** (session arguments, "Set as Goal" provenance, and
   notification sounds), **Themes** (swap the whole color palette — see below),
@@ -634,26 +633,6 @@ app does.
   "Ember" (#21100A), with Dracula, Nord and Solarized Dark at their published values. All stay
   dark enough that dim ANSI text keeps its contrast. The same list backs the screensaver's
   background menu.
-
-## Glassmorphism (transparency & blur)
-
-Like the native macOS Terminal, only the **terminal panes** go translucent — the window's title
-bar stays solid, and file/diff/markdown viewers stay opaque for legibility.
-
-- **Real transparency** — the **Opacity** slider in **Settings ▸ Appearance** (or ⌘] / ⌘[)
-  lowers each terminal's background alpha so the desktop shows *through* the terminal, while the text
-  itself stays fully opaque and crisp. The slider reaches down to 5% opacity, so the glass can go
-  almost fully clear.
-- **Background blur** — the **Background Blur** checkbox (⇧⌘B) puts a behind-window frost directly
-  behind each translucent terminal, so it reads as a pane of frosted glass rather than a plain
-  see-through hole. The frost sits *under* the terminal only, so the title bar and chrome keep their
-  solid backing. Blur only becomes visible once transparency is below 100% — there's nothing to see
-  through an opaque pane.
-- **Blur amount** — the **Blur** slider (below Opacity in **Settings ▸ Appearance**) tunes how soft
-  the frost is, from 0 (tinted but sharp glass — the desktop stays readable through the terminal) up
-  to roughly twice the stock system blur. The default (30) matches the system frost exactly. The
-  slider takes effect while the Background Blur checkbox is on and the terminal is translucent, and
-  it applies live to every open terminal pane.
 
 ## Themes
 

@@ -82,9 +82,6 @@ enum KeyboardShortcuts {
             Entry("⌘-", "Decrease font size"),
             Entry("⇧⌘=", "Increase font size (all panes)"),
             Entry("⇧⌘-", "Decrease font size (all panes)"),
-            Entry("⌘]", "Increase opacity"),
-            Entry("⌘[", "Decrease opacity"),
-            Entry("⇧⌘B", "Toggle background blur"),
         ]),
         Group("Editing", [
             Entry("⌘C", "Copy"),
