@@ -1,17 +1,18 @@
 import Cocoa
 
-// The window's left panel, toggled with Cmd-B: Files / Search / Sessions /
-// SSH Hosts / Notes (in that order — see `railOrder`), picked from the
-// ActivityBarView strip to its left. The icons used to be a horizontal rail
+// The window's left panel, toggled with Cmd-B: Files / Search / Source Control
+// / Sessions / SSH Hosts / Notes (in that order — see `railOrder`), picked from
+// the ActivityBarView strip to its left. The icons used to be a horizontal rail
 // inside this view's own top edge; they moved out to the activity bar so they
 // survive a Cmd-B collapse, but the tab *model* stayed here — this view still
 // owns the enum, the rail order and the persisted selection, and the bar is a
 // dumb renderer of `selectedTab`. The Files tab is the FileBrowserView, whole;
 // Search is the SearchView (project-wide find and replace), which used to be an
-// overlay over that tree and is now its own tab directly below it. Sessions
+// overlay over that tree and is now its own tab directly below it. Source
+// Control is the GitView (changes, staging, commit, sync, branches). Sessions
 // hosts the SessionsView (the open-tabs overview), SSH the SSHHostsView, and
-// Notes the NotesView. Git and Bookmarks have no rail tab; their GitView and
-// BookmarksView are reached on demand through the palette (see `railOrder`).
+// Notes the NotesView. Bookmarks has no rail tab; its BookmarksView is reached
+// on demand through the palette (see `railOrder`).
 final class SidebarView: NSView {
     static let defaultWidth: CGFloat = 240
     static let minWidth: CGFloat = 180
@@ -37,17 +38,16 @@ final class SidebarView: NSView {
         // The activity bar's top-to-bottom icon order, independent of rawValue.
         // Files leads (the primary surface) with Search directly under it — the
         // two halves of one job, and where the eye goes when the tree isn't
-        // enough — then Sessions (the open-tabs list, the replacement for the
-        // removed top tab strip), SSH, Notes.
-        // Git is intentionally absent — its changes/worktrees no longer get a
-        // dedicated icon; the branch/worktree switcher lives on the Files
-        // footer, and the diff / file-history / feedback / PR-inbox surfaces
-        // are reached on demand through the palette (which still shows the
-        // GitView via showGit()). Bookmarks is absent for the same reason: the
-        // marks themselves live in the viewer gutter where they are made, so
-        // the list is a palette destination ("Show Bookmarks" / showBookmarks())
-        // rather than a permanent icon.
-        static let railOrder: [Tab] = [.files, .search, .sessions, .ssh, .notes]
+        // enough — then Source Control (staging and committing what those two
+        // just changed, and the surface that carries a change-count badge), then
+        // Sessions (the open-tabs list, the replacement for the removed top tab
+        // strip), SSH, Notes. Files / Search / Source Control in that order is
+        // also where a VS Code hand expects them.
+        // Bookmarks is deliberately absent: the marks themselves live in the
+        // viewer gutter where they are made, so the list is a palette
+        // destination ("Show Bookmarks" / showBookmarks()) rather than a
+        // permanent icon.
+        static let railOrder: [Tab] = [.files, .search, .git, .sessions, .ssh, .notes]
 
         // Tooltip / accessibility label; the activity bar shows only the icon.
         var label: String {
@@ -55,7 +55,7 @@ final class SidebarView: NSView {
             case .files: return "Files"
             case .search: return "Search"
             case .notes: return "Notes"
-            case .git: return "Git"
+            case .git: return "Source Control"
             case .ssh: return "SSH Hosts"
             case .bookmarks: return "Bookmarks"
             case .sessions: return "Sessions"
@@ -164,6 +164,9 @@ final class SidebarView: NSView {
     func reapplyTheme() {
         layer?.backgroundColor = Theme.barChrome.cgColor
         searchView.reapplyTheme()
+        // Same reason: the Source Control tab's header tints and the commit
+        // box's layer ground are baked in at init.
+        gitView.reapplyTheme()
     }
 
     required init?(coder: NSCoder) {

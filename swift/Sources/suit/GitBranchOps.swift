@@ -1,9 +1,10 @@
 import Foundation
 
-// The UI-free half of the Files-tab branch actions: what "pull", "stash",
-// "discard everything" and friends actually *are* as git argv, which of them
-// need a confirmation before they destroy work, and how a branch's position
-// relative to its upstream reads as a badge.
+// The UI-free half of every git action Suit offers — the Files-tab branch row
+// and the Source Control tab both compose from here: what "pull", "stash",
+// "stage this file", "commit", "discard everything" and friends actually *are*
+// as git argv, which of them need a confirmation before they destroy work, and
+// how a branch's position relative to its upstream reads as a badge.
 //
 // It exists as its own Foundation-only file for the usual reason (see
 // CLAUDE.md): the argv and the guard rails are the part worth testing, and a
@@ -105,6 +106,40 @@ enum GitBranchOps {
         case discardAll
         case deleteBranch(name: String, force: Bool)
         case createBranch(name: String)
+        // The Source Control tab's index work: the paths are repo-relative, and
+        // every one of these composes a `--` before them so a file named like a
+        // flag stays a path.
+        case stage(paths: [String])
+        case unstage(paths: [String])
+        case stageAll
+        case unstageAll
+        // Discarding needs the two kinds of path kept apart: git restores a
+        // tracked file and *deletes* an untracked one, and asking `restore` for
+        // a path it has never seen fails the whole plan.
+        case discardPaths(tracked: [String], untracked: [String])
+        case commit(CommitRequest)
+    }
+
+    // One commit as the Source Control tab asks for it. A struct rather than
+    // four associated values on the case: the flags are independent, the call
+    // sites read as English, and the harness can pin each combination.
+    struct CommitRequest: Equatable {
+        var message: String
+        // Rewrites the last commit instead of adding one. No confirmation: the
+        // toggle in the commit box *is* the deliberate act, the old commit stays
+        // in the reflog, and amending something already pushed fails at the
+        // push — which is the loud outcome we want, since nothing here forces.
+        var amend = false
+        // `git add -A` first — the "Commit All" path, for when nothing is staged.
+        var stageAll = false
+        var push = false
+
+        init(message: String, amend: Bool = false, stageAll: Bool = false, push: Bool = false) {
+            self.message = message
+            self.amend = amend
+            self.stageAll = stageAll
+            self.push = push
+        }
     }
 
     // What the caller needs to run one action: the git argv (everything after
@@ -216,6 +251,89 @@ enum GitBranchOps {
                 commands: [["checkout", "-b", name]],
                 failureTitle: "New Branch Failed", confirmation: nil, touchesWorkingTree: true
             )
+
+        // `add` rather than `add -A -- <path>`: plain add already records a
+        // deletion for a path that no longer exists, so one argv covers M/A/D
+        // and the untracked case alike.
+        case .stage(let paths):
+            return Plan(
+                commands: [["add", "--"] + paths],
+                failureTitle: "Stage Failed", confirmation: nil, touchesWorkingTree: false
+            )
+
+        // restore --staged, not `reset HEAD --`: it touches the index only, so
+        // the file on disk keeps the edits that were staged.
+        case .unstage(let paths):
+            return Plan(
+                commands: [["restore", "--staged", "--"] + paths],
+                failureTitle: "Unstage Failed", confirmation: nil, touchesWorkingTree: false
+            )
+
+        case .stageAll:
+            return Plan(
+                commands: [["add", "-A"]],
+                failureTitle: "Stage Failed", confirmation: nil, touchesWorkingTree: false
+            )
+
+        // A bare mixed reset — no --hard, so it empties the index and leaves
+        // every working-tree file exactly as it is. It also works on an unborn
+        // HEAD, which `restore --staged` does not.
+        case .unstageAll:
+            return Plan(
+                commands: [["reset", "--quiet"]],
+                failureTitle: "Unstage Failed", confirmation: nil, touchesWorkingTree: false
+            )
+
+        // Per-file discard: restore both index and worktree for tracked paths,
+        // delete untracked ones. Either list may be empty; a command is only
+        // composed for the list that isn't, so no plan ever runs a pathspec-less
+        // `clean -fd` (which would wipe the whole tree).
+        case .discardPaths(let tracked, let untracked):
+            var commands: [[String]] = []
+            if !tracked.isEmpty { commands.append(["restore", "--staged", "--worktree", "--"] + tracked) }
+            if !untracked.isEmpty { commands.append(["clean", "-fd", "--"] + untracked) }
+            let count = tracked.count + untracked.count
+            let subject = count == 1
+                ? "“\((tracked + untracked)[0])”"
+                : "\(count) files"
+            return Plan(
+                commands: commands,
+                failureTitle: "Discard Failed",
+                confirmation: Confirmation(
+                    messageText: "Discard changes to \(subject)?",
+                    informativeText: untracked.isEmpty
+                        ? "The file goes back to its committed state. This cannot be undone."
+                        : "Changed files go back to their committed state and untracked ones are deleted. This cannot be undone.",
+                    confirmButton: "Discard Changes", isDestructive: true
+                ),
+                touchesWorkingTree: true
+            )
+
+        // Commit is up to three steps, and the order is the whole point: stage,
+        // commit, push. An empty message is legal only when amending, where it
+        // means --no-edit (keep the previous message); validateCommitMessage
+        // enforces that for the non-amend case before a plan is ever asked for.
+        case .commit(let request):
+            var commands: [[String]] = []
+            if request.stageAll { commands.append(["add", "-A"]) }
+            var commit = ["commit"]
+            if request.amend { commit.append("--amend") }
+            let message = request.message.trimmingCharacters(in: .whitespacesAndNewlines)
+            if message.isEmpty && request.amend {
+                commit.append("--no-edit")
+            } else {
+                commit += ["-m", message]
+            }
+            commands.append(commit)
+            if request.push { commands.append(["push"]) }
+            return Plan(
+                commands: commands,
+                failureTitle: request.amend ? "Amend Failed" : "Commit Failed",
+                confirmation: nil,
+                // The commit itself writes no working-tree file, but `add -A`
+                // ahead of it doesn't either — only the index moves.
+                touchesWorkingTree: false
+            )
         }
     }
 
@@ -241,6 +359,33 @@ enum GitBranchOps {
             return "A branch name can’t contain “\(bad)”."
         }
         return nil
+    }
+
+    // Whether the commit box's message is usable, checked before a process is
+    // spent on it. `git commit -m ""` aborts with "Aborting commit due to empty
+    // commit message" — the same outcome, minus a sentence anyone can read.
+    // Amending is the one case where empty is fine (it means "keep the previous
+    // message"), so the caller passes `amend` rather than this guessing.
+    static func validateCommitMessage(_ raw: String, amend: Bool = false) -> String? {
+        if raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !amend {
+            return "Enter a commit message."
+        }
+        return nil
+    }
+
+    // What the commit button says, given what is staged and what isn't. The
+    // titles carry the behaviour: with nothing staged, committing stages
+    // everything first (git's own `commit -a` habit, made visible), so the
+    // button says so instead of looking like it will commit nothing.
+    static func commitButtonTitle(stagedCount: Int, unstagedCount: Int, amend: Bool) -> String {
+        if amend {
+            if stagedCount > 0 { return "Amend Commit" }
+            if unstagedCount > 0 { return "Amend All \(unstagedCount)" }
+            return "Amend Message"
+        }
+        if stagedCount > 0 { return "Commit \(stagedCount)" }
+        if unstagedCount > 0 { return "Commit All \(unstagedCount)" }
+        return "Commit"
     }
 
     // Which branches the Delete Branch submenu may offer. git refuses to delete

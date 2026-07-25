@@ -1,17 +1,34 @@
 import Cocoa
 
-// The sidebar's Git tab — the review-workflow surface merged with worktree
-// orchestration. Shows the displayed
-// project's working-tree state: staged and unstaged files letter-badged like
-// the Files tree, under a header naming the current branch + worktree. The
-// header's dropdown switches the sidebar between the repo's worktrees, checks
-// out local branches, and — inside a task worktree — finishes the task
-// (merge or discard). Clicking a changed file opens the diff tab scoped to
-// that file; untracked files open in the viewer instead (nothing to diff).
+// The sidebar's Source Control tab — the full local git loop (see, stage,
+// commit, sync) merged with the review workflow and worktree orchestration.
+// Shows the displayed project's working-tree state: staged and unstaged files
+// letter-badged like the Files tree, under a header naming the current branch +
+// worktree. The header's dropdown switches the sidebar between the repo's
+// worktrees, checks out local branches, and — inside a task worktree — finishes
+// the task (merge or discard). Clicking a changed file opens the diff tab
+// scoped to that file; untracked files open in the viewer instead (nothing to
+// diff).
 //
-// The row views live in GitRowViews.swift; the branch/PR overview in
-// GitView+Branches.swift, the worktree/branch switcher in GitView+Worktrees.swift,
-// and the File History section in GitView+FileHistory.swift.
+// Three bands, top to bottom:
+//
+//   * Branch row — worktree/branch switcher, and the one-click marker / full
+//     diff / commit graph buttons this tab has always had.
+//   * Sync row — the upstream badge ("↑2 ↓1", click to diff against the remote)
+//     and the ⋯ actions menu (fetch, pull, push, publish, stash, branches).
+//     Both are the Files header's, deliberately: the two surfaces answer the
+//     same questions and should not drift apart.
+//   * Commit box — message field and commit button, then the file list.
+//
+// Nothing here decides what a git action *is*: every command comes from the
+// UI-free GitBranchOps, and the running/confirming/alerting is the window
+// controller's `runBranchAction` (see TerminalWindowController+GitActions), so
+// staging from this tab and pulling from the Files header share one runner.
+//
+// The row views live in GitRowViews.swift; the commit box and staging in
+// GitView+Commit.swift, the branch/PR overview in GitView+Branches.swift, the
+// worktree/branch switcher in GitView+Worktrees.swift, and the File History
+// section in GitView+FileHistory.swift.
 
 final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     // Open the diff tab scoped to one changed file (repo root, relative path).
@@ -40,28 +57,74 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var onStartReviewPass: ((FeedbackEvent) -> Void)?
     // Open an inbox PR's diff for review.
     var onOpenPR: ((PRReviewItem) -> Void)?
+    // Run one composed git action against the shown repo, through the window
+    // controller's runner (confirmation, off-thread git, failure alert, index
+    // rescan). The completion reports whether every command exited zero — the
+    // commit box clears its message only on a real commit.
+    var onRunAction: ((_ root: String, _ action: GitBranchOps.Action, _ completion: ((Bool) -> Void)?) -> Void)?
+    // Prompt for a name, then create and check out the branch.
+    var onNewBranch: ((String) -> Void)?
+    // Open the local↔upstream diff for the checked-out branch.
+    var onShowUpstreamDiff: ((_ root: String, _ branch: String) -> Void)?
+    // How many files are changed right now, for the activity bar's badge.
+    var onChangeCountChanged: ((Int) -> Void)?
 
     enum Row {
-        case section(String)
+        // A section divider, with the bulk staging action its header offers
+        // (nil for the sections that aren't about the index).
+        case section(String, SectionAction?)
         case hint(String)
-        case file(path: String, letter: Character)
+        case file(path: String, letter: Character, staged: Bool)
         case branch(GitBranchInfo)
         case commit(FileCommit)
         case feedback(FeedbackEvent)
         case reviewPR(PRReviewItem)
     }
 
+    enum SectionAction {
+        case stageAll
+        case unstageAll
+    }
+
     private static let headerHeight: CGFloat = 28
+    private static let syncRowHeight: CGFloat = 22
 
     private let branchIcon = NSImageView(frame: .zero)
     let branchButton = NSButton(frame: .zero)
     private let markerButton = NSButton(frame: .zero)
     private let fullDiffButton = NSButton(frame: .zero)
     private let graphButton = NSButton(frame: .zero)
+    let syncButton = NSButton(frame: .zero)
+    let actionsButton = NSButton(frame: .zero)
     private let separator = NSBox(frame: .zero)
     private let scrollView = NSScrollView(frame: .zero)
     private let tableView = NSTableView(frame: .zero)
     private let emptyLabel = NSTextField(wrappingLabelWithString: "")
+
+    // The commit box (built and driven by GitView+Commit.swift): a message text
+    // view on a rounded ground, and the commit button with its options menu.
+    let commitBox = NSView(frame: .zero)
+    let commitTextView = CommitMessageTextView(frame: .zero)
+    let commitScroll = NSScrollView(frame: .zero)
+    let commitButton = NSButton(frame: .zero)
+    let commitOptionsButton = NSButton(frame: .zero)
+    // Amend is a mode, not a one-shot menu item: it changes what the button
+    // says and does until it is turned off or a commit lands.
+    var amendMode = false
+
+    // The repo state the sync badge and the ⋯ menu read, refreshed from the
+    // monitor on every reload() so the menu can never offer an action the repo
+    // has nothing to do (push with no upstream, pop with an empty stash).
+    var sync: GitBranchOps.SyncState = .untracked
+    var stashCount = 0
+    var hasLocalChanges = false
+    // Repo-relative paths in each column, in the order the rows show them —
+    // what "Stage All" and the per-file actions operate on.
+    var stagedPaths: [String] = []
+    var unstagedPaths: [String] = []
+    // Untracked ("?") paths, the subset of unstagedPaths that a discard deletes
+    // rather than restores.
+    var untrackedPaths: Set<String> = []
 
     var gitRoot: String?
     var monitor: GitStatusMonitor?
@@ -145,6 +208,29 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         graphButton.contentTintColor = Theme.textDim
         addSubview(graphButton)
 
+        // Sync row: the upstream badge is only a button when clicking it would
+        // show something (see updateSyncButton), and the ⋯ menu is the same
+        // action set the Files header offers.
+        syncButton.isBordered = false
+        syncButton.imagePosition = .noImage
+        syncButton.alignment = .left
+        syncButton.target = self
+        syncButton.action = #selector(showUpstreamDiff)
+        addSubview(syncButton)
+
+        actionsButton.image = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: "Git actions")?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 11, weight: .medium))
+        actionsButton.isBordered = false
+        actionsButton.imagePosition = .imageOnly
+        actionsButton.contentTintColor = Theme.textDim
+        actionsButton.target = self
+        actionsButton.action = #selector(openActionsMenu)
+        actionsButton.toolTip = "Git actions — fetch, pull, push, stash, branches"
+        actionsButton.setAccessibilityLabel("Git actions")
+        addSubview(actionsButton)
+
+        setupCommitBox()
+
         separator.boxType = .separator
         addSubview(separator)
 
@@ -154,7 +240,12 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         tableView.headerView = nil
         tableView.rowHeight = 24
         tableView.backgroundColor = .clear
-        tableView.style = .sourceList
+        // .inset, matching the Files tree — not .sourceList, which wraps the
+        // list in AppKit's own sidebar material. That material follows the
+        // window's NSAppearance rather than the palette, so under a light theme
+        // (the appearance stays dark) the list kept a dark slab behind
+        // palette-coloured text. Only visible now that this is a tab you sit in.
+        tableView.style = .inset
         tableView.dataSource = self
         tableView.delegate = self
         tableView.target = self
@@ -238,7 +329,18 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             fullDiffButton.isEnabled = false
             markerButton.isEnabled = false
             graphButton.isEnabled = false
+            actionsButton.isEnabled = false
+            syncButton.isEnabled = false
+            syncButton.attributedTitle = NSAttributedString(string: "")
+            stagedPaths = []
+            unstagedPaths = []
+            untrackedPaths = []
+            hasLocalChanges = false
+            // The rail badge counts changes in the shown repo; outside one
+            // there are none to report.
+            onChangeCountChanged?(0)
             refreshMarkerButton()
+            refreshCommitBox()
             emptyLabel.stringValue = "Not a git repository."
             emptyLabel.isHidden = false
             tableView.reloadData()
@@ -248,50 +350,102 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         fullDiffButton.isEnabled = true
         markerButton.isEnabled = true
         graphButton.isEnabled = true
+        actionsButton.isEnabled = true
         refreshMarkerButton()
         emptyLabel.isHidden = true
 
-        let branch = monitor.currentBranch ?? "detached HEAD"
-        setBranchTitle("\(branch) — \((monitor.root as NSString).lastPathComponent)")
+        // Everything the sync badge, the ⋯ menu and the commit button read
+        // comes off the monitor in one place, so they can't disagree.
+        sync = monitor.sync
+        stashCount = monitor.stashCount
+        hasLocalChanges = monitor.hasLocalChanges
+
+        let branch = monitor.currentBranch
+        setBranchTitle("\(branch ?? "detached HEAD") — \((monitor.root as NSString).lastPathComponent)")
         branchButton.toolTip = (monitor.root as NSString).abbreviatingWithTildeInPath
+        updateSyncButton(branch: branch)
 
         // Feedback inbox first — machine feedback that needs routing is the
         // "who needs me right now" of the review workflow.
         if !feedbackEvents.isEmpty {
-            rows.append(.section("Feedback — \(feedbackEvents.count)"))
+            rows.append(.section("Feedback — \(feedbackEvents.count)", nil))
             rows += feedbackEvents.map { .feedback($0) }
         }
 
         // PR review inbox next: other people's PRs awaiting my review,
         // the outward-facing twin of the local review workflow.
         if !reviewPRs.isEmpty {
-            rows.append(.section("PR Review Inbox — \(reviewPRs.count)"))
+            rows.append(.section("PR Review Inbox — \(reviewPRs.count)", nil))
             rows += reviewPRs.map { .reviewPR($0) }
         }
 
         let staged = monitor.stagedByPath.sorted { $0.key < $1.key }
         let unstaged = monitor.unstagedByPath.sorted { $0.key < $1.key }
+        stagedPaths = staged.map { Self.pathspec($0.key) }
+        unstagedPaths = unstaged.map { Self.pathspec($0.key) }
+        untrackedPaths = Set(unstaged.filter { $0.value == "?" }.map { Self.pathspec($0.key) })
         if !staged.isEmpty {
-            rows.append(.section("Staged — \(staged.count)"))
-            rows += staged.map { .file(path: $0.key, letter: $0.value) }
+            rows.append(.section("Staged — \(staged.count)", .unstageAll))
+            rows += staged.map { .file(path: $0.key, letter: $0.value, staged: true) }
         }
         if !unstaged.isEmpty {
-            rows.append(.section("Changes — \(unstaged.count)"))
-            rows += unstaged.map { .file(path: $0.key, letter: $0.value) }
+            rows.append(.section("Changes — \(unstaged.count)", .stageAll))
+            rows += unstaged.map { .file(path: $0.key, letter: $0.value, staged: false) }
         }
         if staged.isEmpty && unstaged.isEmpty {
             rows.append(.hint("Working tree clean"))
         }
         if let historyPath {
             let name = (historyPath as NSString).lastPathComponent
-            rows.append(.section("File History — \(name)"))
+            rows.append(.section("File History — \(name)", nil))
             rows += historyCommits.map { .commit($0) }
         }
         if !branches.isEmpty {
-            rows.append(.section("Branches — \(branches.count)"))
+            rows.append(.section("Branches — \(branches.count)", nil))
             rows += branches.map { .branch($0) }
         }
+        refreshCommitBox()
+        // A path changed in both columns counts once — the badge answers "how
+        // many files are dirty", which is what the file tree's badges show too.
+        onChangeCountChanged?(Set(stagedPaths).union(unstagedPaths).count)
         tableView.reloadData()
+    }
+
+    // Porcelain reports an untracked directory as "dir/"; git takes the
+    // trailing slash fine, but the rows, the tooltips and the discard
+    // confirmation all read better without it, so it comes off in one place.
+    static func pathspec(_ path: String) -> String {
+        path.hasSuffix("/") ? String(path.dropLast()) : path
+    }
+
+    // The sync badge, exactly as the Files header draws it: a button only when
+    // clicking it would show a diff, dim read-only text otherwise.
+    private func updateSyncButton(branch: String?) {
+        guard let branch else {
+            syncButton.isEnabled = false
+            syncButton.attributedTitle = NSAttributedString(string: "detached HEAD", attributes: [
+                .font: NSFont.systemFont(ofSize: 10),
+                .foregroundColor: Theme.textFaint,
+            ])
+            syncButton.toolTip = "HEAD isn’t on a branch, so there is nothing to track."
+            return
+        }
+        let color: NSColor = sync.isGone ? Theme.failed : (sync.hasDifference ? Theme.accent : Theme.textDim)
+        syncButton.attributedTitle = NSAttributedString(
+            string: sync.badge,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 10, weight: sync.hasDifference ? .semibold : .regular),
+                .foregroundColor: color,
+            ]
+        )
+        syncButton.isEnabled = sync.hasDifference && !sync.isGone
+        syncButton.toolTip = sync.tooltip(branch: branch)
+        syncButton.setAccessibilityLabel(syncButton.toolTip)
+    }
+
+    @objc private func showUpstreamDiff() {
+        guard let root = gitRoot, let branch = monitor?.currentBranch, sync.hasUpstream else { return }
+        onShowUpstreamDiff?(root, branch)
     }
 
     private func setBranchTitle(_ title: String) {
@@ -337,11 +491,36 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             x: branchX, y: headerY + (Self.headerHeight - 18) / 2,
             width: max(0, graphButton.frame.minX - 6 - branchX), height: 18
         )
-        separator.frame = NSRect(x: 0, y: headerY, width: bounds.width, height: 1)
-        scrollView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: max(0, headerY - 1))
+
+        // Sync row under the branch row: badge on the left, ⋯ on the right.
+        // Both hide outside a repo, where there is no upstream and no action.
+        let syncY = headerY - Self.syncRowHeight
+        let inRepo = gitRoot != nil
+        syncButton.isHidden = !inRepo
+        actionsButton.isHidden = !inRepo
+        actionsButton.frame = NSRect(
+            x: bounds.width - padding - buttonSize,
+            y: syncY + (Self.syncRowHeight - buttonSize) / 2,
+            width: buttonSize, height: buttonSize
+        )
+        syncButton.frame = NSRect(
+            x: padding, y: syncY + (Self.syncRowHeight - 14) / 2,
+            width: max(0, actionsButton.frame.minX - 6 - padding), height: 14
+        )
+
+        // Commit box below that, sized by its own content; it collapses to
+        // nothing outside a repo, where there is nothing to commit.
+        let boxHeight = inRepo ? Self.commitBoxHeight : 0
+        commitBox.isHidden = !inRepo
+        commitBox.frame = NSRect(x: 0, y: syncY - boxHeight, width: bounds.width, height: boxHeight)
+        layoutCommitBox()
+
+        let listTop = commitBox.frame.minY
+        separator.frame = NSRect(x: 0, y: listTop, width: bounds.width, height: 1)
+        scrollView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: max(0, listTop - 1))
         let labelHeight: CGFloat = 40
         emptyLabel.frame = NSRect(
-            x: 12, y: (max(0, headerY) - labelHeight) / 2,
+            x: 12, y: (max(0, listTop) - labelHeight) / 2,
             width: max(0, bounds.width - 24), height: labelHeight
         )
     }
@@ -352,8 +531,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         let row = tableView.clickedRow
         guard row >= 0, row < rows.count, let root = gitRoot else { return }
         switch rows[row] {
-        case let .file(path, letter):
-            let trimmed = path.hasSuffix("/") ? String(path.dropLast()) : path
+        case let .file(path, letter, _):
+            let trimmed = Self.pathspec(path)
             if letter == "?" {
                 let absolute = root + "/" + trimmed
                 var isDirectory: ObjCBool = false
@@ -464,8 +643,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         let row = tableView.clickedRow
         guard row >= 0, row < rows.count else { return }
         switch rows[row] {
-        case let .file(path, letter):
-            buildFileMenu(menu, path: path, letter: letter)
+        case let .file(path, letter, staged):
+            buildFileMenu(menu, path: path, letter: letter, staged: staged)
         case let .branch(info):
             buildBranchMenu(menu, branch: info)
         case let .feedback(event):
@@ -477,8 +656,27 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         }
     }
 
-    private func buildFileMenu(_ menu: NSMenu, path: String, letter: Character) {
-        let trimmed = path.hasSuffix("/") ? String(path.dropLast()) : path
+    private func buildFileMenu(_ menu: NSMenu, path: String, letter: Character, staged: Bool) {
+        let trimmed = Self.pathspec(path)
+        // Staging leads: it's what the row's own button does, and the menu is
+        // where the keyboard-and-right-click half of the same gesture lives.
+        let stageItem = menu.addItem(
+            withTitle: staged ? "Unstage Changes" : "Stage Changes",
+            action: staged ? #selector(unstageFromMenu(_:)) : #selector(stageFromMenu(_:)),
+            keyEquivalent: ""
+        )
+        stageItem.target = self
+        stageItem.representedObject = trimmed
+        // Discarding a staged path would also throw away the staged version, so
+        // it is offered on the working-tree column only — unstage first.
+        if !staged {
+            let discardItem = menu.addItem(
+                withTitle: "Discard Changes…", action: #selector(discardFromMenu(_:)), keyEquivalent: ""
+            )
+            discardItem.target = self
+            discardItem.representedObject = trimmed
+        }
+        menu.addItem(.separator())
         if letter != "?" {
             let diffItem = menu.addItem(withTitle: "Open Diff", action: #selector(openDiffFromMenu(_:)), keyEquivalent: "")
             diffItem.target = self
@@ -500,23 +698,44 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         switch rows[row] {
-        case .section(let title):
+        case .section(let title, let action):
             let identifier = NSUserInterfaceItemIdentifier("gitSectionRow")
             let view = tableView.makeView(withIdentifier: identifier, owner: self) as? GitSectionRowView ?? {
                 let created = GitSectionRowView(frame: .zero)
                 created.identifier = identifier
                 return created
             }()
-            view.configure(title: title)
+            // Recycled rows carry the previous section's handler, so both the
+            // symbol and the closure are re-set (or cleared) every time.
+            switch action {
+            case .stageAll:
+                view.configure(title: title, actionSymbol: "plus", tooltip: "Stage all changes") { [weak self] in
+                    self?.stageAll()
+                }
+            case .unstageAll:
+                view.configure(title: title, actionSymbol: "minus", tooltip: "Unstage everything") { [weak self] in
+                    self?.unstageAll()
+                }
+            case nil:
+                view.configure(title: title)
+            }
             return view
-        case .file(let path, let letter):
+        case .file(let path, let letter, let staged):
             let identifier = NSUserInterfaceItemIdentifier("gitChangeRow")
             let view = tableView.makeView(withIdentifier: identifier, owner: self) as? GitChangeRowView ?? {
                 let created = GitChangeRowView(frame: .zero)
                 created.identifier = identifier
                 return created
             }()
-            view.configure(path: path, letter: letter)
+            let pathspec = Self.pathspec(path)
+            view.configure(path: path, letter: letter, staged: staged) { [weak self] in
+                guard let self else { return }
+                if staged {
+                    self.run(.unstage(paths: [pathspec]))
+                } else {
+                    self.run(.stage(paths: [pathspec]))
+                }
+            }
             return view
         case .hint(let text):
             let identifier = NSUserInterfaceItemIdentifier("gitHintRow")
@@ -588,5 +807,20 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
 
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         ThemedTableRowView()
+    }
+
+    // Live theme switch: this tab bakes tints into its header buttons and
+    // draws the commit box's ground into a layer, and neither is reached by the
+    // controller's recursive needsDisplay sweep (that only repaints draw()-based
+    // chrome). Called from SidebarView.reapplyTheme, like the Search tab's.
+    func reapplyTheme() {
+        for button in [markerButton, fullDiffButton, graphButton, actionsButton] {
+            button.contentTintColor = Theme.textDim
+        }
+        branchIcon.contentTintColor = Theme.textDim
+        branchButton.contentTintColor = Theme.textDim
+        emptyLabel.textColor = Theme.textFaint
+        reapplyCommitBoxTheme()
+        reload()
     }
 }

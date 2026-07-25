@@ -4,7 +4,7 @@ Guidance for Claude Code (claude.ai/code) working in this repository.
 
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app: a native AppKit bundle
 whose windows host split trees of panes showing browser-style tabs — terminals (`/bin/zsh -l -i`
-on SwiftTerm's pty), file viewers, diffs, transcripts, dashboards. One module, 209 Swift files,
+on SwiftTerm's pty), file viewers, diffs, transcripts, dashboards. One module, 212 Swift files,
 nothing beyond AppKit and vendored SwiftTerm.
 
 `README.md` is the pitch, `docs/features.md` the shipped-behavior reference, `docs/development.md`
@@ -70,7 +70,7 @@ swiftc -O -j $(sysctl -n hw.ncpu) swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell-$TASK && /tmp/suit-shell-$TASK
 ```
 
-**Always pass `-j`.** `swiftc` plans one frontend job per file (270 — 209 sources plus 61 vendored)
+**Always pass `-j`.** `swiftc` plans one frontend job per file (273 — 212 sources plus 61 vendored)
 and runs them *serially* by default: ~3 minutes on one core with ten idle. `-j` drops it to ~30 s
 and changes nothing but scheduling. Add `-Onone` (~16 s) when you only need a binary that runs —
 it's the wrong build for judging scroll smoothness or anything perf-shaped.
@@ -82,7 +82,7 @@ link even an empty manifest; plain `swiftc` is unaffected. So SwiftTerm is vendo
 Vendor new Swift dependencies the same way.
 
 ```sh
-scripts/test.sh                 # 30 fast harnesses, ~seconds
+scripts/test.sh                 # 31 fast harnesses, ~seconds
 scripts/test.sh --all           # + the autopilot pipeline harness (~2 min)
 scripts/test.sh --list          # names, scripts, speed
 scripts/editor-ops-test.sh      # one harness directly — the inner loop
@@ -161,7 +161,7 @@ explaining the *why*, which is the real reference. A multi-file subsystem splits
 | Theme | `Theme.swift` (tokens), `Theme+Palettes.swift` (the 14 built-ins), `ThemeStore.swift` (catalog, `.suittheme` files) |
 | Sidebar | `ActivityBarView.swift` (icon strip, laid out by `WindowRootView` *outside* the sidebar split so it survives ⌘B), `SidebarView.swift`, `FileBrowserView.swift`, `SearchView.swift` + `SearchReplace.swift` (the Search tab's find/replace), `RipgrepSearch.swift` |
 | Viewer & editing | `FileViewerPane.swift`, `EditorOps.swift`, `FindReplace.swift`, `CodeFolding.swift`, `SymbolIndex.swift`, `SyntaxHighlighter.swift` + `SyntaxLanguages.swift`, `MarkdownPane.swift` |
-| Git & GitHub | `GitStatus.swift`, `GitView.swift`, `DiffPane.swift`, `DiffParser.swift`, `GitBranches.swift` (gh wrapper, degrades without gh), `CommitGraph.swift`, `WorktreeTasks.swift` |
+| Git & GitHub | `GitStatus.swift`, `GitView.swift` (the Source Control tab) + `GitView+Commit.swift` (staging, commit box, actions menu), `GitBranchOps.swift` (the UI-free argv for every git action), `DiffPane.swift`, `DiffParser.swift`, `GitBranches.swift` (gh wrapper, degrades without gh), `CommitGraph.swift`, `WorktreeTasks.swift` |
 | Claude | `ClaudeSessions.swift`, `ClaudeIntegration.swift`, `TranscriptPane.swift`, `ModelRouting.swift`, `Recipes.swift`, `Dictation.swift`, `GoalComposition.swift` |
 | Autopilot & fleet | `AutopilotEngine.swift`, `AutopilotManager.swift`, `FleetDashboard.swift`, `BudgetGuardrails.swift` |
 | Repo root | `build.sh`, `ROADMAP.md` (Autopilot steers off it), `scripts/claude/` (bundled hooks), `scripts/*.sh` (harnesses), `design/`, `Resources/Info.plist` (bundle id `dev.kosych.suit`) |

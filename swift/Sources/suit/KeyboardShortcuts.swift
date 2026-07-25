@@ -68,6 +68,7 @@ enum KeyboardShortcuts {
             Entry("⌃⌘R", "Find references (file viewer)"),
         ]),
         Group("Git & Claude", [
+            Entry("⌃⌘G", "Show Source Control (⌘↩ in the message box commits)"),
             Entry("⌃⌘D", "Show git diff"),
             Entry("⌃⌘C", "New Claude session"),
             Entry("⌃⌘T", "New Claude task…"),

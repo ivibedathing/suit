@@ -20,6 +20,15 @@ final class RailIconView: NSView {
     private var isHovered = false {
         didSet { needsDisplay = true }
     }
+    // A count in the icon's bottom-right corner — how many files the Source
+    // Control tab has to show. Zero draws nothing: a badge is only information
+    // when it is sometimes absent.
+    var badgeCount = 0 {
+        didSet {
+            guard badgeCount != oldValue else { return }
+            needsDisplay = true
+        }
+    }
 
     private let iconView = NSImageView(frame: .zero)
 
@@ -51,10 +60,34 @@ final class RailIconView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        guard isSelected || isHovered else { return }
-        let path = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
-        (isSelected ? Theme.selection : Theme.hover).setFill()
-        path.fill()
+        if isSelected || isHovered {
+            let path = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
+            (isSelected ? Theme.selection : Theme.hover).setFill()
+            path.fill()
+        }
+        drawBadge()
+    }
+
+    // The count pill: accent ground, bar-chrome text so it reads on any
+    // palette, clamped to "99+" so a repo mid-rebase can't widen the rail.
+    private func drawBadge() {
+        guard badgeCount > 0 else { return }
+        let text = badgeCount > 99 ? "99+" : String(badgeCount)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 9, weight: .semibold),
+            .foregroundColor: Theme.barChrome,
+        ]
+        let textSize = (text as NSString).size(withAttributes: attributes)
+        let height: CGFloat = 14
+        let width = max(height, textSize.width + 8)
+        // Bottom-right of the square, half a pill outside the glyph's box.
+        let rect = NSRect(x: bounds.maxX - width - 1, y: bounds.minY + 2, width: width, height: height)
+        Theme.accent.setFill()
+        NSBezierPath(roundedRect: rect, xRadius: height / 2, yRadius: height / 2).fill()
+        (text as NSString).draw(
+            at: NSPoint(x: rect.midX - textSize.width / 2, y: rect.midY - textSize.height / 2),
+            withAttributes: attributes
+        )
     }
 
     override func updateTrackingAreas() {
