@@ -65,7 +65,10 @@ final class ActivityBarView: NSView {
     // Layout and NSSplitView's frame management don't mix here).
     private func layoutContents() {
         let size = RailIconView.size
-        let topPadding: CGFloat = 8
+        // Shared with the sidebar's own top inset so the first icon and the tab
+        // content beside it start on one line — 8pt of its own read as the strip
+        // hanging off the window's top edge.
+        let topPadding = SidebarView.topInset
         let gap: CGFloat = 4
         // Unflipped coords: start at the top edge and walk down.
         var y = bounds.height - topPadding - size
