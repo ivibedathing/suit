@@ -363,18 +363,6 @@ extension AppDelegate {
         let unfoldAllItem = viewMenu.addItem(withTitle: "Unfold All", action: #selector(ViewerTextView.unfoldAllBlocks(_:)), keyEquivalent: "0")
         unfoldAllItem.keyEquivalentModifierMask = [.command, .option, .shift]
 
-        viewMenu.addItem(.separator())
-
-        let increaseOpacityItem = viewMenu.addItem(withTitle: "Increase Opacity", action: #selector(increaseOpacity(_:)), keyEquivalent: "]")
-        increaseOpacityItem.target = self
-
-        let decreaseOpacityItem = viewMenu.addItem(withTitle: "Decrease Opacity", action: #selector(decreaseOpacity(_:)), keyEquivalent: "[")
-        decreaseOpacityItem.target = self
-
-        let toggleBlurItem = viewMenu.addItem(withTitle: "Toggle Background Blur", action: #selector(toggleBlur(_:)), keyEquivalent: "b")
-        toggleBlurItem.keyEquivalentModifierMask = [.command, .shift]
-        toggleBlurItem.target = self
-
         viewMenuItem.submenu = viewMenu
 
         let windowMenuItem = NSMenuItem()

@@ -17,28 +17,11 @@ final class PaneContainerView: NSView {
     private let dropIndicator = NSView(frame: .zero)
     private var screensaver: NSView?
 
-    // Behind-window frost, sized to the content area and kept directly behind the
-    // content view so a translucent terminal's own background alpha tints the
-    // blurred desktop showing through — the native-Terminal glass look. Hidden
-    // (and material-inert) until Pane.setBlur turns it on for a translucent
-    // terminal pane; viewers/diffs never enable it, so they stay solid.
-    private let blurView = NSVisualEffectView(frame: .zero)
-    private var blurActive = false
-    private var blurRadius: CGFloat = 30
-
     init(content: NSView) {
         self.content = content
         super.init(frame: .zero)
 
-        blurView.blendingMode = .behindWindow
-        // .active keeps the frost drawn even when the window is not key, matching
-        // Terminal.app (a background terminal stays glassy, not flat).
-        blurView.state = .active
-        blurView.isHidden = true
-        addSubview(blurView)
-
         addSubview(content)
-        orderBlurBehindContent()
         addSubview(titleBar)
         tabBar.isHidden = true
         addSubview(tabBar)
@@ -88,69 +71,8 @@ final class PaneContainerView: NSView {
         tabBar.frame = NSRect(x: insetRect.minX, y: insetRect.maxY - Self.titleBarHeight - barHeight, width: insetRect.width, height: barHeight)
         let contentFrame = NSRect(x: insetRect.minX, y: insetRect.minY, width: insetRect.width, height: insetRect.height - Self.titleBarHeight - barHeight)
         content.frame = contentFrame
-        blurView.frame = contentFrame
         screensaver?.frame = contentFrame
         flashOverlay.frame = bounds
-    }
-
-    // MARK: - Behind-window frost (terminal glass)
-
-    // Toggles the desktop frost behind the terminal. Enabled only for
-    // translucent terminal panes (Pane gates it); material and blur radius come
-    // from the app-wide glass settings.
-    func setBlur(active: Bool, material: NSVisualEffectView.Material, radius: CGFloat) {
-        blurActive = active
-        blurRadius = radius
-        blurView.material = material
-        blurView.isHidden = !active
-        if active { orderBlurBehindContent() }
-        // After the material, which can rebuild the backdrop's filter stack.
-        applyBlurRadius()
-    }
-
-    // NSVisualEffectView has no public blur-radius knob: the frost is a
-    // CABackdropLayer whose filter stack carries a gaussianBlur CAFilter with a
-    // KVC-mutable inputRadius (verified against the current AppKit). Walk the
-    // effect view's layer tree and retune that filter in place; if a future
-    // macOS restructures the layers this finds nothing and the frost simply
-    // keeps the stock radius. Reassigning `filters` pushes the change to the
-    // window server.
-    private func applyBlurRadius() {
-        var stack: [CALayer] = blurView.layer.map { [$0] } ?? []
-        while let layer = stack.popLast() {
-            stack.append(contentsOf: layer.sublayers ?? [])
-            guard String(describing: type(of: layer)) == "CABackdropLayer",
-                  let filters = layer.filters else { continue }
-            var found = false
-            for filter in filters {
-                let object = filter as AnyObject
-                guard (object.value(forKey: "name") as? String) == "gaussianBlur" else { continue }
-                object.setValue(blurRadius as NSNumber, forKey: "inputRadius")
-                found = true
-            }
-            if found { layer.filters = filters }
-        }
-    }
-
-    // The backdrop layer only exists once the view is in a window (and is
-    // rebuilt when the system appearance flips), so a radius set before that
-    // point would land on nothing — reapply whenever the backing catches up.
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if blurActive { applyBlurRadius() }
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        if blurActive { applyBlurRadius() }
-    }
-
-    // The content view is always kept backmost (setContentView re-inserts it
-    // below everything), so the frost is pushed one step further back — directly
-    // behind the content — whenever it's on.
-    private func orderBlurBehindContent() {
-        guard blurView.superview === self else { return }
-        addSubview(blurView, positioned: .below, relativeTo: content)
     }
 
     // Feeds the in-pane tab bar. Toggling its visibility re-lays the content out
@@ -174,9 +96,6 @@ final class PaneContainerView: NSView {
         content = newView
         newView.frame = frame
         addSubview(newView, positioned: .below, relativeTo: nil)
-        // The new content lands backmost; if the frost is on, drop it behind the
-        // new content again so it keeps compositing under the terminal.
-        if blurActive { orderBlurBehindContent() }
     }
 
     // Shown/hidden above the terminal content, below the title bar and bell flash,

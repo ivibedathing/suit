@@ -1,50 +1,10 @@
 import Cocoa
 
-// The visual settings verbs: the ⌘]/⌘[ opacity and ⇧⌘B blur shortcuts, word
-// wrap, and the font/color/cursor `…Changed` handlers that apply a new value
-// live across every window. Behavior toggles live in AppDelegate+Settings;
-// persistence for both is AppDelegate+SettingsPersistence.
+// The visual settings verbs: word wrap and the font/color/cursor `…Changed`
+// handlers that apply a new value live across every window. Behavior toggles
+// live in AppDelegate+Settings; persistence for both is
+// AppDelegate+SettingsPersistence.
 extension AppDelegate {
-    // MARK: - Opacity & blur
-
-    @objc func increaseOpacity(_ sender: Any?) {
-        opacityChanged(min(1, backgroundAlpha + opacityStep))
-    }
-
-    @objc func decreaseOpacity(_ sender: Any?) {
-        opacityChanged(max(minOpacity, backgroundAlpha - opacityStep))
-    }
-
-    @objc func toggleBlur(_ sender: Any?) {
-        blurChanged(!blurEnabled)
-    }
-
-    func opacityChanged(_ value: CGFloat) {
-        backgroundAlpha = value
-        applyGlassToAllWindows()
-        saveSettings()
-    }
-
-    func blurChanged(_ enabled: Bool) {
-        blurEnabled = enabled
-        applyGlassToAllWindows()
-        saveSettings()
-    }
-
-    func blurRadiusChanged(_ radius: CGFloat) {
-        blurRadius = min(maxBlurRadius, max(0, radius))
-        applyGlassToAllWindows()
-        saveSettings()
-    }
-
-    private func applyGlassToAllWindows() {
-        for controller in windowControllers {
-            controller.applyTransparency(
-                alpha: backgroundAlpha, blurEnabled: blurEnabled, blurRadius: blurRadius
-            )
-        }
-    }
-
     // MARK: - Word wrap (file viewers)
 
     @objc func toggleWordWrap(_ sender: Any?) {

@@ -4,7 +4,7 @@ import Cocoa
 // isn't visual lands here as a `…Changed` handler — shell path, Claude session
 // args, task isolation, and bells and sounds.
 // Values persist via AppDelegate+SettingsPersistence; the visual handlers
-// (font, colors, opacity, blur) live in AppDelegate+Appearance.
+// (font, colors) live in AppDelegate+Appearance.
 extension AppDelegate {
     // MARK: - Behavior settings
 
