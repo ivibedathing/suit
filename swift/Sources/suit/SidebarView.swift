@@ -202,7 +202,9 @@ final class SidebarView: NSView {
         sshHostsView.isHidden = selectedTab != .ssh
         bookmarksView.isHidden = selectedTab != .bookmarks
         sessionsView.isHidden = selectedTab != .sessions
-        // Notes is a text surface: selecting it should put the caret there.
+        // Notes and Bookmarks are keyboard-navigable lists: selecting the tab
+        // should land on the list so ↑↓/Return work without a click. (Notes no
+        // longer holds an editor — a note opens as its own file tab.)
         if selectedTab == .notes {
             window?.makeFirstResponder(notesView.focusTarget)
         } else if selectedTab == .bookmarks {

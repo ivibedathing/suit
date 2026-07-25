@@ -315,9 +315,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // shells' cwds while their processes are still alive — both the legacy
     // last-cwd fallback and the full layout snapshot (state restoration).
     func applicationWillTerminate(_ notification: Notification) {
-        // A debounced notes save may still be pending; the timer dies with us.
-        NotesStore.shared.flush()
-        // Likewise flush any editable viewer's pending autosave, so
+        // Notes are ordinary files now, so their pending saves are the viewer's
+        // pending saves — the loop below covers them with everything else.
+        // Flush any editable viewer's pending autosave, so
         // the sub-second debounce window never loses edits across a quit — the
         // file on disk is then current and restoration just reloads it.
         for controller in windowControllers {
