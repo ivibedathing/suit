@@ -2,7 +2,7 @@ import Cocoa
 
 // Pane lifecycle and the window's PaneHost duties: create/collapse panes, the
 // in-pane tab bar callbacks, the footer, pane palette commands, and applying
-// the terminal glass (opacity/blur) to every pane.
+// the shared appearance (font, text color, word wrap) to every pane.
 extension TerminalWindowController {
 
     // MARK: - Panes
@@ -13,12 +13,7 @@ extension TerminalWindowController {
         let pane = Pane(host: self, tab: tab)
         panes.append(pane)
         updateBorderVisibility()
-        pane.setBackgroundAlpha(appDelegate.backgroundAlpha)
-        pane.setBlur(
-            enabled: appDelegate.backgroundAlpha < 1 && appDelegate.blurEnabled,
-            material: Self.glassMaterial,
-            radius: appDelegate.blurRadius
-        )
+        pane.applyBackgroundColor()
         pane.setFont(appDelegate.currentFont)
         pane.setTextColor(appDelegate.currentTextColor)
         (tab.content as? FileViewerPaneContent)?.setWordWrap(appDelegate.wordWrapEnabled)
@@ -253,32 +248,7 @@ extension TerminalWindowController {
         }
     }
 
-    // MARK: - Opacity, blur & appearance (terminal glass)
-
-    // The behind-window frost material for translucent terminals — a dark
-    // vibrant glass matching the native Terminal look.
-    static let glassMaterial: NSVisualEffectView.Material = .underWindowBackground
-
-    // Native-Terminal transparency: each terminal pane goes translucent (alpha <
-    // 1) over a behind-window frost sized to its own content, so the blurred
-    // desktop shows through the terminal while text stays fully opaque. The
-    // window fill stays Theme.bg — never `.clear` — so the titled title bar keeps
-    // its solid backing (dropping the fill to clear is what made the title bar
-    // see-through before). isOpaque=false is all the window needs for the
-    // per-pane frost to sample the desktop behind it.
-    func applyTransparency(alpha: CGFloat, blurEnabled: Bool, blurRadius: CGFloat) {
-        let transparent = alpha < 1
-        window.isOpaque = !transparent
-        window.backgroundColor = Theme.bg
-        for pane in panes {
-            pane.setBackgroundAlpha(alpha)
-            pane.setBlur(
-                enabled: transparent && blurEnabled,
-                material: Self.glassMaterial,
-                radius: blurRadius
-            )
-        }
-    }
+    // MARK: - Appearance
 
     func applyFont(_ font: NSFont) {
         for pane in panes {

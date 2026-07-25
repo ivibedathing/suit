@@ -234,8 +234,10 @@ final class PaneTerminalView: LocalProcessTerminalView {
     }
 
     @objc func createNoteFromSelection(_ sender: Any?) {
-        guard let text = getSelection() else { return }
-        NotesStore.shared.addNoteFromSelection(text)
+        guard let text = getSelection(), let path = NotesStore.shared.addNoteFromSelection(text) else { return }
+        // The capture is a file now, so show it the way any other file opens —
+        // in a tab, editable, where the user can title and trim it right away.
+        (NSApp.delegate as? AppDelegate)?.activeWindowController()?.openFile(atPath: path, line: nil)
     }
 
     // Opens the composer prefilled with the selection, aimed at the session

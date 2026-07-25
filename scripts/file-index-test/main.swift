@@ -58,6 +58,37 @@ check(!scanned.contains { $0.hasPrefix(".Trash/") }, ".Trash pruned")
 check(scanned == scanned.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending },
       "results are case-insensitively sorted")
 
+// The gitignored side of the index, which the Files tree draws greyed out.
+// `git ls-files --others --ignored --directory -z` collapses a wholly-ignored
+// directory to one trailing-slash entry; the parse has to keep that flag (the
+// tree hangs lazily-listed children off it) and hand parents back first.
+let ignored = FileIndex.parseIgnoredEntries(
+    "build/\0.DS_Store\0.claude/worktrees/\0swift/.DS_Store\0build/\0"
+)
+let ignoredPaths = ignored.map(\.path)
+
+check(ignoredPaths == [".DS_Store", ".claude/worktrees", "build", "swift/.DS_Store"],
+      "ignored entries are deduped, slash-stripped and sorted parents-first")
+check(ignored.first { $0.path == "build" }?.isDirectory == true,
+      "trailing slash marks a collapsed ignored directory")
+check(ignored.first { $0.path == ".DS_Store" }?.isDirectory == false,
+      "an ignored file is not flagged as a directory")
+check(FileIndex.parseIgnoredEntries("").isEmpty, "empty output yields no ignored entries")
+
+// Expanding a collapsed ignored directory reads one level off disk — no git
+// involved, since everything under an ignored tree is ignored too.
+write("build/Suit.app/Contents/Info.plist")
+write("build/log.txt")
+let children = FileIndex.ignoredChildren(ofDirectory: "build", root: root.path)
+check(children.map(\.path) == ["build/Suit.app", "build/log.txt"],
+      "expanding an ignored directory lists its immediate children")
+check(children.first { $0.path == "build/Suit.app" }?.isDirectory == true,
+      "a child directory is flagged as one")
+check(children.first { $0.path == "build/log.txt" }?.isDirectory == false,
+      "a child file is not")
+check(FileIndex.ignoredChildren(ofDirectory: "nope", root: root.path).isEmpty,
+      "a missing directory expands to nothing")
+
 try? fm.removeItem(at: root)
 
 if failures == 0 {

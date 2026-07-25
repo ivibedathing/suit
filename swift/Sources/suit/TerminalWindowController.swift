@@ -191,6 +191,12 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.searchView.scopeResolver = { [weak self] scope in
             self?.resolveSearchScope(scope)
         }
+        // A project-wide replace edits files outside any pane, so nothing else
+        // would notice: re-run git status so the tree's letters and the branch
+        // row catch up with what was just rewritten.
+        sidebar.searchView.onFilesChanged = { root, _ in
+            GitStatusMonitor.shared(forRoot: root).refresh()
+        }
         sidebar.fileBrowser.onChooseFolder = { [weak self] in
             self?.selectSidebarFolder()
         }
@@ -276,6 +282,12 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.bookmarksView.onOpen = { [weak self] path, line in
             self?.openFile(atPath: path, line: line)
         }
+        // Notes tab: a note is a .txt file under ~/.suit/notes, so it opens
+        // through the same path a project file does — deduped by path, editable,
+        // splittable, restored at launch.
+        sidebar.notesView.onOpen = { [weak self] path in
+            self?.openFile(atPath: path, line: nil)
+        }
         // Sessions tab: click a row to bring that tab forward in its pane, or
         // its close box to shut it (the cross-pane overview replacing the strip).
         sidebar.sessionsView.onSelectTab = { [weak self] id in
@@ -327,6 +339,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         activityBar.selectedTab = sidebar.selectedTab
         activityBar.onSelect = { [weak self] tab in self?.activateSidebarTab(tab) }
         sidebar.onTabChange = { [weak self] tab in self?.activityBar.selectedTab = tab }
+        sidebar.onFocusEscaped = { [weak self] in self?.returnFocusToPane() }
 
         rootContainer.addSubview(activityBar)
         rootContainer.addSubview(sidebarSplit)
@@ -336,11 +349,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         layoutSidebarSplit()
 
         window.contentView = rootContainer
-        applyTransparency(
-            alpha: appDelegate.backgroundAlpha,
-            blurEnabled: appDelegate.blurEnabled,
-            blurRadius: appDelegate.blurRadius
-        )
+        window.backgroundColor = Theme.bg
 
         if let fallbackPane {
             window.title = fallbackPane.displayTitle

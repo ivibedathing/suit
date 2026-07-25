@@ -17,7 +17,6 @@ app does.
     [Tasks & recipes](#tasks--recipes)
 - [Autopilot](#autopilot)
 - [Appearance & settings](#appearance--settings)
-- [Glassmorphism (transparency & blur)](#glassmorphism-transparency--blur)
 - [Themes](#themes)
 - [Safety](#safety)
 
@@ -66,24 +65,44 @@ app does.
 ### Files & sidebar
 
 - **Activity bar** — a full-height icon strip pinned to the window's far-left edge, holding the
-  sidebar's tabs: Files, Sessions, SSH Hosts, Notes and Bookmarks, top to bottom. It stays put
+  sidebar's tabs: Files, Search, Sessions, SSH Hosts and Notes, top to bottom. It stays put
   when the sidebar is collapsed, so clicking any icon reopens the sidebar on that tab. Clicking
   the icon of the tab you're already on collapses the sidebar again (as ⌘B does).
 - **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. The
   Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
   search / choose-folder / unpin actions, and, inside a repo, a branch row carrying the branch
   switcher, the upstream sync badge and the git actions menu — and gives the rest of the tab to
-  the tree. The tree is
-  gitignore-consistent with the file index, shows sub-project badges (`go.mod`, `package.json`,
-  …) and git status letters, and can be pinned to any folder. Hidden folders and dotfiles
+  the tree. The tree shows sub-project badges (`go.mod`, `package.json`,
+  …) and git status letters, and can be pinned to any folder.
+- **Git status as colour** — inside a repo each filename is tinted by its own status: green for
+  added or untracked, amber for modified or renamed, red for deleted, grey for gitignored, plain
+  text for clean. The colours are the same palette tokens as the status letter beside them, so
+  they stay legible under every theme and follow a live theme switch. Folders keep the plain
+  colour and their amber dot for "something under here changed".
+- **Ignored files are shown, not hidden** — gitignored rows appear greyed out rather than missing.
+  A wholly-ignored folder (`build/`, `node_modules/`) arrives as a single collapsed row and is
+  read off disk only when you expand it, so the tree can show you what's there without ⌘P or
+  project search ever matching it — those still index tracked and untracked files only.
+- **Dotfiles** — hidden folders and dotfiles
   (`.claude`, `.github`, `.gitignore`) are shown like any other row — inside a repo because
   `git ls-files` reports them, outside one because the fallback walk indexes them too, pruning
   only noise (`.git`, `.Trash`, `node_modules`, `.DS_Store`).
-- **Project search** (⇧⌘F, or the header's magnifier) — search isn't a permanent field: it
-  drops a compact search bar over the tree only when you invoke it, and **Esc** (or the ✕)
-  returns you to the file tree. Live ripgrep with regex/case toggles, a glob filter, and
-  Project / Sub-project / Pane Directory scopes tucked behind the options button; results
-  stream in grouped by file.
+- **Project search** (⇧⌘F, the activity bar's magnifier, or the Files header's magnifier) — its own
+  sidebar tab directly below Files, so searching never costs you sight of the file tree and your
+  matches are still there when you come back to it. Live ripgrep with regex/case toggles, a glob
+  filter, and Project / Sub-project / Pane Directory scopes tucked behind the options button;
+  results stream in grouped by file, and clicking a match opens it in the viewer at that line.
+  **Esc** clears the pattern; **Esc** on an already-empty field hands the sidebar back to Files.
+- **Project-wide replace** — the Search tab's second row: type a replacement and **Replace All**
+  (or Enter in that field) rewrites every listed match. It confirms first, with the file and match
+  counts, because it edits files that aren't open in any pane and there's no ⌘Z waiting for those.
+  Regex mode interpolates capture groups (`$1`) exactly as the viewer's ⌘F bar does, and an empty
+  replacement deletes the matches. Each file is rewritten atomically — the same writer ⌘S uses —
+  and the results re-run afterwards so the list reflects what's now on disk. Two deliberate
+  refusals: it won't run while the search is still streaming, and it won't run on a result set that
+  hit ripgrep's 2,000-match cap, since replacing a partial list would silently leave the rest of the
+  repo behind (narrow the scope or add a glob). Files that stopped matching, can't be read as UTF-8
+  text, or fail to write are reported in the status line rather than skipped in silence.
 - **Open quickly** (⌘P) — fuzzy-find any file in the project index; ⌘K opens the command
   palette over every app command plus your prompt library.
 - **Command history search** (⌃R) — the shell's reverse-i-search, made native and cross-pane. A
@@ -94,8 +113,14 @@ app does.
   you can edit it first. A destructive-looking command (curl/wget piped into a shell, `rm -rf`)
   trips the same confirm a risky paste does before it runs. With no history file, it falls back to
   the per-pane commands alone.
-- **Notes** — a free-text scratch tab in the sidebar backed by `~/.suit/notes.txt`;
-  right-click a terminal selection to append it as a note.
+- **Notes** — plain `.txt` files in `~/.suit/notes/`, listed in the sidebar's Notes tab. Clicking a
+  row (or **Return**) opens the note as an ordinary file tab, so it edits exactly like a project
+  file: autosave, ⌘S, undo, ⌘F find/replace, line numbers, split and drag, restored at the next
+  launch. The filename is the title. **+** asks for a title and opens the new note; right-click a
+  row for **Open**, **Rename…**, **Reveal in Finder** or **Move to Trash**. Right-clicking a
+  terminal selection captures it as a new note (titled after its first line) and opens it. Notes
+  kept in the older `notes.json` / `notes.txt` are imported into the directory once, at first
+  launch, and the originals are left on disk untouched.
 
 ### File viewer & navigation
 
@@ -255,7 +280,8 @@ app does.
   page-thumbnail rail. All three are ordinary tabs, so split, drag, path-dedupe, and state
   restoration (scroll / zoom / page) work unchanged.
 - **Bookmarks** — pin a specific `file:line` with ⇧⌘L (or click the gutter) — an amber tick
-  shows in the viewer gutter and minimap. The Bookmarks sidebar tab lists them; Enter or
+  shows in the viewer gutter and minimap. The palette's **Show Bookmarks** opens the sidebar's
+  bookmarks list (it has no activity-bar icon); Enter or
   double-click reopens the file at that line, right-click renames or removes. Saved in
   `~/.suit/bookmarks.json`, shared across windows, dead paths pruned automatically.
 
@@ -350,6 +376,10 @@ app does.
   Claude Code's statusline and hooks to `~/.suit`. Panes running Claude sessions show a state
   dot (busy / pulsing needs-input / done) and a context-fill %, the sidebar footer shows global
   5h/7d usage, and the Sessions sidebar tab lists every open tab with its live session dot.
+- **Usage color ramp** — each usage row's percentage and fill bar ride a continuous gradient from
+  the theme's done green at 0%, through its busy amber at 50%, to its failed red at 100%, so a
+  limit you're drifting toward shifts color the whole way up instead of jumping at a threshold.
+  The ramp interpolates the active palette's own session colors, so it follows a theme switch.
 - **Attention** — a session that needs input while Suit is inactive posts a notification
   (click to jump to its pane) and badges the Dock with the needs-input count. Additionally,
   Suit plays a macOS system sound when a Claude session finishes a task and a different one
@@ -607,7 +637,7 @@ app does.
 
 - **Settings** (⌘,) — a category sidebar (macOS System-Settings style) with one pane per topic,
   so only the settings you're changing are on screen: **Appearance** (font and default size,
-  text color, default pane background, opacity (⌘] / ⌘[), blur (⇧⌘B)), **Terminal** (the shell
+  text color, default pane background), **Terminal** (the shell
   new tabs run, cursor shape and blinking, bell responses — pane flash, Dock bounce),
   **File Viewer** (word wrap), **Claude** (session arguments, "Set as Goal" provenance, and
   notification sounds), **Themes** (swap the whole color palette — see below),
@@ -634,26 +664,6 @@ app does.
   "Ember" (#21100A), with Dracula, Nord and Solarized Dark at their published values. All stay
   dark enough that dim ANSI text keeps its contrast. The same list backs the screensaver's
   background menu.
-
-## Glassmorphism (transparency & blur)
-
-Like the native macOS Terminal, only the **terminal panes** go translucent — the window's title
-bar stays solid, and file/diff/markdown viewers stay opaque for legibility.
-
-- **Real transparency** — the **Opacity** slider in **Settings ▸ Appearance** (or ⌘] / ⌘[)
-  lowers each terminal's background alpha so the desktop shows *through* the terminal, while the text
-  itself stays fully opaque and crisp. The slider reaches down to 5% opacity, so the glass can go
-  almost fully clear.
-- **Background blur** — the **Background Blur** checkbox (⇧⌘B) puts a behind-window frost directly
-  behind each translucent terminal, so it reads as a pane of frosted glass rather than a plain
-  see-through hole. The frost sits *under* the terminal only, so the title bar and chrome keep their
-  solid backing. Blur only becomes visible once transparency is below 100% — there's nothing to see
-  through an opaque pane.
-- **Blur amount** — the **Blur** slider (below Opacity in **Settings ▸ Appearance**) tunes how soft
-  the frost is, from 0 (tinted but sharp glass — the desktop stays readable through the terminal) up
-  to roughly twice the stock system blur. The default (30) matches the system frost exactly. The
-  slider takes effect while the Background Blur checkbox is on and the terminal is translucent, and
-  it applies live to every open terminal pane.
 
 ## Themes
 

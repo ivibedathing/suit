@@ -30,6 +30,7 @@ HARNESSES=(
   "file-edit|scripts/file-edit-test.sh|fast"
   "file-watch|scripts/file-watch-test.sh|fast"
   "find-replace|scripts/find-replace-test.sh|fast"
+  "search-replace|scripts/search-replace-test.sh|fast"
   "editor-ops|scripts/editor-ops-test.sh|fast"
   "editor-nav|scripts/editor-nav-test.sh|fast"
   "syntax-highlight|scripts/syntax-highlight-test.sh|fast"
@@ -51,6 +52,7 @@ HARNESSES=(
   "notification-sound|scripts/notification-sound-test.sh|fast"
   "update-check|scripts/update-check-test.sh|fast"
   "file-index|scripts/file-index-test.sh|fast"
+  "notes|scripts/notes-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
 )
 

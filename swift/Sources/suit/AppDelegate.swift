@@ -6,18 +6,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // the strip is the one tab system, and ⌘T opens a tab there.
     var windowControllers: [TerminalWindowController] = []
 
-    // These drive each pane's own background alpha (not window.alphaValue), so the
-    // terminal background becomes see-through/blurred while text stays fully opaque.
-    // Shared across every window/tab, so kept here rather than per-controller.
-    var blurEnabled = false
-    // Frost softness (gaussian radius, points). 30 is what the system frost
-    // ships with, so the default look is unchanged; 0 = tinted but sharp glass.
-    var blurRadius: CGFloat = 30
-    let maxBlurRadius: CGFloat = 64
-    var backgroundAlpha: CGFloat = 1
-    let opacityStep: CGFloat = 0.05
-    let minOpacity: CGFloat = 0.05
-
     // Same bounds as the settings window's font-size stepper.
     let minFontSize: CGFloat = 8
     let maxFontSize: CGFloat = 36
@@ -327,9 +315,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // shells' cwds while their processes are still alive — both the legacy
     // last-cwd fallback and the full layout snapshot (state restoration).
     func applicationWillTerminate(_ notification: Notification) {
-        // A debounced notes save may still be pending; the timer dies with us.
-        NotesStore.shared.flush()
-        // Likewise flush any editable viewer's pending autosave, so
+        // Notes are ordinary files now, so their pending saves are the viewer's
+        // pending saves — the loop below covers them with everything else.
+        // Flush any editable viewer's pending autosave, so
         // the sub-second debounce window never loses edits across a quit — the
         // file on disk is then current and restoration just reloads it.
         for controller in windowControllers {

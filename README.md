@@ -56,8 +56,9 @@ working.
 
 - **Browser-style tabs & splits** for terminals, files, diffs and transcripts, with full state
   restoration across launches.
-- **Integrated sidebar** — file tree, ripgrep search, git status / branches / PRs, blame, file
-  history, notes and bookmarks — kept gitignore-consistent with a live file index.
+- **Integrated sidebar** — file tree, ripgrep search and project-wide replace on its own tab, git
+  status / branches / PRs, blame, file history, notes and bookmarks — kept gitignore-consistent
+  with a live file index.
 - **Claude Code awareness** — per-pane session state and context %, attention notifications,
   talk-back into any session, live transcripts and cross-transcript search.
 - **Autopilot** — autonomous, budget-aware execution of a project's roadmap with build and
@@ -68,7 +69,7 @@ working.
 ## Features
 
 Suit has grown a broad feature set — browser-style tabs & panes, an integrated file/search/git
-sidebar, a full Claude Code cockpit, Autopilot, theming, glassmorphism, and more. To keep this
+sidebar, a full Claude Code cockpit, Autopilot, theming, and more. To keep this
 README readable, the complete, detailed feature reference now lives in
 **[docs/features.md](docs/features.md)**:
 
@@ -77,7 +78,6 @@ README readable, the complete, detailed feature reference now lives in
 - [Claude Code cockpit](docs/features.md#claude-code-cockpit)
 - [Autopilot](docs/features.md#autopilot)
 - [Appearance & settings](docs/features.md#appearance--settings)
-- [Glassmorphism (transparency & blur)](docs/features.md#glassmorphism-transparency--blur)
 - [Themes](docs/features.md#themes)
 - [Safety](docs/features.md#safety)
 
@@ -179,8 +179,6 @@ Comment verdict via `gh pr review`.
 | --- | --- |
 | ⌘= / ⌘- | Increase / decrease font size |
 | ⇧⌘= / ⇧⌘- | Increase / decrease font size (all panes) |
-| ⌘] / ⌘[ | Increase / decrease opacity |
-| ⇧⌘B | Toggle background blur |
 
 ### App & windows
 
