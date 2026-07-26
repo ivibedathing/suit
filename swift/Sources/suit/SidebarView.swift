@@ -18,11 +18,15 @@ final class SidebarView: NSView {
     static let minWidth: CGFloat = 180
     static let maxWidth: CGFloat = 420
 
-    // Breathing room above the tab content, so the Files header doesn't start
-    // hard against the window's top edge. ActivityBarView reads the same value
-    // for its own first icon, which is what keeps the icon strip and the panel
-    // beside it starting on one line rather than 8pt apart.
-    static let topInset: CGFloat = 16
+    // No margin above the tab content. The inset was 16pt back when a tab
+    // opened straight onto its first row — Files' folder name, a search field —
+    // and needed something between that and the window's top edge. Every tab
+    // now opens with a SidebarTitle band (28pt of mostly-empty chrome by
+    // design), which is that separation; keeping the inset as well stacked two
+    // gaps and pushed the actual content a quarter-panel down. ActivityBarView
+    // reads the same value for its own first icon, so the strip and the panel
+    // beside it still start on one line.
+    static let topInset: CGFloat = 0
 
     enum Tab: Int, CaseIterable {
         case files
@@ -186,10 +190,8 @@ final class SidebarView: NSView {
         let foldersHeight = recentFolders.isHidden ? 0 : recentFolders.desiredHeight
         recentFolders.frame = NSRect(x: 0, y: usageHeight, width: bounds.width, height: foldersHeight)
         let footerHeight = usageHeight + foldersHeight
-        // The icons that used to reserve a band at the top live in the activity
-        // bar beside this view, but running the content flush to the edge left
-        // it sitting too high; topInset gives it back a margin, shared with the
-        // bar so both start on the same line.
+        // Flush to the top edge: the tab's own title band is the margin now
+        // (see topInset).
         let contentFrame = NSRect(
             x: 0,
             y: footerHeight,
