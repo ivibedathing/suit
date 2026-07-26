@@ -70,11 +70,15 @@ app does.
   Clicking the icon of the tab you're already on collapses the sidebar again (as ⌘B does). The
   Source Control icon carries a count badge of the changed files in the shown repo, so a dirty
   tree is visible with the sidebar closed.
-- **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. The
-  Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
-  search / choose-folder / unpin actions, and, inside a repo, a branch row carrying the branch
-  switcher, the upstream sync badge and the git actions menu — and gives the rest of the tab to
-  the tree. The tree shows sub-project badges (`go.mod`, `package.json`,
+- **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. Every tab opens
+  with its own title — FILES, SEARCH, SOURCE CONTROL, SESSIONS, SSH HOSTS, NOTES, BOOKMARKS —
+  since the activity bar itself shows icons only; the title row also carries that tab's header
+  actions (the Files header's buttons, Search's toolbar, the + on Notes and SSH Hosts), and it
+  follows a live theme switch.
+- **Files tab** — leads with a single project header: the title row's search / choose-folder /
+  unpin actions, the folder name below it (a pin glyph when pinned), and, inside a repo, a branch
+  row carrying the branch switcher, the upstream sync badge and the git actions menu — then gives
+  the rest of the tab to the tree. The tree shows sub-project badges (`go.mod`, `package.json`,
   …) and git status letters, and can be pinned to any folder.
 - **Git status as colour** — inside a repo each filename is tinted by its own status: green for
   added or untracked, amber for modified or renamed, red for deleted, grey for gitignored, plain
@@ -352,7 +356,7 @@ app does.
   branch that's both ahead and behind reads as *your work* rather than as reversed upstream
   commits. The counts come from the last fetch, not the network — **Fetch** refreshes them.
 - **Source Control tab** (⌃⌘G, the activity bar's branch icon, or **Show Source Control** in the
-  palette) — the whole local git loop in the sidebar. Top to bottom: a **branch row** (the
+  palette) — the whole local git loop in the sidebar. Top to bottom: the tab title, a **branch row** (the
   worktree/branch switcher, plus the ⚑ marker, ± full-diff and commit-graph buttons), a **sync
   row** (the upstream badge and a ⋯ actions menu — the same fetch/pull/push/stash/branches set the
   Files header offers), the **commit box**, and then the file list: **Staged** and **Changes**

@@ -86,9 +86,15 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         case unstageAll
     }
 
+    // "SOURCE CONTROL" above the branch row — the tab's own title, on the band
+    // every sidebar tab opens with (SidebarTitle). The branch row already carries
+    // four affordances at sidebar width, so the title takes a row of its own
+    // rather than squeezing in beside them.
+    private static let titleHeight = SidebarTitle.height
     private static let headerHeight: CGFloat = 28
     private static let syncRowHeight: CGFloat = 22
 
+    private let titleLabel = SidebarTitle.label("SOURCE CONTROL")
     private let branchIcon = NSImageView(frame: .zero)
     let branchButton = NSButton(frame: .zero)
     private let markerButton = NSButton(frame: .zero)
@@ -161,6 +167,8 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+
+        addSubview(titleLabel)
 
         branchIcon.image = NSImage(systemSymbolName: "arrow.triangle.branch", accessibilityDescription: "git branch")?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 10, weight: .medium))
@@ -467,9 +475,17 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
 
     override func layout() {
         super.layout()
-        let headerY = bounds.height - Self.headerHeight
+        let titleY = bounds.height - Self.titleHeight
+        let headerY = titleY - Self.headerHeight
         let padding: CGFloat = 8
         let buttonSize: CGFloat = 18
+
+        titleLabel.sizeToFit()
+        titleLabel.frame.origin = NSPoint(
+            x: SidebarTitle.leftInset,
+            y: titleY + (Self.titleHeight - titleLabel.frame.height) / 2
+        )
+
         branchIcon.frame = NSRect(x: padding, y: headerY + (Self.headerHeight - 12) / 2, width: 12, height: 12)
         fullDiffButton.frame = NSRect(
             x: bounds.width - padding - buttonSize,

@@ -187,6 +187,10 @@ final class SessionsView: NSView {
     var onSelectTab: ((String) -> Void)?
     var onCloseTab: ((String) -> Void)?
 
+    // "SESSIONS" — the tab's own title, on the band every sidebar tab opens with
+    // (SidebarTitle). Distinct from `headerLabels` below, which caption the
+    // per-pane groups inside the list.
+    private let titleLabel = SidebarTitle.label("SESSIONS")
     private let scrollView = NSScrollView(frame: .zero)
     private let documentView = FlippedView(frame: .zero)
     private var rowViews: [SessionRowView] = []
@@ -198,6 +202,7 @@ final class SessionsView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        addSubview(titleLabel)
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
@@ -245,7 +250,14 @@ final class SessionsView: NSView {
 
     override func layout() {
         super.layout()
-        scrollView.frame = bounds
+        // Not flipped: the title band is at the top of the view, the list below.
+        let titleY = bounds.height - SidebarTitle.height
+        titleLabel.sizeToFit()
+        titleLabel.frame.origin = NSPoint(
+            x: SidebarTitle.leftInset,
+            y: titleY + (SidebarTitle.height - titleLabel.frame.height) / 2
+        )
+        scrollView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: max(0, titleY))
         layoutDocument()
     }
 
