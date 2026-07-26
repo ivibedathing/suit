@@ -70,26 +70,14 @@ final class ActivityBarView: NSView {
     }
 
     // The bar and the sidebar beside it share one ground (`barChrome`), which
-    // is the look — but it also means the strip has no edge, and the icons run
-    // into the panel as one undifferentiated column. Two hairlines give it
-    // back: a full-height rule down the right edge so the strip is a column of
-    // its own, and a short inset rule between consecutive icons so each tab
-    // reads as its own cell rather than a floating glyph. The separators are
-    // inset well inside the 40pt hover square, so a hovered or selected icon's
-    // rounded fill still sits clear of them.
+    // is the look — but it also means the strip has no edge and runs into the
+    // panel. One full-height hairline down the right edge gives it back, so the
+    // icons read as a column of their own. Deliberately the *only* rule here:
+    // per-icon separators were tried and read as a list of rows, which fought
+    // the hover square that is already the cell boundary.
     override func draw(_ dirtyRect: NSRect) {
         Theme.hairline.setFill()
         NSRect(x: bounds.maxX - 1, y: 0, width: 1, height: bounds.height).fill()
-
-        let inset: CGFloat = 12
-        // Between each pair, not after the last: a rule under the bottom icon
-        // would read as the end of a list the strip doesn't have.
-        for icon in icons.dropLast() {
-            NSRect(
-                x: bounds.minX + inset, y: icon.frame.minY - 2.5,
-                width: bounds.width - inset * 2 - 1, height: 1
-            ).fill()
-        }
     }
 
     // Manual layout, consistent with the rest of the window's chrome (Auto
