@@ -706,6 +706,15 @@ app does.
 
 ## Appearance & settings
 
+- **Hack ships with the app** — [Hack](https://sourcefoundry.org/hack) v3.003 (Regular, Bold,
+  Italic, Bold Italic) is bundled in `Suit.app/Contents/Resources/fonts` and registered into the
+  process at launch, so it's the default for terminals, file viewers, diffs, and transcripts on a
+  machine where nothing was ever installed — and it shows up in the font picker whether or not you
+  have it system-wide. Picking another font in **Settings ▸ Appearance** overrides it permanently:
+  the first launch after Hack shipped moves you off the old system-monospaced default *once*, and
+  never touches a font you chose yourself (including switching back to SF Mono). Chrome — sidebar
+  labels, badges, line numbers — deliberately stays on the system monospaced font. Hack is MIT +
+  Bitstream Vera licensed; the license ships alongside the TTFs.
 - **Settings** (⌘,) — a category sidebar (macOS System-Settings style) with one pane per topic,
   so only the settings you're changing are on screen: **Appearance** (font and default size,
   text color, default pane background), **Terminal** (the shell
