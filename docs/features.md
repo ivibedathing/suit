@@ -724,8 +724,8 @@ app does.
 - **Section boundaries** — the chrome surfaces (activity bar, sidebar, pane headers, in-pane tab
   bars) deliberately share one ground, so every boundary between them is drawn as a hairline in
   the active theme's `hairline` token rather than left to a change of color: a full-height rule
-  down the activity bar's right edge plus a short rule between each of its icons, themed split
-  dividers between the sidebar and the pane tree and between every pair of panes (AppKit's system
+  down the activity bar's right edge (its icons carry no rules between them — the hover square is
+  already the cell boundary), themed split dividers between the sidebar and the pane tree and between every pair of panes (AppKit's system
   divider is derived from the appearance, not the palette, and vanishes on the darker themes), a
   rule under each pane header, and a rule between adjacent tabs in a pane's tab bar — skipped
   beside the active tab, whose own border already marks that edge. Everything follows a theme
