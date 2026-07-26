@@ -10,7 +10,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     let minFontSize: CGFloat = 8
     let maxFontSize: CGFloat = 36
 
-    var currentFont = TerminalView.FontSet.defaultFont
+    // Hack ships inside the app and is the default; SwiftTerm's
+    // system-monospaced default is the safety net for a build whose
+    // Resources/fonts never made it into the bundle. Registration is asked for
+    // here rather than assumed from main.swift, because the offscreen render
+    // harnesses construct an AppDelegate without going through main.swift.
+    var currentFont: NSFont = {
+        BundledFonts.ensureRegistered()
+        return NSFont(name: BundledFonts.regularName, size: NSFont.systemFontSize)
+            ?? TerminalView.FontSet.defaultFont
+    }()
     lazy var currentTextColor = PaneTerminalView(frame: .zero).nativeForegroundColor
     // Whether file-viewer panes soft-wrap long lines (View ▸ Word Wrap);
     // terminals are unaffected — the shell owns their line discipline.

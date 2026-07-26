@@ -40,6 +40,13 @@ echo "==> Assembling bundle"
 cp "$ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 
+# Bundle Hack (source-foundry.github.io/Hack, v3.003, MIT + Bitstream Vera) so
+# the default coding font ships with the app instead of depending on what the
+# user happens to have installed. Registered into the process at launch by
+# BundledFonts.ensureRegistered — not via Info.plist's ATSApplicationFontsPath,
+# which wouldn't cover the bare `swiftc` dev binary the design render uses.
+cp -R "$ROOT/Resources/fonts" "$CONTENTS/Resources/fonts"
+
 # Bundle ripgrep (project-wide search) so the app doesn't depend on the user's
 # PATH. Skipped when rg isn't installed on the build machine; the app then
 # falls back to common install locations at runtime (see RipgrepSearch.swift).

@@ -9,9 +9,22 @@ import Cocoa
 extension AppDelegate {
     func loadSettings() {
         let defaults = UserDefaults.standard
-        if let fontName = defaults.string(forKey: "fontName") {
-            let size = defaults.double(forKey: "fontSize")
-            currentFont = NSFont(name: fontName, size: size > 0 ? CGFloat(size) : currentFont.pointSize) ?? currentFont
+        // "hackFontMigrated" is a one-shot marker, not a setting, which is why
+        // it has no partner in saveSettings: the first launch after Hack
+        // started shipping moves everyone who was still on the old
+        // system-monospaced default onto Hack, then latches so a deliberate
+        // switch back survives. BundledFonts.resolvedFontName owns the rule.
+        let migrated = defaults.bool(forKey: "hackFontMigrated")
+        let fontName = BundledFonts.resolvedFontName(
+            persisted: defaults.string(forKey: "fontName"), migrated: migrated)
+        let size = defaults.double(forKey: "fontSize")
+        currentFont = NSFont(name: fontName, size: size > 0 ? CGFloat(size) : currentFont.pointSize) ?? currentFont
+        if !migrated {
+            defaults.set(true, forKey: "hackFontMigrated")
+            // Write the migrated name through immediately rather than waiting
+            // for the next settings change, so UserDefaults never disagrees
+            // with what the app is actually drawing.
+            defaults.set(currentFont.fontName, forKey: "fontName")
         }
         if defaults.object(forKey: "textColorR") != nil {
             currentTextColor = NSColor(

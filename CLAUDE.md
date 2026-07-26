@@ -4,8 +4,8 @@ Guidance for Claude Code (claude.ai/code) working in this repository.
 
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app: a native AppKit bundle
 whose windows host split trees of panes showing browser-style tabs — terminals (`/bin/zsh -l -i`
-on SwiftTerm's pty), file viewers, diffs, transcripts, dashboards. One module, 212 Swift files,
-nothing beyond AppKit and vendored SwiftTerm.
+on SwiftTerm's pty), file viewers, diffs, transcripts, dashboards. One module, 215 Swift files,
+nothing beyond AppKit, vendored SwiftTerm, and the bundled Hack font.
 
 `README.md` is the pitch, `docs/features.md` the shipped-behavior reference, `docs/development.md`
 the human setup guide. This file is for you: the rules that aren't discoverable from the code, and
