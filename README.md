@@ -64,7 +64,8 @@ working.
 - **Autopilot** — autonomous, budget-aware execution of a project's roadmap with build and
   headless-review gates before it auto-merges each phase.
 - **Native and honest** — one signed app bundle, real ptys, login + interactive shells, and
-  passwords kept only in the macOS Keychain.
+  passwords kept only in the macOS Keychain. [Hack](https://sourcefoundry.org/hack) is bundled and
+  used by default, so a fresh install looks right with nothing to install first.
 
 ## Features
 
