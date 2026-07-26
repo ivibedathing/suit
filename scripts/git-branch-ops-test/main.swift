@@ -250,6 +250,47 @@ check(GitBranchOps.deletableBranches(all: ["main", "x"], current: nil, checkedOu
 check(GitBranchOps.deletableBranches(all: [], current: "main", checkedOutElsewhere: []).isEmpty,
       "no branches → nothing to delete")
 
+// MARK: - Remote state
+
+print("== GitBranchOps.remoteState ==")
+// The real shape of `for-each-ref --format=%(refname:short) refs/remotes`:
+// short names, and refs/remotes/origin/HEAD collapses to a bare "origin".
+let refs: Set<String> = ["origin", "origin/main", "origin/feature/a", "upstream/main"]
+check(GitBranchOps.remoteState(branch: "main", upstream: "origin/main", remoteRefs: refs) == .published,
+      "a tracked branch whose upstream ref exists is published")
+// The whole reason this reads refs rather than tracking config: pushed without
+// -u, or cloned by someone else, and the branch is still on the remote.
+check(GitBranchOps.remoteState(branch: "feature/a", upstream: nil, remoteRefs: refs) == .published,
+      "an untracked branch matching a remote ref is published")
+check(GitBranchOps.remoteState(branch: "feature/b", upstream: nil, remoteRefs: refs) == .localOnly,
+      "an untracked branch with no matching ref is local-only")
+check(GitBranchOps.remoteState(branch: "old", upstream: "origin/old", remoteRefs: refs) == .gone,
+      "a configured upstream with no ref is gone")
+// The remote is split off at the first slash, so a short branch name can't
+// claim a nested ref by suffix.
+check(GitBranchOps.remoteState(branch: "a", upstream: nil, remoteRefs: refs) == .localOnly,
+      "branch \"a\" does not match origin/feature/a")
+check(GitBranchOps.remoteState(branch: "main", upstream: nil, remoteRefs: ["upstream/main"]) == .published,
+      "any remote counts, not just origin")
+check(GitBranchOps.remoteState(branch: "main", upstream: "", remoteRefs: refs) == .published,
+      "an empty upstream string is treated as untracked, not as a missing ref")
+check(GitBranchOps.remoteState(branch: "main", upstream: nil, remoteRefs: []) == .localOnly,
+      "no remotes at all → local-only")
+// The bare "origin" HEAD alias has no slash to split on; it must not crash or
+// claim a local branch called "origin".
+check(GitBranchOps.remoteState(branch: "origin", upstream: nil, remoteRefs: refs) == .localOnly,
+      "the bare \"origin\" HEAD alias matches no branch")
+
+print("== GitBranchOps.remoteStatePhrase ==")
+check(GitBranchOps.remoteStatePhrase(.published, upstream: "origin/main") == "on origin/main",
+      "a tracked published branch names its upstream")
+check(GitBranchOps.remoteStatePhrase(.published, upstream: nil).contains("not tracked"),
+      "a published branch with no upstream says so")
+check(GitBranchOps.remoteStatePhrase(.localOnly, upstream: nil).contains("never pushed"),
+      "local-only reads as never pushed")
+check(GitBranchOps.remoteStatePhrase(.gone, upstream: "origin/old").hasPrefix("origin/old"),
+      "gone names the upstream that vanished")
+
 // MARK: - Upstream diff
 
 print("== GitBranchOps.upstreamDiff ==")

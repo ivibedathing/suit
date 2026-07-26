@@ -253,6 +253,12 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
 
         let menu = NSMenu()
         menu.delegate = self
+        // Manual enabling: the row menus disable items to *explain* a refusal
+        // (a branch a worktree holds can't be deleted), and AppKit's automatic
+        // pass would re-enable anything whose selector the view implements.
+        // Every item here is enabled unless it says otherwise, headerItem
+        // included — it disables itself.
+        menu.autoenablesItems = false
         tableView.menu = menu
 
         scrollView.documentView = tableView

@@ -357,9 +357,15 @@ app does.
   row** (the upstream badge and a ⋯ actions menu — the same fetch/pull/push/stash/branches set the
   Files header offers), the **commit box**, and then the file list: **Staged** and **Changes**
   sections (click a file to open its scoped diff; untracked files open in the viewer) followed by
-  a **Branches** list — every local branch with its ahead/behind vs upstream (green ↑ / amber ↓),
-  a worktree glyph, and a dirty dot, the current one highlighted. Click a branch to check it out
-  (or switch the sidebar to its worktree).
+  a **Branches** list — every local branch with a remote cloud, its ahead/behind vs upstream
+  (green ↑ / amber ↓), a worktree glyph, and a dirty dot, the current one highlighted. Click a
+  branch to check it out (or switch the sidebar to its worktree).
+- **Is this branch on the remote?** — each branch row carries a cloud: **filled** when a remote has
+  it, **hollow** when it has only ever lived here, and a **red struck-through** cloud when the
+  upstream it tracks is gone (merged and deleted on the remote, say). The answer comes from the
+  remote-tracking refs rather than from tracking config, so a branch that was pushed without `-u`
+  — or arrived with a clone — still reads as published. Like git's own `gone` marker it's a local
+  view: fetch to refresh it. Hover the row for the state in words.
 - **Staging** — every file row ends in a **+** (stage) or **−** (unstage), and each section header
   has the bulk twin: **+** on Changes stages everything (`add -A`, untracked files included), **−**
   on Staged empties the index with a mixed reset, so nothing on disk moves. Right-click a row for
@@ -379,6 +385,11 @@ app does.
   the branch, body from its commits), **Open on GitHub**, and **Checkout**. When a PR exists it
   shows a `#N` badge with a ✓/✕/• checks glyph. Everything degrades gracefully without the `gh`
   CLI — the menu still checks out, and shows a hint to install gh.
+- **Delete a branch** — the same right-click menu ends in **Delete Branch**, the safe `git branch
+  -d`: an unmerged branch fails first and *then* offers to force it, so the warning only appears
+  when it's true. The current branch has no entry, and one another worktree holds is shown
+  disabled naming that worktree — git refuses either, and saying so beats hiding the action. Only
+  the local branch goes; the remote is untouched.
 - **"What changed while I was away"** — start Claude sessions across a repo's worktrees, step
   away, and come back to *one* diff of everything that moved. The Source Control tab's ⚑ button (or the
   palette's **Mark Now**) records a per-repo checkpoint — every worktree's HEAD plus a timestamp,

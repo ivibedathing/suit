@@ -16,6 +16,12 @@ struct GitBranchInfo {
     let isCurrent: Bool          // the shown root's checked-out branch
     let worktreePath: String?    // the worktree this branch is checked out in
     let isDirty: Bool            // that worktree has uncommitted changes
+    let remote: GitBranchOps.RemoteState  // published / local-only / upstream gone
+
+    // git will only delete a branch no worktree holds — the checked-out one
+    // included (the shown root is itself a worktree, so `isCurrent` is implied
+    // by `worktreePath`, but say both: a detached-HEAD root leaves neither set).
+    var isDeletable: Bool { !isCurrent && worktreePath == nil }
 }
 
 enum GitBranchList {
@@ -33,6 +39,7 @@ enum GitBranchList {
         ]) else { return [] }
 
         let worktrees = worktreeBranchMap(root: root)
+        let remotes = remoteRefs(root: root)
         var dirtyByPath: [String: Bool] = [:]
         var result: [GitBranchInfo] = []
         for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
@@ -52,7 +59,8 @@ enum GitBranchList {
             }
             result.append(GitBranchInfo(
                 name: name, upstream: upstream, ahead: ahead, behind: behind,
-                isCurrent: name == currentBranch, worktreePath: worktreePath, isDirty: dirty
+                isCurrent: name == currentBranch, worktreePath: worktreePath, isDirty: dirty,
+                remote: GitBranchOps.remoteState(branch: name, upstream: upstream, remoteRefs: remotes)
             ))
         }
         result.sort { a, b in
@@ -68,6 +76,17 @@ enum GitBranchList {
     private static func parseTrack(_ track: String) -> (ahead: Int, behind: Int) {
         let parsed = GitBranchOps.parseTrack(track)
         return (parsed.ahead, parsed.behind)
+    }
+
+    // Every remote-tracking ref in short form ("origin/main"), from the same
+    // cheap for-each-ref plumbing as the branch pass. This is a *local* view of
+    // the remote — refs go stale until the next `fetch --prune`, exactly as
+    // git's own "gone" marker does.
+    private static func remoteRefs(root: String) -> Set<String> {
+        guard let output = runProcess(git, [
+            "-C", root, "for-each-ref", "--format=%(refname:short)", "refs/remotes",
+        ]) else { return [] }
+        return Set(output.split(separator: "\n", omittingEmptySubsequences: true).map(String.init))
     }
 
     // branch name → the worktree path it's checked out in, from

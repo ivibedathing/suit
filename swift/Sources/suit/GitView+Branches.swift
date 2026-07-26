@@ -78,6 +78,38 @@ extension GitView {
         } else {
             menu.addItem(Self.headerItem("Install the gh CLI for PR actions"))
         }
+        addDeleteItem(menu, branch: branch)
+    }
+
+    // Delete lands last and behind a separator — it's the one item here that
+    // destroys something. Only the safe `-d`: an unmerged branch fails first
+    // and the failure alert offers the force variant, so the warning appears
+    // exactly when it's true (see TerminalWindowController+GitActions).
+    //
+    // A branch another worktree holds gets the item disabled rather than
+    // hidden: git's refusal is the interesting fact, and silently dropping it
+    // would read as "delete isn't a thing here". The current branch is the one
+    // case worth hiding — the row already shows it's the one you're on.
+    private func addDeleteItem(_ menu: NSMenu, branch: GitBranchInfo) {
+        guard !branch.isCurrent else { return }
+        menu.addItem(.separator())
+        let item = menu.addItem(withTitle: "Delete Branch", action: #selector(deleteBranchItem(_:)), keyEquivalent: "")
+        item.target = self
+        item.representedObject = branch.name
+        item.isEnabled = branch.isDeletable
+        if let worktree = branch.worktreePath {
+            item.toolTip = "“\(branch.name)” is checked out in \((worktree as NSString).abbreviatingWithTildeInPath)"
+                + " — git won’t delete a branch a worktree holds."
+        }
+    }
+
+    @objc private func deleteBranchItem(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        // Deleting a branch moves no file, so the status monitor may never fire
+        // — reload the list off the action's own completion instead.
+        run(.deleteBranch(name: name, force: false)) { [weak self] _ in
+            self?.loadBranchData()
+        }
     }
 
     @objc private func activateBranchItem(_ sender: NSMenuItem) {

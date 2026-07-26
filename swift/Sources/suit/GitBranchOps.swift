@@ -93,6 +93,52 @@ enum GitBranchOps {
         return SyncState(upstream: upstream, ahead: parsed.ahead, behind: parsed.behind, isGone: parsed.isGone)
     }
 
+    // MARK: - Remote presence
+
+    // Whether a branch exists on a remote at all — the question the branch
+    // list's cloud icon answers, which is *not* the same question as
+    // `SyncState`. A branch can sit on origin with no upstream configured
+    // (cloned by someone else, or pushed without -u), and tracking config alone
+    // would call that local-only.
+    enum RemoteState: Equatable {
+        case published   // a remote-tracking ref for this branch exists
+        case localOnly   // no remote has it — never pushed
+        case gone        // an upstream is configured but its ref is gone
+    }
+
+    // Decided from the remote-tracking refs, not from `%(upstream:track)`: the
+    // refs are the ground truth for "does the remote have this", and the track
+    // field only speaks for branches that configured an upstream.
+    //
+    // `remoteRefs` is the short form (`origin/feature/a`), so an untracked
+    // branch matches on `<remote>/<name>` with the remote split off at the
+    // *first* slash — a plain `hasSuffix("/a")` would let branch "a" claim
+    // `origin/feature/a`.
+    static func remoteState(branch: String, upstream: String?, remoteRefs: Set<String>) -> RemoteState {
+        if let upstream, !upstream.isEmpty {
+            return remoteRefs.contains(upstream) ? .published : .gone
+        }
+        for ref in remoteRefs {
+            guard let slash = ref.firstIndex(of: "/") else { continue }
+            if ref[ref.index(after: slash)...] == branch { return .published }
+        }
+        return .localOnly
+    }
+
+    // The clause the branch row's tooltip appends for its cloud icon, and the
+    // icon's own accessibility label. Named so the two can't drift.
+    static func remoteStatePhrase(_ state: RemoteState, upstream: String?) -> String {
+        switch state {
+        case .published:
+            guard let upstream, !upstream.isEmpty else { return "on the remote, not tracked" }
+            return "on \(upstream)"
+        case .localOnly:
+            return "local only — never pushed"
+        case .gone:
+            return "\(upstream ?? "its upstream") no longer exists on the remote"
+        }
+    }
+
     // MARK: - Actions
 
     enum Action: Equatable {
