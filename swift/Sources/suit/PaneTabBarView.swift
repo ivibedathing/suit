@@ -285,6 +285,9 @@ final class PaneTabBarView: NSView {
 
     private var chips: [String: PaneTabChipView] = [:]
     private var order: [Tab] = []
+    // Which chip is active, so the separators can skip the two gaps touching
+    // it — its rounded border already marks both of those boundaries.
+    private var activeId: String?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -313,6 +316,7 @@ final class PaneTabBarView: NSView {
 
     func configure(tabs: [Tab], activeId: String?) {
         order = tabs
+        self.activeId = activeId
         var seen = Set<String>()
         for tab in tabs {
             seen.insert(tab.id)
@@ -369,12 +373,36 @@ final class PaneTabBarView: NSView {
             chip.frame = NSRect(x: x, y: y, width: min(width, max(0, bounds.width - Self.inset - x)), height: PaneTabChipView.height)
             x += width + Self.gap
         }
+        // The separators are drawn from the chip frames laid out just above, so
+        // any relayout has to repaint the bar as well.
+        needsDisplay = true
     }
 
-    // Hairline along the bottom so the bar reads as a distinct band above the
-    // content the way the header does above it.
+    // Two rules: a hairline along the bottom so the bar reads as a distinct
+    // band above the content the way the header does above it, and a short
+    // vertical hairline in each gap between chips.
+    //
+    // Only the active chip draws a ground of its own; every inactive one is
+    // transparent, so a row of four tabs used to be four titles floating on one
+    // continuous bar with nothing saying where one ended and the next began.
+    // The gaps touching the active chip are skipped — its rounded border
+    // already marks those two boundaries, and a rule right beside it reads as
+    // a double line.
     override func draw(_ dirtyRect: NSRect) {
         Theme.hairline.setFill()
         NSRect(x: 0, y: 0, width: bounds.width, height: 1).fill()
+
+        // Inset from the chip's own top and bottom so the rule is a divider
+        // between two labels, not a full-height grid line.
+        let inset: CGFloat = 5
+        let top = (bounds.height + PaneTabChipView.height) / 2 - inset
+        let bottom = (bounds.height - PaneTabChipView.height) / 2 + inset
+        for (index, tab) in order.enumerated() where index + 1 < order.count {
+            guard tab.id != activeId, order[index + 1].id != activeId,
+                  let left = chips[tab.id], let right = chips[order[index + 1].id],
+                  right.frame.minX > left.frame.maxX else { continue }
+            let midX = (left.frame.maxX + right.frame.minX) / 2
+            NSRect(x: midX.rounded() - 0.5, y: bottom, width: 1, height: max(0, top - bottom)).fill()
+        }
     }
 }

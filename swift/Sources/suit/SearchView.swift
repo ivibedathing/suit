@@ -51,13 +51,14 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
     // the wash in the panes can never outlive the list that explains it.
     var onHighlightQueryChange: ((FindQuery?) -> Void)?
 
-    private static let headerHeight: CGFloat = 26
+    // The tab's title band, shared with every other sidebar tab.
+    private static let headerHeight = SidebarTitle.height
     // The left gutter the replace chevron lives in. Both field boxes start here,
     // so the chevron reads as owning the pair rather than as decoration on the
     // first row.
     private static let gutterWidth: CGFloat = 20
 
-    private let headerLabel = NSTextField(labelWithString: "")
+    private let headerLabel = SidebarTitle.label("SEARCH")
     private let refreshButton = NSButton(frame: .zero)
     private let clearButton = NSButton(frame: .zero)
     private let viewModeButton = NSButton(frame: .zero)
@@ -128,7 +129,6 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
             toggle.target = self
         }
 
-        headerLabel.attributedStringValue = Self.headerTitle()
         addSubview(headerLabel)
 
         configure(toolbarButton: refreshButton, symbol: "arrow.clockwise",
@@ -191,8 +191,14 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
         outlineView.rowHeight = 22
         outlineView.indentationPerLevel = 10
         outlineView.autoresizesOutlineColumn = false
+        // .inset, matching the Files tree — not .sourceList, which backs the
+        // scroll view with AppKit's sidebar material (blendingMode
+        // .behindWindow). Behind-window blending samples the desktop, not the
+        // views under it, so the results list took its ground from whatever
+        // wallpaper was behind the window instead of from the palette.
+        // Order matters: the style resets backgroundColor, so clear it after.
+        outlineView.style = .inset
         outlineView.backgroundColor = .clear
-        outlineView.style = .sourceList
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.target = self
@@ -217,14 +223,6 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    private static func headerTitle() -> NSAttributedString {
-        NSAttributedString(string: "SEARCH", attributes: [
-            .font: Theme.captionFont,
-            .foregroundColor: Theme.textFaint,
-            .kern: Theme.captionKern,
-        ])
     }
 
     private func configure(toolbarButton button: NSButton, symbol: String,
@@ -256,7 +254,6 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
     // draw()-based chrome — can't reach them; SidebarView.reapplyTheme() calls
     // this instead.
     func reapplyTheme() {
-        headerLabel.attributedStringValue = Self.headerTitle()
         statusLabel.textColor = Theme.textDim
         for button in [refreshButton, clearButton, viewModeButton, collapseButton,
                        replaceAllButton, replaceToggle] {

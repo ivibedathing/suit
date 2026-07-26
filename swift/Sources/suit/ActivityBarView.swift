@@ -66,6 +66,18 @@ final class ActivityBarView: NSView {
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         layoutContents()
+        needsDisplay = true
+    }
+
+    // The bar and the sidebar beside it share one ground (`barChrome`), which
+    // is the look — but it also means the strip has no edge and runs into the
+    // panel. One full-height hairline down the right edge gives it back, so the
+    // icons read as a column of their own. Deliberately the *only* rule here:
+    // per-icon separators were tried and read as a list of rows, which fought
+    // the hover square that is already the cell boundary.
+    override func draw(_ dirtyRect: NSRect) {
+        Theme.hairline.setFill()
+        NSRect(x: bounds.maxX - 1, y: 0, width: 1, height: bounds.height).fill()
     }
 
     // Manual layout, consistent with the rest of the window's chrome (Auto
@@ -73,8 +85,8 @@ final class ActivityBarView: NSView {
     private func layoutContents() {
         let size = RailIconView.size
         // Shared with the sidebar's own top inset so the first icon and the tab
-        // content beside it start on one line — 8pt of its own read as the strip
-        // hanging off the window's top edge.
+        // content beside it start on one line — now that both are zero, the
+        // icon's 40pt cell brackets the 28pt title band next to it.
         let topPadding = SidebarView.topInset
         let gap: CGFloat = 4
         // Unflipped coords: start at the top edge and walk down.

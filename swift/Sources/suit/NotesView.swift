@@ -78,9 +78,10 @@ private final class NoteTableView: NSTableView {
 }
 
 final class NotesView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
-    private static let headerHeight: CGFloat = 26
+    // The tab's title band, shared with every other sidebar tab.
+    private static let headerHeight = SidebarTitle.height
 
-    private let headerLabel = NSTextField(labelWithString: "")
+    private let headerLabel = SidebarTitle.label("NOTES")
     private let addButton = NSButton(frame: .zero)
     private let listScrollView = NSScrollView(frame: .zero)
     private let tableView = NoteTableView(frame: .zero)
@@ -94,14 +95,6 @@ final class NotesView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMen
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        headerLabel.attributedStringValue = NSAttributedString(
-            string: "NOTES",
-            attributes: [
-                .font: Theme.captionFont,
-                .foregroundColor: Theme.textFaint,
-                .kern: Theme.captionKern,
-            ]
-        )
         addSubview(headerLabel)
 
         addButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "New Note")
@@ -117,8 +110,11 @@ final class NotesView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMen
         column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
         tableView.headerView = nil
+        // .inset, not .sourceList: the source-list style blends AppKit's sidebar
+        // material with the desktop behind the window, which ignores the palette.
+        // The style resets backgroundColor, so clear it after.
+        tableView.style = .inset
         tableView.backgroundColor = .clear
-        tableView.style = .sourceList
         tableView.dataSource = self
         tableView.delegate = self
         tableView.target = self
@@ -162,7 +158,10 @@ final class NotesView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMen
         super.layout()
         let width = bounds.width
         headerLabel.sizeToFit()
-        headerLabel.frame.origin = NSPoint(x: 10, y: (Self.headerHeight - headerLabel.frame.height) / 2)
+        headerLabel.frame.origin = NSPoint(
+            x: SidebarTitle.leftInset,
+            y: (Self.headerHeight - headerLabel.frame.height) / 2
+        )
         addButton.frame = NSRect(x: width - 26, y: (Self.headerHeight - 18) / 2, width: 18, height: 18)
         listScrollView.frame = NSRect(
             x: 0, y: Self.headerHeight,

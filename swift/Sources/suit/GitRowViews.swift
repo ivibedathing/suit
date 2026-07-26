@@ -251,12 +251,13 @@ final class GitCommitRowView: NSTableCellView {
 }
 
 // One branch row: branch-icon + name on the left (current branch in
-// accent/semibold), and a right-aligned cluster of ahead/behind counts, an
-// optional PR badge, and a dirty dot. A worktree glyph marks branches checked
-// out in a linked worktree.
+// accent/semibold), and a right-aligned cluster of a remote cloud, ahead/behind
+// counts, an optional PR badge, and a dirty dot. A worktree glyph marks
+// branches checked out in a linked worktree.
 final class GitBranchRowView: NSTableCellView {
     private let icon = NSImageView(frame: .zero)
     private let nameLabel = NSTextField(labelWithString: "")
+    private let remoteIcon = NSImageView(frame: .zero)
     private let detailLabel = NSTextField(labelWithString: "")
     private let dirtyDot = NSView(frame: .zero)
     private let worktreeIcon = NSImageView(frame: .zero)
@@ -274,6 +275,9 @@ final class GitBranchRowView: NSTableCellView {
         worktreeIcon.contentTintColor = Theme.textFaint
         worktreeIcon.imageScaling = .scaleProportionallyDown
         addSubview(worktreeIcon)
+
+        remoteIcon.imageScaling = .scaleProportionallyDown
+        addSubview(remoteIcon)
 
         detailLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
         detailLabel.alignment = .right
@@ -303,6 +307,7 @@ final class GitBranchRowView: NSTableCellView {
             ]
         )
         worktreeIcon.isHidden = branch.worktreePath == nil || branch.isCurrent
+        applyRemote(branch.remote)
 
         let detail = NSMutableAttributedString()
         if branch.ahead > 0 {
@@ -336,9 +341,28 @@ final class GitBranchRowView: NSTableCellView {
         var tip = branch.name
         if let upstream = branch.upstream { tip += " → \(upstream)" }
         if branch.ahead > 0 || branch.behind > 0 { tip += " (ahead \(branch.ahead), behind \(branch.behind))" }
+        tip += " · " + GitBranchOps.remoteStatePhrase(branch.remote, upstream: branch.upstream)
         if let pr { tip += " · PR #\(pr.number) \(pr.state.rawValue.lowercased())" }
         toolTip = tip
         needsLayout = true
+    }
+
+    // The cloud: filled when a remote has the branch, hollow when it has only
+    // ever lived here, struck through when the upstream it tracks is gone. The
+    // shape carries it — the tint only reinforces, so it still reads on a
+    // palette where dim and faint are close.
+    private func applyRemote(_ state: GitBranchOps.RemoteState) {
+        let symbol: String, tint: NSColor
+        switch state {
+        case .published: (symbol, tint) = ("icloud.fill", Theme.textDim)
+        case .localOnly: (symbol, tint) = ("icloud", Theme.textFaint)
+        case .gone: (symbol, tint) = ("icloud.slash", Theme.failed)
+        }
+        let label = GitBranchOps.remoteStatePhrase(state, upstream: nil)
+        remoteIcon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 9, weight: .regular))
+        remoteIcon.contentTintColor = tint
+        remoteIcon.setAccessibilityLabel(label)
     }
 
     private static func prColor(_ pr: GitPRInfo) -> NSColor {
@@ -366,6 +390,12 @@ final class GitBranchRowView: NSTableCellView {
         let detailWidth = min(detailLabel.frame.width + 2, max(0, bounds.width - 120))
         detailLabel.frame = NSRect(x: rightEdge - detailWidth, y: (bounds.height - 15) / 2, width: detailWidth, height: 15)
         rightEdge -= detailWidth + 6
+        // The cloud leads the right-hand cluster rather than trailing the name:
+        // every branch has a remote state, so a name-anchored icon would jitter
+        // with each name's width, and the counts beside it are what it's read
+        // against anyway.
+        remoteIcon.frame = NSRect(x: rightEdge - 12, y: (bounds.height - 11) / 2, width: 12, height: 11)
+        rightEdge -= 16
         var nameX: CGFloat = 24
         if !worktreeIcon.isHidden {
             worktreeIcon.frame = NSRect(x: nameX, y: (bounds.height - 11) / 2, width: 11, height: 11)

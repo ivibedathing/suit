@@ -61,6 +61,18 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // A hairline along the bottom edge, so the header is a band with a floor
+    // rather than a title floating over whatever is below it. The header, the
+    // in-pane tab bar and (for a viewer or a dashboard) the content itself all
+    // sit on the same `barChrome`-adjacent ground; without the rule the three
+    // run together and the pane has no visible internal structure. The tab bar
+    // draws the matching rule under itself, so a pane with 2+ tabs reads as
+    // header │ tabs │ content.
+    override func draw(_ dirtyRect: NSRect) {
+        Theme.hairline.setFill()
+        NSRect(x: 0, y: 0, width: bounds.width, height: 1).fill()
+    }
+
     var title: String = "" {
         didSet { label.stringValue = title }
     }
@@ -159,6 +171,9 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         layoutBar()
+        // Layer-backed, so a resize would otherwise stretch the last drawn
+        // hairline instead of redrawing it at the new width.
+        needsDisplay = true
     }
 
     private func layoutBar() {

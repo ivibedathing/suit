@@ -70,12 +70,24 @@ app does.
   Clicking the icon of the tab you're already on collapses the sidebar again (as ⌘B does). The
   Source Control icon carries a count badge of the changed files in the shown repo, so a dirty
   tree is visible with the sidebar closed.
-- **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. The
-  Files tab leads with a single project header — the folder name (a pin glyph when pinned) with
-  search / choose-folder / unpin actions, and, inside a repo, a branch row carrying the branch
-  switcher, the upstream sync badge and the git actions menu — and gives the rest of the tab to
-  the tree. The tree shows sub-project badges (`go.mod`, `package.json`,
+- **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. Every tab opens
+  with its own title — FILES, SEARCH, SOURCE CONTROL, SESSIONS, SSH HOSTS, NOTES, BOOKMARKS —
+  since the activity bar itself shows icons only; the title row also carries that tab's header
+  actions (the Files header's buttons, Search's toolbar, the + on Notes and SSH Hosts), and it
+  follows a live theme switch. That row starts flush with the panel's top edge — it is the margin,
+  so no blank band sits above it — and the activity bar's first icon starts on the same line.
+- **Files tab** — leads with a single project header: the title row's search / choose-folder /
+  unpin actions, the folder name below it (a pin glyph when pinned), and, inside a repo, a branch
+  row carrying the branch switcher, the upstream sync badge and the git actions menu — then gives
+  the rest of the tab to the tree. The tree shows sub-project badges (`go.mod`, `package.json`,
   …) and git status letters, and can be pinned to any folder.
+- **Click to select, double-click to open beside** — a single click on a file only selects it (on a
+  folder it expands or collapses); a double-click opens the file in a **pane of its own** next to
+  the active one, side-by-side when the pane is wide enough and stacked when it's tall. Reading a
+  second file therefore never buries the first. Files stay deduped by path, so double-clicking one
+  that's already open focuses the pane it's already in rather than splitting again, and a window
+  with no room left to split falls back to opening it in the active pane. New File… still opens
+  what you just created in the active pane.
 - **Git status as colour** — inside a repo each filename is tinted by its own status: green for
   added or untracked, amber for modified or renamed, red for deleted, grey for gitignored, plain
   text for clean. The colours are the same palette tokens as the status letter beside them, so
@@ -352,14 +364,20 @@ app does.
   branch that's both ahead and behind reads as *your work* rather than as reversed upstream
   commits. The counts come from the last fetch, not the network — **Fetch** refreshes them.
 - **Source Control tab** (⌃⌘G, the activity bar's branch icon, or **Show Source Control** in the
-  palette) — the whole local git loop in the sidebar. Top to bottom: a **branch row** (the
+  palette) — the whole local git loop in the sidebar. Top to bottom: the tab title, a **branch row** (the
   worktree/branch switcher, plus the ⚑ marker, ± full-diff and commit-graph buttons), a **sync
   row** (the upstream badge and a ⋯ actions menu — the same fetch/pull/push/stash/branches set the
   Files header offers), the **commit box**, and then the file list: **Staged** and **Changes**
   sections (click a file to open its scoped diff; untracked files open in the viewer) followed by
-  a **Branches** list — every local branch with its ahead/behind vs upstream (green ↑ / amber ↓),
-  a worktree glyph, and a dirty dot, the current one highlighted. Click a branch to check it out
-  (or switch the sidebar to its worktree).
+  a **Branches** list — every local branch with a remote cloud, its ahead/behind vs upstream
+  (green ↑ / amber ↓), a worktree glyph, and a dirty dot, the current one highlighted. Click a
+  branch to check it out (or switch the sidebar to its worktree).
+- **Is this branch on the remote?** — each branch row carries a cloud: **filled** when a remote has
+  it, **hollow** when it has only ever lived here, and a **red struck-through** cloud when the
+  upstream it tracks is gone (merged and deleted on the remote, say). The answer comes from the
+  remote-tracking refs rather than from tracking config, so a branch that was pushed without `-u`
+  — or arrived with a clone — still reads as published. Like git's own `gone` marker it's a local
+  view: fetch to refresh it. Hover the row for the state in words.
 - **Staging** — every file row ends in a **+** (stage) or **−** (unstage), and each section header
   has the bulk twin: **+** on Changes stages everything (`add -A`, untracked files included), **−**
   on Staged empties the index with a mixed reset, so nothing on disk moves. Right-click a row for
@@ -375,10 +393,21 @@ app does.
   unchanged), and the bulk stage/unstage entries. The message box only clears once the commit has
   actually landed, so a rejected pre-commit hook doesn't cost you what you typed. Nothing here
   force-pushes: amending something already pushed fails at the push, loudly.
+- **A bigger message box** — the grip between the message and the Commit button (the pointer turns
+  into a resize cursor over it) drags the box taller, up to 320pt, and back down to its two-line
+  default; the file list moves with it. The height is remembered across launches, and a short
+  window overrides it rather than squeezing the file list below ~90pt. The box never resizes on
+  its own while you type — a box that grew with the text would move the file list under the
+  pointer mid-edit.
 - **Branch → PR** — right-click a branch for gh actions: **Create PR…** (title prefilled from
   the branch, body from its commits), **Open on GitHub**, and **Checkout**. When a PR exists it
   shows a `#N` badge with a ✓/✕/• checks glyph. Everything degrades gracefully without the `gh`
   CLI — the menu still checks out, and shows a hint to install gh.
+- **Delete a branch** — the same right-click menu ends in **Delete Branch**, the safe `git branch
+  -d`: an unmerged branch fails first and *then* offers to force it, so the warning only appears
+  when it's true. The current branch has no entry, and one another worktree holds is shown
+  disabled naming that worktree — git refuses either, and saying so beats hiding the action. Only
+  the local branch goes; the remote is untouched.
 - **"What changed while I was away"** — start Claude sessions across a repo's worktrees, step
   away, and come back to *one* diff of everything that moved. The Source Control tab's ⚑ button (or the
   palette's **Mark Now**) records a per-repo checkpoint — every worktree's HEAD plus a timestamp,
@@ -706,6 +735,15 @@ app does.
   "Ember" (#21100A), with Dracula, Nord and Solarized Dark at their published values. All stay
   dark enough that dim ANSI text keeps its contrast. The same list backs the screensaver's
   background menu.
+- **Section boundaries** — the chrome surfaces (activity bar, sidebar, pane headers, in-pane tab
+  bars) deliberately share one ground, so every boundary between them is drawn as a hairline in
+  the active theme's `hairline` token rather than left to a change of color: a full-height rule
+  down the activity bar's right edge (its icons carry no rules between them — the hover square is
+  already the cell boundary), themed split dividers between the sidebar and the pane tree and between every pair of panes (AppKit's system
+  divider is derived from the appearance, not the palette, and vanishes on the darker themes), a
+  rule under each pane header, and a rule between adjacent tabs in a pane's tab bar — skipped
+  beside the active tab, whose own border already marks that edge. Everything follows a theme
+  switch live.
 
 ## Themes
 

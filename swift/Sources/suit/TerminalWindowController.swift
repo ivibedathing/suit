@@ -190,6 +190,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.fileBrowser.onOpenFile = { [weak self] path in
             self?.openFile(atPath: path, line: nil)
         }
+        sidebar.fileBrowser.onOpenFileInNewPane = { [weak self] path in
+            self?.openFile(atPath: path, line: nil, inNewPane: true)
+        }
         sidebar.sshHostsView.onConnect = { [weak self] host in
             self?.openSSHTab(host: host)
         }
@@ -351,7 +354,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
             }
         }
 
-        sidebarSplit = NSSplitView(frame: frame)
+        sidebarSplit = SuitSplitView(frame: frame)
         sidebarSplit.isVertical = true
         sidebarSplit.dividerStyle = .thin
         sidebarSplit.delegate = self

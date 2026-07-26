@@ -170,9 +170,10 @@ private final class BookmarkTableView: NSTableView {
 // right-click renames or removes. Backed by the shared BookmarksStore, so every
 // window's tab stays in sync.
 final class BookmarksView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
-    private static let headerHeight: CGFloat = 26
+    // The tab's title band, shared with every other sidebar tab.
+    private static let headerHeight = SidebarTitle.height
 
-    private let headerLabel = NSTextField(labelWithString: "")
+    private let headerLabel = SidebarTitle.label("BOOKMARKS")
     private let listScrollView = NSScrollView(frame: .zero)
     private let tableView = BookmarkTableView(frame: .zero)
     private let emptyLabel = NSTextField(labelWithString: "")
@@ -185,22 +186,17 @@ final class BookmarksView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        headerLabel.attributedStringValue = NSAttributedString(
-            string: "BOOKMARKS",
-            attributes: [
-                .font: Theme.captionFont,
-                .foregroundColor: Theme.textFaint,
-                .kern: Theme.captionKern,
-            ]
-        )
         addSubview(headerLabel)
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("bookmark"))
         column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
         tableView.headerView = nil
+        // .inset, not .sourceList: the source-list style blends AppKit's sidebar
+        // material with the desktop behind the window, which ignores the palette.
+        // The style resets backgroundColor, so clear it after.
+        tableView.style = .inset
         tableView.backgroundColor = .clear
-        tableView.style = .sourceList
         tableView.dataSource = self
         tableView.delegate = self
         tableView.target = self
@@ -242,7 +238,10 @@ final class BookmarksView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         super.layout()
         let width = bounds.width
         headerLabel.sizeToFit()
-        headerLabel.frame.origin = NSPoint(x: 10, y: (Self.headerHeight - headerLabel.frame.height) / 2)
+        headerLabel.frame.origin = NSPoint(
+            x: SidebarTitle.leftInset,
+            y: (Self.headerHeight - headerLabel.frame.height) / 2
+        )
         let listFrame = NSRect(x: 0, y: Self.headerHeight, width: width, height: max(0, bounds.height - Self.headerHeight))
         listScrollView.frame = listFrame
         emptyLabel.frame = NSRect(x: 12, y: Self.headerHeight + 24, width: max(0, width - 24), height: 52)

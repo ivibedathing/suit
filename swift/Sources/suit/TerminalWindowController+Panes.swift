@@ -204,7 +204,7 @@ extension TerminalWindowController {
             return
         }
 
-        let splitView = NSSplitView(frame: paneTreeHost.bounds)
+        let splitView = SuitSplitView(frame: paneTreeHost.bounds)
         splitView.isVertical = false
         splitView.dividerStyle = .thin
         splitView.delegate = self

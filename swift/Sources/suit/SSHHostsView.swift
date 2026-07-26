@@ -43,12 +43,13 @@ private final class SSHHostRowView: NSTableCellView {
 // here (or in the store) — only in the Keychain via SSHHostFormController's
 // save path.
 final class SSHHostsView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
-    private static let headerHeight: CGFloat = 26
+    // The tab's title band, shared with every other sidebar tab.
+    private static let headerHeight = SidebarTitle.height
 
     // Receives the clicked host; the window controller opens the SSH tab.
     var onConnect: ((SSHHost) -> Void)?
 
-    private let headerLabel = NSTextField(labelWithString: "")
+    private let headerLabel = SidebarTitle.label("SSH HOSTS")
     private let addButton = NSButton(frame: .zero)
     private let scrollView = NSScrollView(frame: .zero)
     private let tableView = NSTableView(frame: .zero)
@@ -61,14 +62,6 @@ final class SSHHostsView: NSView, NSTableViewDataSource, NSTableViewDelegate, NS
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        headerLabel.attributedStringValue = NSAttributedString(
-            string: "SSH HOSTS",
-            attributes: [
-                .font: Theme.captionFont,
-                .foregroundColor: Theme.textFaint,
-                .kern: Theme.captionKern,
-            ]
-        )
         addSubview(headerLabel)
 
         addButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "New SSH Host")
@@ -84,8 +77,11 @@ final class SSHHostsView: NSView, NSTableViewDataSource, NSTableViewDelegate, NS
         column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
         tableView.headerView = nil
+        // .inset, not .sourceList: the source-list style blends AppKit's sidebar
+        // material with the desktop behind the window, which ignores the palette.
+        // The style resets backgroundColor, so clear it after.
+        tableView.style = .inset
         tableView.backgroundColor = .clear
-        tableView.style = .sourceList
         tableView.dataSource = self
         tableView.delegate = self
         // Single click connects (Files-tab semantics); selection-change is not
@@ -125,7 +121,10 @@ final class SSHHostsView: NSView, NSTableViewDataSource, NSTableViewDelegate, NS
     override func layout() {
         super.layout()
         headerLabel.sizeToFit()
-        headerLabel.frame.origin = NSPoint(x: 10, y: (Self.headerHeight - headerLabel.frame.height) / 2)
+        headerLabel.frame.origin = NSPoint(
+            x: SidebarTitle.leftInset,
+            y: (Self.headerHeight - headerLabel.frame.height) / 2
+        )
         addButton.frame = NSRect(x: bounds.width - 26, y: (Self.headerHeight - 18) / 2, width: 18, height: 18)
         scrollView.frame = NSRect(
             x: 0, y: Self.headerHeight,
