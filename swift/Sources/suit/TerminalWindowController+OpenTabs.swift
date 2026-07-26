@@ -13,7 +13,12 @@ extension TerminalWindowController {
     // rule): a path that's already open gets its tab activated; otherwise the
     // file opens in a tab of its own. Files never replace one another —
     // opening three files leaves three tabs, deduped by path.
-    func openFile(atPath path: String, line: Int?) {
+    //
+    // `inNewPane` is the Files tab's double-click: the file gets a viewport of
+    // its own beside the active one rather than stacking as another tab over
+    // whatever was already there. Dedupe still wins over the split — a file
+    // that's already open is focused where it lives instead of shown twice.
+    func openFile(atPath path: String, line: Int?, inNewPane: Bool = false) {
         let standardized = (path as NSString).standardizingPath
         // Deduped by path across every preview kind (viewer/markdown/image/PDF):
         // a file opens at most one tab. A re-open re-loads it, honoring a line
@@ -24,7 +29,7 @@ extension TerminalWindowController {
             // pattern is re-applied on the way in — including here, where the
             // tab existed before the search did.
             applySearchHighlight(searchHighlightQuery, to: tab.content)
-            activate(tab)
+            if inNewPane { showInNewPaneOrActivate(tab) } else { activate(tab) }
             return
         }
 
@@ -33,7 +38,7 @@ extension TerminalWindowController {
         store.insert(tab)
         content.load(path: standardized, line: line)
         applySearchHighlight(searchHighlightQuery, to: content)
-        activate(tab)
+        if inNewPane { showInNewPaneOrActivate(tab) } else { activate(tab) }
     }
 
     // MARK: - Project-search highlighting

@@ -27,6 +27,19 @@ extension TerminalWindowController {
         refreshTabSurfaces()
     }
 
+    // Split-with-fallback, for callers where a refused split can't be a dead
+    // end: a double-clicked file in the Files tab has to open *somewhere*, so a
+    // tab already on screen just gets focus, and a window too small to carve
+    // again shows it in the active pane rather than beeping the gesture away.
+    func showInNewPaneOrActivate(_ tab: Tab) {
+        guard tab.pane == nil, let target = displayTargetPane(),
+              splitOrientation(for: target) != nil else {
+            activate(tab)
+            return
+        }
+        splitScreen(with: tab)
+    }
+
     // A forced orientation is honored only if the pane has room along that axis;
     // otherwise: wide enough → side-by-side, tall enough → stacked, neither → nil.
     private func splitOrientation(for target: Pane, forced: SplitOrientation? = nil) -> SplitOrientation? {
