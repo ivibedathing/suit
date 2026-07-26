@@ -6,10 +6,10 @@ import Cocoa
 // tab reads as "project identity + actions on top, tree below" with nothing
 // stacked underneath.
 //
-// Top row: the browsed root's name (a pin glyph when pinned rather than
-// following the focused pane) on the left, and right-aligned action buttons —
-// search (drops the search field over the tree), choose folder, and unpin
-// while pinned. Branch row (only inside a git repo): the checked-out branch as
+// Title row: "FILES", plus the right-aligned action buttons — search (switches
+// to the Search tab), choose folder, and unpin while pinned. Name row: the
+// browsed root's name, with a pin glyph when it is pinned rather than following
+// the focused pane. Branch row (only inside a git repo): the checked-out branch as
 // a worktree/branch switcher, then the upstream sync badge ("↑2 ↓1", click to
 // diff against the remote), then the git actions menu (fetch/pull/push, stash,
 // discard, new/delete branch). The switcher enumeration is shared with the
@@ -22,6 +22,12 @@ import Cocoa
 // more than "12 branches" — the counts are still one hover (or one click into
 // the switcher menu) away.
 final class ProjectHeaderView: NSView {
+    // "FILES" — the tab's own title, above the project identity, so a click on
+    // the activity bar's folder icon confirms itself (see SidebarTitle). The
+    // header's action buttons ride on this row rather than the name row, which
+    // is how the Search tab's header is arranged and keeps the band from being
+    // 28pt of empty space.
+    static let titleRowHeight = SidebarTitle.height
     static let topRowHeight: CGFloat = 32
     static let branchRowHeight: CGFloat = 22
 
@@ -40,6 +46,7 @@ final class ProjectHeaderView: NSView {
     // Prompt for a name, then create/checkout the branch.
     var onNewBranch: ((_ root: String) -> Void)?
 
+    private let titleLabel = SidebarTitle.label("FILES")
     private let iconView = NSImageView(frame: .zero)
     private let nameLabel = NSTextField(labelWithString: "")
     private let searchButton = NSButton(frame: .zero)
@@ -65,14 +72,17 @@ final class ProjectHeaderView: NSView {
     private var hasLocalChanges = false
     private var stashCount = 0
 
-    // The header's height for the current state — one row outside a repo, two
-    // inside. FileBrowserView reads this to lay itself out.
+    // The header's height for the current state — title plus name row outside a
+    // repo, plus the branch row inside one. FileBrowserView reads this to lay
+    // itself out.
     var preferredHeight: CGFloat {
-        Self.topRowHeight + (hasBranch ? Self.branchRowHeight : 0)
+        Self.titleRowHeight + Self.topRowHeight + (hasBranch ? Self.branchRowHeight : 0)
     }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+
+        addSubview(titleLabel)
 
         iconView.imageScaling = .scaleProportionallyDown
         iconView.contentTintColor = Theme.textDim
@@ -405,25 +415,36 @@ final class ProjectHeaderView: NSView {
         let buttonSize: CGFloat = 20
         let gap: CGFloat = 2
 
-        // Top row sits at the top of the view (branch row, if any, below it).
-        let topY = bounds.height - Self.topRowHeight
+        // Title row on top, then the project name, then the branch row.
+        let titleY = bounds.height - Self.titleRowHeight
+        let topY = titleY - Self.topRowHeight
 
-        // Right-aligned action buttons: choose (rightmost), search, then unpin.
+        titleLabel.sizeToFit()
+        titleLabel.frame.origin = NSPoint(
+            x: SidebarTitle.leftInset,
+            y: titleY + (Self.titleRowHeight - titleLabel.frame.height) / 2
+        )
+
+        // Right-aligned action buttons, on the title row: choose (rightmost),
+        // search, then unpin.
         var right = bounds.width - padding + gap
         for button in [chooseButton, searchButton] {
             right -= gap
-            button.frame = NSRect(x: right - buttonSize, y: topY + (Self.topRowHeight - buttonSize) / 2, width: buttonSize, height: buttonSize)
+            button.frame = NSRect(x: right - buttonSize, y: titleY + (Self.titleRowHeight - buttonSize) / 2, width: buttonSize, height: buttonSize)
             right = button.frame.minX
         }
         if !unpinButton.isHidden {
             right -= gap
-            unpinButton.frame = NSRect(x: right - buttonSize, y: topY + (Self.topRowHeight - buttonSize) / 2, width: buttonSize, height: buttonSize)
+            unpinButton.frame = NSRect(x: right - buttonSize, y: titleY + (Self.titleRowHeight - buttonSize) / 2, width: buttonSize, height: buttonSize)
             right = unpinButton.frame.minX
         }
 
         iconView.frame = NSRect(x: padding, y: topY + (Self.topRowHeight - 14) / 2, width: 14, height: 14)
         let nameX = iconView.frame.maxX + 6
-        nameLabel.frame = NSRect(x: nameX, y: topY + (Self.topRowHeight - 16) / 2, width: max(0, right - nameX - 4), height: 16)
+        nameLabel.frame = NSRect(
+            x: nameX, y: topY + (Self.topRowHeight - 16) / 2,
+            width: max(0, bounds.width - padding - nameX), height: 16
+        )
 
         // Branch row: [icon] [branch ▾] … [sync badge] [⋯].
         if hasBranch {

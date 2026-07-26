@@ -196,6 +196,11 @@ enum Theme {
     /// Uppercase letter-spaced captions in overlays.
     static let captionFont = NSFont.monospacedSystemFont(ofSize: 9, weight: .semibold)
     static let captionKern: CGFloat = 0.8
+    /// The sidebar tabs' own titles ("FILES", "SEARCH", …) — the caption one
+    /// step up, because it heads a whole panel rather than a row inside it.
+    /// See SidebarTitle, which is where every tab reads it from.
+    static let sidebarTitleFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
+    static let sidebarTitleKern: CGFloat = 0.9
 
     /// 0xRRGGBB → NSColor. Internal (not fileprivate) so color tables outside
     /// this file — the pane background presets in `Pane.swift` — can state their
