@@ -74,7 +74,8 @@ app does.
   with its own title — FILES, SEARCH, SOURCE CONTROL, SESSIONS, SSH HOSTS, NOTES, BOOKMARKS —
   since the activity bar itself shows icons only; the title row also carries that tab's header
   actions (the Files header's buttons, Search's toolbar, the + on Notes and SSH Hosts), and it
-  follows a live theme switch.
+  follows a live theme switch. That row starts flush with the panel's top edge — it is the margin,
+  so no blank band sits above it — and the activity bar's first icon starts on the same line.
 - **Files tab** — leads with a single project header: the title row's search / choose-folder /
   unpin actions, the folder name below it (a pin glyph when pinned), and, inside a repo, a branch
   row carrying the branch switcher, the upstream sync badge and the git actions menu — then gives
