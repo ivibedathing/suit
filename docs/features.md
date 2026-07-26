@@ -81,6 +81,13 @@ app does.
   row carrying the branch switcher, the upstream sync badge and the git actions menu — then gives
   the rest of the tab to the tree. The tree shows sub-project badges (`go.mod`, `package.json`,
   …) and git status letters, and can be pinned to any folder.
+- **Click to select, double-click to open beside** — a single click on a file only selects it (on a
+  folder it expands or collapses); a double-click opens the file in a **pane of its own** next to
+  the active one, side-by-side when the pane is wide enough and stacked when it's tall. Reading a
+  second file therefore never buries the first. Files stay deduped by path, so double-clicking one
+  that's already open focuses the pane it's already in rather than splitting again, and a window
+  with no room left to split falls back to opening it in the active pane. New File… still opens
+  what you just created in the active pane.
 - **Git status as colour** — inside a repo each filename is tinted by its own status: green for
   added or untracked, amber for modified or renamed, red for deleted, grey for gitignored, plain
   text for clean. The colours are the same palette tokens as the status letter beside them, so

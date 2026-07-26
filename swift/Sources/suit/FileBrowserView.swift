@@ -153,8 +153,8 @@ final class FileOutlineView: NSOutlineView {
 }
 
 // The Files tab of the sidebar: the project tree from a FileIndex, refreshed
-// on index updates, single click opens a file. Purely a view over the index —
-// it owns no scanning or watching of its own.
+// on index updates, double click opens a file in its own pane. Purely a view
+// over the index — it owns no scanning or watching of its own.
 final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate {
     private let scrollView = NSScrollView(frame: .zero)
     let outlineView = FileOutlineView(frame: .zero)
@@ -177,8 +177,13 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
     // in the window controller.
     private var isPinned = false
 
-    // Set by the window controller; receives the file's absolute path.
+    // Set by the window controller; receives the file's absolute path. Opens
+    // into the active pane — used by New File…, where the file the user just
+    // created should land where they were already working.
     var onOpenFile: ((String) -> Void)?
+    // The double-click path: the file gets a pane of its own beside the active
+    // one instead of stacking as another tab over what's already there.
+    var onOpenFileInNewPane: ((String) -> Void)?
     // Header search affordance (⌘⇧F equivalent): reveal the search field over
     // the tree. Wired by the sidebar to its SearchView.
     var onSearch: (() -> Void)? {
@@ -405,24 +410,29 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         outlineView.reloadData()
     }
 
+    // A single click toggles a folder, but only selects a file: opening is the
+    // double-click's job, because it opens into a *new pane* and a stray click
+    // while scanning the tree must not carve up the window.
     @objc private func rowClicked() {
         let row = outlineView.clickedRow
         guard row >= 0, let node = outlineView.item(atRow: row) as? FileNode else { return }
-        if node.isDirectory {
-            if outlineView.isItemExpanded(node) {
-                outlineView.collapseItem(node)
-            } else {
-                outlineView.expandItem(node)
-            }
-        } else if let index {
-            onOpenFile?(index.root + "/" + node.relativePath)
+        guard node.isDirectory else { return }
+        if outlineView.isItemExpanded(node) {
+            outlineView.collapseItem(node)
+        } else {
+            outlineView.expandItem(node)
         }
     }
 
-    // Swallows the double-click's second click: the first already opened the
-    // file (files are regular tabs — nothing to promote) or toggled the
-    // directory, which must not toggle straight back.
-    @objc private func rowDoubleClicked() {}
+    // Double click opens the file in its own pane beside the active one. On a
+    // directory it does nothing: the first click already toggled it, and
+    // toggling again here would snap it straight back.
+    @objc private func rowDoubleClicked() {
+        let row = outlineView.clickedRow
+        guard row >= 0, let node = outlineView.item(atRow: row) as? FileNode,
+              !node.isDirectory, let index else { return }
+        onOpenFileInNewPane?(index.root + "/" + node.relativePath)
+    }
 
     // MARK: - Path helpers
 
