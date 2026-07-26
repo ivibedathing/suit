@@ -385,6 +385,12 @@ app does.
   unchanged), and the bulk stage/unstage entries. The message box only clears once the commit has
   actually landed, so a rejected pre-commit hook doesn't cost you what you typed. Nothing here
   force-pushes: amending something already pushed fails at the push, loudly.
+- **A bigger message box** — the grip between the message and the Commit button (the pointer turns
+  into a resize cursor over it) drags the box taller, up to 320pt, and back down to its two-line
+  default; the file list moves with it. The height is remembered across launches, and a short
+  window overrides it rather than squeezing the file list below ~90pt. The box never resizes on
+  its own while you type — a box that grew with the text would move the file list under the
+  pointer mid-edit.
 - **Branch → PR** — right-click a branch for gh actions: **Create PR…** (title prefilled from
   the branch, body from its commits), **Open on GitHub**, and **Checkout**. When a PR exists it
   shows a `#N` badge with a ✓/✕/• checks glyph. Everything degrades gracefully without the `gh`

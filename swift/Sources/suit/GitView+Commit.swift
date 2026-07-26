@@ -12,10 +12,20 @@ import Cocoa
 // is which paths are in which column, which it reads off the status monitor.
 extension GitView {
 
-    // Message box + button row, with the padding baked in. Fixed rather than
-    // grown from the text: a commit box that resizes as you type would move the
-    // file list under the pointer mid-edit, and a sidebar has no room to give.
-    static var commitBoxHeight: CGFloat { 6 + 46 + 6 + 22 + 6 }
+    // Message box + button row, with the padding baked in. It never grows from
+    // the text — a box that resized as you type would move the file list under
+    // the pointer mid-edit — but the message field's height is the user's,
+    // dragged on the grip below it and remembered, because a commit body written
+    // through a two-line slit is the sidebar's worst edit.
+    static let minCommitMessageHeight: CGFloat = 46
+    static let maxCommitMessageHeight: CGFloat = 320
+    // The padding above the field, the grip's gap below it, the button row, and
+    // the bottom padding — everything in the box that isn't the message.
+    static let commitBoxChrome: CGFloat = 6 + 6 + 22 + 6
+    static let minCommitBoxHeight: CGFloat = minCommitMessageHeight + commitBoxChrome
+    static let commitMessageHeightKey = "gitCommitMessageHeight"
+
+    var commitBoxHeight: CGFloat { commitMessageHeight + Self.commitBoxChrome }
 
     // MARK: - Building
 
@@ -79,6 +89,32 @@ extension GitView {
         commitOptionsButton.action = #selector(openCommitOptionsMenu)
         commitBox.addSubview(commitOptionsButton)
 
+        // The grip owns no height of its own — it sits in the gap that was
+        // already between the field and the button — and it resizes nothing
+        // itself: GitView holds the height, because the file list underneath has
+        // to be relaid out with every point of it.
+        commitResizeGrip.onDragBegin = { [weak self] in
+            guard let self else { return }
+            // The height on screen, not the stored one: a short window clamps the
+            // box at layout time, and the drag has to continue from what the user
+            // can actually see.
+            commitDragStartHeight = commitScroll.frame.height
+        }
+        commitResizeGrip.onDrag = { [weak self] delta in
+            guard let self else { return }
+            commitMessageHeight = min(
+                Self.maxCommitMessageHeight,
+                max(Self.minCommitMessageHeight, commitDragStartHeight + delta)
+            )
+            needsLayout = true
+            layoutSubtreeIfNeeded()
+        }
+        commitResizeGrip.onDragEnd = { [weak self] in
+            guard let self else { return }
+            UserDefaults.standard.set(Double(commitMessageHeight), forKey: Self.commitMessageHeightKey)
+        }
+        commitBox.addSubview(commitResizeGrip)
+
         addSubview(commitBox)
         reapplyCommitBoxTheme()
     }
@@ -88,7 +124,13 @@ extension GitView {
         let height = commitBox.bounds.height
         guard height > 0 else { return }
         let width = max(0, commitBox.bounds.width - padding * 2)
-        commitScroll.frame = NSRect(x: padding, y: height - 6 - 46, width: width, height: 46)
+        // Derived from the box rather than from `commitMessageHeight` directly,
+        // so the clamp GitView.layout() applies in a short window lands on the
+        // field too instead of overflowing it past the button row.
+        let messageHeight = max(Self.minCommitMessageHeight, height - Self.commitBoxChrome)
+        commitScroll.frame = NSRect(x: padding, y: height - 6 - messageHeight, width: width, height: messageHeight)
+        commitResizeGrip.frame = NSRect(x: padding, y: commitScroll.frame.minY - 6, width: width, height: 6)
+        window?.invalidateCursorRects(for: commitResizeGrip)
         let optionsWidth: CGFloat = 24
         commitOptionsButton.frame = NSRect(
             x: padding + width - optionsWidth, y: 6, width: optionsWidth, height: 22
@@ -394,6 +436,77 @@ final class BoxedGitAction {
 // has to say what it is, and there is no room for a label above it) and ⌘↩ to
 // commit, caught in performKeyEquivalent because Cmd-Return has no standard
 // text-view binding and would otherwise just beep.
+// The drag grip under the commit message field: the 6pt gap that was already
+// between the field and the Commit button, turned into a hit target with a
+// resize cursor and a short centered bar to say so. It reports the drag and
+// nothing else — the height lives on GitView, which is the only place that can
+// relayout the file list along with it.
+final class CommitResizeGrip: NSView {
+    var onDragBegin: (() -> Void)?
+    // The distance dragged since mouse-down, positive downward.
+    var onDrag: ((CGFloat) -> Void)?
+    var onDragEnd: (() -> Void)?
+
+    private var dragStartY: CGFloat?
+    private var hovering = false
+    private var tracking: NSTrackingArea?
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .resizeUpDown)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(
+            rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow], owner: self
+        )
+        addTrackingArea(area)
+        tracking = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        hovering = true
+        needsDisplay = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hovering = false
+        needsDisplay = true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        dragStartY = event.locationInWindow.y
+        onDragBegin?()
+        needsDisplay = true
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        // Measured in window coordinates: the grip moves down with the box it is
+        // growing, so a delta taken against its own bounds would chase itself.
+        guard let dragStartY else { return }
+        onDrag?(dragStartY - event.locationInWindow.y)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard dragStartY != nil else { return }
+        dragStartY = nil
+        onDragEnd?()
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let active = hovering || dragStartY != nil
+        let barWidth: CGFloat = 28
+        let bar = NSRect(
+            x: (bounds.width - barWidth) / 2, y: (bounds.height - 2) / 2,
+            width: min(barWidth, bounds.width), height: 2
+        )
+        (active ? Theme.textDim : Theme.hairline).setFill()
+        NSBezierPath(roundedRect: bar, xRadius: 1, yRadius: 1).fill()
+    }
+}
+
 final class CommitMessageTextView: NSTextView {
     var placeholder: String = ""
     var onCommit: (() -> Void)?

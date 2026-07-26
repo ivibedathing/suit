@@ -93,6 +93,9 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     private static let titleHeight = SidebarTitle.height
     private static let headerHeight: CGFloat = 28
     private static let syncRowHeight: CGFloat = 22
+    // What the file list keeps no matter how far the commit box has been dragged
+    // — a couple of rows plus its section header, enough to still be a list.
+    private static let minListHeight: CGFloat = 90
 
     private let titleLabel = SidebarTitle.label("SOURCE CONTROL")
     private let branchIcon = NSImageView(frame: .zero)
@@ -114,6 +117,17 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     let commitScroll = NSScrollView(frame: .zero)
     let commitButton = NSButton(frame: .zero)
     let commitOptionsButton = NSButton(frame: .zero)
+    let commitResizeGrip = CommitResizeGrip(frame: .zero)
+    // How tall the message field wants to be. The user's, dragged on the grip
+    // under the field and remembered across launches — clamped again at layout
+    // time, so a height dragged in a tall window can't swallow the file list in
+    // a short one.
+    var commitMessageHeight: CGFloat = {
+        let saved = CGFloat(UserDefaults.standard.double(forKey: GitView.commitMessageHeightKey))
+        guard saved > 0 else { return GitView.minCommitMessageHeight }
+        return min(GitView.maxCommitMessageHeight, max(GitView.minCommitMessageHeight, saved))
+    }()
+    var commitDragStartHeight: CGFloat = 0
     // Amend is a mode, not a one-shot menu item: it changes what the button
     // says and does until it is turned off or a commit lands.
     var amendMode = false
@@ -530,9 +544,12 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             width: max(0, actionsButton.frame.minX - 6 - padding), height: 14
         )
 
-        // Commit box below that, sized by its own content; it collapses to
-        // nothing outside a repo, where there is nothing to commit.
-        let boxHeight = inRepo ? Self.commitBoxHeight : 0
+        // Commit box below that, as tall as the message field has been dragged;
+        // it collapses to nothing outside a repo, where there is nothing to
+        // commit. The window has the last word: whatever was dragged in a tall
+        // sidebar gives way here rather than leaving the file list a sliver.
+        let boxCeiling = max(Self.minCommitBoxHeight, syncY - Self.minListHeight)
+        let boxHeight = inRepo ? min(commitBoxHeight, boxCeiling) : 0
         commitBox.isHidden = !inRepo
         commitBox.frame = NSRect(x: 0, y: syncY - boxHeight, width: bounds.width, height: boxHeight)
         layoutCommitBox()
