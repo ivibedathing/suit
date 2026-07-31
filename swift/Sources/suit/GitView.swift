@@ -179,6 +179,47 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var reviewPRs: [PRReviewItem] = []
     var reviewInboxToken = 0
 
+    // MARK: - Refresh policy
+    //
+    // What this tab shows splits in two, and the halves want opposite rules:
+    //
+    //   * The working-tree state comes off the status monitor and is nearly
+    //     free. It also feeds the activity bar's change badge, so it has to
+    //     stay correct while the tab is hidden — it follows every didUpdate.
+    //   * The branch list, the feedback gather and the two `gh pr list` passes
+    //     shell out (the last two over the network) and are drawn *only* here.
+    //     Those used to be driven straight off filesystem events, which meant a
+    //     build or a busy agent kept three gh passes permanently in flight —
+    //     the app's single largest CPU cost.
+    //
+    // So: the cheap half follows the monitor; the expensive half runs only when
+    // something actually happened that could have changed it — the shown repo
+    // changed, the branch moved, the tab was revealed, or the user asked. There
+    // is deliberately no interval and no polling: with several sessions working
+    // different worktrees at once, a timer means every window re-listing PRs
+    // forever over repos nobody is looking at.
+    //
+    // `remoteLoadedRoot` is the root the cached PR/inbox data belongs to, and
+    // `remoteLoadedBranch` the branch it was checked out on. Setting the root
+    // to nil is how a caller says "this is stale now".
+    var remoteLoadedRoot: String?
+    var remoteLoadedBranch: String?
+
+    // Whether the tab is actually on screen. The sidebar shows one tab at a
+    // time by toggling `isHidden` (SidebarView.applyTabVisibility), so this is
+    // the honest answer for both a hidden tab and a hidden sidebar.
+    var isShowing: Bool { window != nil && !isHiddenOrHasHiddenAncestor }
+
+    // One pass fans out into four async loads that each used to call reload()
+    // as they landed — four full row rebuilds where one would do. Coalescing
+    // onto the next runloop turn collapses them, which is most of what the
+    // display-cycle view churn was.
+    private var reloadScheduled = false
+    // Set when a reload built rows while hidden: there is no point rebuilding
+    // NSTableView's row views for a tab nobody can see, so the rows are kept
+    // and the table catches up on reveal.
+    private var needsTableReload = false
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
@@ -339,13 +380,60 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         }
         monitor?.refresh()
         reload()
+        // A new repo invalidates the cached PR/inbox data outright.
+        remoteLoadedRoot = nil
         loadBranchData()
     }
 
     @objc private func statusChanged(_ note: Notification) {
         guard let monitor, (note.object as? GitStatusMonitor) === monitor else { return }
-        reload()
+        // A branch move is the one working-tree change that can invalidate the
+        // PR badges and the review inbox — a different branch has different
+        // PRs. Editing files cannot, so it does not re-list anything.
+        if monitor.currentBranch != remoteLoadedBranch {
+            remoteLoadedRoot = nil
+        }
+        setNeedsReload()
         loadBranchData()
+    }
+
+    // Rebuilds the rows once on the next runloop turn, however many callers
+    // asked. Every async load completion goes through here.
+    func setNeedsReload() {
+        guard !reloadScheduled else { return }
+        reloadScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.reloadScheduled = false
+            self.reload()
+        }
+    }
+
+    // The sidebar calls this when Source Control becomes the shown tab: catch
+    // the table up on rows built while hidden, then refresh the data that only
+    // this tab draws.
+    func sidebarTabDidBecomeVisible() {
+        if needsTableReload {
+            needsTableReload = false
+            tableView.reloadData()
+        }
+        loadBranchData()
+    }
+
+    // Whether the network-backed passes may run right now: only when the data
+    // on hand doesn't belong to the shown repo, or a caller says it's stale.
+    // No clock is consulted — nothing here refreshes merely because time
+    // passed.
+    func mayLoadRemote(force: Bool) -> Bool {
+        guard GitHubCLI.isAvailable, isShowing else { return false }
+        return force || remoteLoadedRoot != gitRoot
+    }
+
+    // Records which repo + branch the PR/inbox data now describes, so the next
+    // pass can tell "already have this" from "this is about somewhere else".
+    func markRemoteLoaded() {
+        remoteLoadedRoot = gitRoot
+        remoteLoadedBranch = monitor?.currentBranch
     }
 
     func reload() {
@@ -371,7 +459,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             refreshCommitBox()
             emptyLabel.stringValue = "Not a git repository."
             emptyLabel.isHidden = false
-            tableView.reloadData()
+            applyRows()
             return
         }
         branchButton.isEnabled = true
@@ -436,6 +524,18 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         // A path changed in both columns counts once — the badge answers "how
         // many files are dirty", which is what the file tree's badges show too.
         onChangeCountChanged?(Set(stagedPaths).union(unstagedPaths).count)
+        applyRows()
+    }
+
+    // Pushes freshly built rows into the table — unless nobody is looking, in
+    // which case the rows are already stored and the table is caught up on
+    // reveal. Row views are the expensive part of a reload, not `rows`.
+    private func applyRows() {
+        guard isShowing else {
+            needsTableReload = true
+            return
+        }
+        needsTableReload = false
         tableView.reloadData()
     }
 

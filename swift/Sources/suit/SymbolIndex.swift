@@ -95,10 +95,14 @@ final class SymbolIndex {
 
     private init(root: String) {
         self.root = root
-        // Rebuild whenever this root's file list changes (FSEvents → FileIndex).
+        // Rebuild whenever this root is rescanned (FSEvents → FileIndex).
+        // didScan rather than didUpdate: symbols come out of file *contents*, so
+        // editing a file git already tracks changes them while leaving the
+        // index's list of paths identical — gating on the list would leave
+        // go-to-definition pointing at the previous version of every edit.
         NotificationCenter.default.addObserver(
             self, selector: #selector(fileIndexChanged(_:)),
-            name: FileIndex.didUpdate, object: nil
+            name: FileIndex.didScan, object: nil
         )
         rebuild()
     }

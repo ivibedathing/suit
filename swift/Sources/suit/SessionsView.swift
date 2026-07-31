@@ -215,9 +215,49 @@ final class SessionsView: NSView {
     }
 
     func update(groups: [Group], activeId: String?) {
+        // rebuild() tears down and re-creates every row view, and this is
+        // called from refreshTabSurfaces — which runs on focus changes and on
+        // the session heartbeat, several times a second while sessions are
+        // live. Most of those pass exactly what is already on screen, and the
+        // discarded views then pile into the display cycle's autorelease pool.
+        // Comparing a signature of everything a row draws is far cheaper than
+        // rebuilding to find out nothing moved.
+        let signature = Self.signature(groups: groups, activeId: activeId)
         self.groups = groups
         self.activeId = activeId
         self.showHeaders = groups.count > 1
+        guard signature != renderedSignature else { return }
+        renderedSignature = signature
+        rebuild()
+    }
+
+    // Everything SessionRowView.configure reads, in order — anything not in
+    // here is something a rebuild could not have changed.
+    private static func signature(groups: [Group], activeId: String?) -> String {
+        var parts: [String] = [activeId ?? ""]
+        for group in groups {
+            parts.append(group.title)
+            for tab in group.tabs {
+                parts.append([
+                    tab.id, tab.title, tab.kind.symbolName,
+                    tab.failed ? "1" : "0", tab.isPreview ? "1" : "0",
+                    tab.liveSessionState?.rawValue ?? "",
+                ].joined(separator: "\u{1}"))
+            }
+        }
+        return parts.joined(separator: "\u{2}")
+    }
+
+    // The signature the current row views were built from.
+    private var renderedSignature: String?
+
+    // Row tints are baked in by SessionRowView.configure, so a palette switch
+    // has to rebuild — and with the signature guard above, an update alone no
+    // longer would. Dropping the signature is what makes the next rebuild
+    // unconditional, and doing it here keeps the tab on the same
+    // reapplyTheme() contract as the sidebar's other surfaces.
+    func reapplyTheme() {
+        renderedSignature = nil
         rebuild()
     }
 

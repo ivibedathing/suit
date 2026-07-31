@@ -56,6 +56,11 @@ extension TerminalWindowController {
         root: String, action: GitBranchOps.Action, plan: GitBranchOps.Plan, failure: WorktreeTaskError?
     ) {
         GitStatusMonitor.shared(forRoot: root).refresh()
+        // An action the user ran here is exactly the "actually needed" case for
+        // re-listing PRs — a push or a publish changes what GitHub would say,
+        // and nothing else in the app polls for it.
+        sidebar.gitView.remoteLoadedRoot = nil
+        sidebar.gitView.loadBranchData(force: true)
         if plan.touchesWorkingTree {
             // Pull / stash / checkout can add and remove files wholesale;
             // FSEvents will catch up, but the tree should not lag the action

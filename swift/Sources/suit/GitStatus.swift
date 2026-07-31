@@ -50,13 +50,31 @@ final class GitStatusMonitor {
     private var gitDirStream: FSEventStreamRef?
     private var refreshDebounce: DispatchWorkItem?
 
+    // A refresh is six git processes over a whole worktree, and its observers
+    // (the Git tab, the Files tree) rebuild their row views from it. FSEvents
+    // arrive in bursts — a build, a checkout, several agents writing at once —
+    // so refreshes are both debounced *and* coalesced: while one pass is in
+    // flight every further request collapses into a single re-run afterwards,
+    // instead of queueing one pass per burst on the serial queue and falling
+    // further behind the longer the machine stays busy.
+    private var isRefreshing = false
+    private var refreshQueued = false
+    // The debounce for index-driven refreshes. Ref changes (watchGitDir) keep
+    // their own shorter one — a commit or checkout should land visibly.
+    private static let indexDebounce: TimeInterval = 0.6
+    // How long a burst may push the debounce out before it resolves anyway.
+    private static let maxRefreshDelay: TimeInterval = 3.0
+    private var refreshDeadline: Date?
+
     private static let queue = DispatchQueue(label: "dev.kosych.suit.gitstatus", qos: .utility)
 
     private init(root: String) {
         self.root = root
+        // didScan, not didUpdate: editing a tracked file leaves the index's
+        // path list identical while changing everything this monitor reports.
         NotificationCenter.default.addObserver(
             self, selector: #selector(indexUpdated(_:)),
-            name: FileIndex.didUpdate, object: nil
+            name: FileIndex.didScan, object: nil
         )
         refresh()
         startWatchingGitDir()
@@ -64,36 +82,90 @@ final class GitStatusMonitor {
 
     @objc private func indexUpdated(_ note: Notification) {
         guard let index = note.object as? FileIndex, index.root == root else { return }
-        refresh()
+        scheduleRefresh(after: Self.indexDebounce)
+    }
+
+    // Debounce with a ceiling. A plain cancel-and-reschedule starves under
+    // sustained churn — while anything keeps writing, the timer keeps moving
+    // and the status never refreshes at all, so the badges freeze for as long
+    // as the machine is busy. `refreshDeadline` pins the first event in a burst
+    // and refuses to slide past it, so a burst still resolves within
+    // maxRefreshDelay. It is not a poll: with nothing changing, nothing is
+    // scheduled and nothing runs.
+    private func scheduleRefresh(after delay: TimeInterval) {
+        let now = Date()
+        let deadline = refreshDeadline ?? now.addingTimeInterval(Self.maxRefreshDelay)
+        refreshDeadline = deadline
+        let target = min(now.addingTimeInterval(delay), deadline)
+        refreshDebounce?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.refreshDeadline = nil
+            self?.refresh()
+        }
+        refreshDebounce = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + max(0, target.timeIntervalSince(now)), execute: work
+        )
     }
 
     func refresh() {
+        guard !isRefreshing else {
+            refreshQueued = true
+            return
+        }
+        isRefreshing = true
         let root = self.root
         Self.queue.async { [weak self] in
             let parsed = Self.readStatus(root: root)
             let shape = Self.readRepoShape(root: root)
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.statusByPath = parsed.combined
-                self.stagedByPath = parsed.staged
-                self.unstagedByPath = parsed.unstaged
-                self.currentBranch = shape.branch
-                self.branchCount = shape.branches
-                self.worktreeCount = shape.worktrees
-                self.sync = shape.sync
-                self.stashCount = shape.stashes
-                var directories: Set<String> = []
-                for path in parsed.combined.keys {
-                    var dir = (path as NSString).deletingLastPathComponent
-                    while !dir.isEmpty {
-                        directories.insert(dir)
-                        dir = (dir as NSString).deletingLastPathComponent
-                    }
+                self.isRefreshing = false
+                self.apply(parsed: parsed, shape: shape)
+                if self.refreshQueued {
+                    self.refreshQueued = false
+                    self.scheduleRefresh(after: Self.indexDebounce)
                 }
-                self.changedDirectories = directories
-                NotificationCenter.default.post(name: Self.didUpdate, object: self)
             }
         }
+    }
+
+    // Publishes a finished pass — but only when it actually says something new.
+    // FSEvents fire on every write in the tree while `git status` output stays
+    // identical for long stretches (a build writing into an ignored directory,
+    // an agent re-saving the same file). Posting regardless made every one of
+    // those a full reload of the Git tab and the Files tree, which is where the
+    // display-cycle view churn came from. Comparing first costs one dictionary
+    // compare and ends the cascade at its source.
+    private func apply(parsed: StatusSnapshot, shape: RepoShape) {
+        let unchanged = parsed.combined == statusByPath
+            && parsed.staged == stagedByPath
+            && parsed.unstaged == unstagedByPath
+            && shape.branch == currentBranch
+            && shape.branches == branchCount
+            && shape.worktrees == worktreeCount
+            && shape.sync == sync
+            && shape.stashes == stashCount
+        guard !unchanged else { return }
+
+        statusByPath = parsed.combined
+        stagedByPath = parsed.staged
+        unstagedByPath = parsed.unstaged
+        currentBranch = shape.branch
+        branchCount = shape.branches
+        worktreeCount = shape.worktrees
+        sync = shape.sync
+        stashCount = shape.stashes
+        var directories: Set<String> = []
+        for path in parsed.combined.keys {
+            var dir = (path as NSString).deletingLastPathComponent
+            while !dir.isEmpty {
+                directories.insert(dir)
+                dir = (dir as NSString).deletingLastPathComponent
+            }
+        }
+        changedDirectories = directories
+        NotificationCenter.default.post(name: Self.didUpdate, object: self)
     }
 
     struct StatusSnapshot {
@@ -137,13 +209,22 @@ final class GitStatusMonitor {
         return snapshot
     }
 
+    // The repo's shape, as one comparable value — `apply` diffs a finished pass
+    // against the last one before publishing it, so this needs to be Equatable
+    // rather than the loose tuple it used to be.
+    struct RepoShape: Equatable {
+        var branch: String?
+        var branches: Int
+        var worktrees: Int
+        var sync: GitBranchOps.SyncState
+        var stashes: Int
+    }
+
     // symbolic-ref rather than rev-parse --abbrev-ref so a freshly-initialized
     // repo (no commits yet) still reports its branch; -q makes a detached HEAD
     // a quiet nil. for-each-ref and `worktree list --porcelain` are plumbing,
     // so their output is stable to count lines of.
-    private static func readRepoShape(
-        root: String
-    ) -> (branch: String?, branches: Int, worktrees: Int, sync: GitBranchOps.SyncState, stashes: Int) {
+    private static func readRepoShape(root: String) -> RepoShape {
         let rawBranch = runProcess("/usr/bin/git", ["-C", root, "symbolic-ref", "--short", "-q", "HEAD"])?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let branch = rawBranch?.isEmpty == false ? rawBranch : nil
@@ -154,7 +235,10 @@ final class GitStatusMonitor {
                 output.split(separator: "\n", omittingEmptySubsequences: true)
                     .filter { $0.hasPrefix("worktree ") }.count
             } ?? 0
-        return (branch, branches, worktrees, readSync(root: root, branch: branch), readStashCount(root: root))
+        return RepoShape(
+            branch: branch, branches: branches, worktrees: worktrees,
+            sync: readSync(root: root, branch: branch), stashes: readStashCount(root: root)
+        )
     }
 
     // The checked-out branch's position vs its upstream, from the same
@@ -238,10 +322,7 @@ final class GitStatusMonitor {
                 || path.hasSuffix("/packed-refs") || path.contains("/worktrees/")
         }
         guard relevant else { return }
-        refreshDebounce?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.refresh() }
-        refreshDebounce = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+        scheduleRefresh(after: 0.5)
     }
 
     // The colour a porcelain letter reads as, shared by the browser's status
