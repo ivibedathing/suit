@@ -65,11 +65,21 @@ extension TerminalWindowController {
             NSSound.beep()
             return
         }
+        // Splitting a terminal reads as growing the one you're in, so the new
+        // half copies its ground rather than snapping back to the global
+        // default — a pane recolored from the Background Color menu would
+        // otherwise split into a mismatched pair. Only terminal-to-terminal:
+        // splitting off a viewer (Theme.bg) would hand the shell the chrome
+        // color, which is exactly the black-terminal-in-a-light-theme trap.
+        let inheritedBackground = target.terminalContent.map { _ in target.backgroundRGB }
         let content = TerminalPaneContent()
         let tab = Tab(content: content)
         store.insert(tab)
         content.start(in: target.workingDirectory ?? NSHomeDirectory())
         splitScreen(with: tab, forcedOrientation: forcedOrientation)
+        if let inheritedBackground, let pane = tab.pane {
+            pane.setBackgroundColor(inheritedBackground)
+        }
     }
 
     // Palette "Split Screen (last used tab)": Split Screen with the most recently

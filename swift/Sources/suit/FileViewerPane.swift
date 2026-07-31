@@ -530,6 +530,10 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     // (AppDelegate's text color), so it is deliberately left alone.
     func reapplyTheme() {
         applySyntaxAttributes()
+        // Find matches and the project-search wash are temporary attributes
+        // holding the *old* palette's colours; they only move when something
+        // repaints them.
+        repaintHighlightLayer()
         updateMinimapMarkers()
         rebuildMinimap()
         ruler.needsDisplay = true
