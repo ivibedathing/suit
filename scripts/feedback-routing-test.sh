@@ -4,7 +4,7 @@
 # scripts/feedback-routing-test/main.swift and runs its assertions — the pure
 # parsers (conflict porcelain, gh review/comment JSON, gh statusCheckRollup),
 # the session-attribution rule (single/none/ambiguous/nil-cwd), and the composed
-# prompts. Mirrors the RoadmapParser/AutopilotScheduler standalone-test pattern.
+# prompts. Mirrors the FeedbackRouting standalone-test pattern.
 #
 # Usage: scripts/feedback-routing-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.

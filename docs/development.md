@@ -34,7 +34,7 @@ binary that runs.
 There is no XCTest target; the pure, UI-free logic is covered by standalone harnesses — each
 compiles the relevant Foundation-only source file(s) against a small assertion driver and runs
 it. Run them all with `scripts/test.sh` (fast suite) or `scripts/test.sh --all` (includes the
-~2-minute Autopilot pipeline harness) — see the "Build & test" section in `CLAUDE.md`.
+slower harnesses) — see the "Build & test" section in `CLAUDE.md`.
 
 UI/chrome changes are guarded by the committed reference render instead: re-run
 `design/render-reference.sh` after chrome edits so visual drift shows up in review diffs.
@@ -45,15 +45,15 @@ Two integrations are set up from inside the app rather than by hand:
 
 - **Claude Code integration** — app menu ▸ *Install Claude Code Integration…* copies the
   bundled statusline / hook scripts to `~/.suit` and merges them into `~/.claude/settings.json`
-  (a one-time backup is written first). Required for session awareness and Autopilot.
-- **GitHub CLI (`gh`)** — needed for the Branch → PR actions and Autopilot's PR flow.
+  (a one-time backup is written first). Required for session awareness.
+- **GitHub CLI (`gh`)** — needed for the Branch → PR actions.
   Everything degrades gracefully when it's missing.
 
 ## Project layout
 
 | Path | What lives there |
 | --- | --- |
-| `swift/Sources/suit/` | The AppKit app — UI, tabs, sidebar, git / Claude / Autopilot logic |
+| `swift/Sources/suit/` | The AppKit app — UI, tabs, sidebar, git / Claude logic |
 | `swift/Vendor/SwiftTerm/` | Vendored SwiftTerm source (no SPM — see `CLAUDE.md`) |
 | `scripts/claude/` | Statusline + session-state hook scripts installed into `~/.suit` |
 | `scripts/test.sh` | Runs the standalone logic harnesses (`*-test.sh` / `*-harness.sh`) |
@@ -63,7 +63,6 @@ Two integrations are set up from inside the app rather than by hand:
 | `build.sh` | Builds everything and assembles `build/Suit.app` |
 | `CLAUDE.md` | Full agent & contributor guidance — architecture, file map, workflow rules |
 | `.claude/settings.json` | Shared Claude Code permission allowlist (no auto `git push`) |
-| `ROADMAP.md` | Phase list Autopilot works through; its heading grammar is load-bearing |
 
 ## Contributing workflow
 

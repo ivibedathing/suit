@@ -27,7 +27,7 @@ Suit is a personal macOS app bundle — its own Dock icon, bundle identifier and
 entries — whose windows host browser-style tabs of terminals, file viewers, diffs and Claude
 transcripts. Each shell runs directly over a real pty via
 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm), and everything above the terminal (tabs,
-splits, search, git, Claude session awareness, Autopilot) is native AppKit — built to make
+splits, search, git, Claude session awareness) is native AppKit — built to make
 Claude-code-driven work on any codebase feel like a first-class desktop app rather than a wall
 of terminal panes.
 
@@ -47,9 +47,8 @@ of terminal panes.
 Working in a large codebase with Claude Code means juggling many terminals, files, diffs and running
 sessions at once — and a plain terminal emulator makes you track all of it in your head. Suit puts
 a native cockpit around that workflow: browser-style tabs and splits, an integrated file
-viewer / search / git sidebar, awareness of which panes have live Claude sessions (and which need
-your input), and an Autopilot that can grind through a `ROADMAP.md` on its own. It stays a real
-terminal underneath — login shells, your prompt, your dotfiles — so nothing you already do stops
+viewer / search / git sidebar, and awareness of which panes have live Claude sessions (and which
+need your input). It stays a real terminal underneath — login shells, your prompt, your dotfiles — so nothing you already do stops
 working.
 
 ## Highlights
@@ -61,8 +60,6 @@ working.
   history, notes and bookmarks — kept gitignore-consistent with a live file index.
 - **Claude Code awareness** — per-pane session state and context %, attention notifications,
   talk-back into any session, live transcripts and cross-transcript search.
-- **Autopilot** — autonomous, budget-aware execution of a project's roadmap with build and
-  headless-review gates before it auto-merges each phase.
 - **Native and honest** — one signed app bundle, real ptys, login + interactive shells, and
   passwords kept only in the macOS Keychain. [Hack](https://sourcefoundry.org/hack) is bundled and
   used by default, so a fresh install looks right with nothing to install first.
@@ -70,14 +67,13 @@ working.
 ## Features
 
 Suit has grown a broad feature set — browser-style tabs & panes, an integrated file/search/git
-sidebar, a full Claude Code cockpit, Autopilot, theming, and more. To keep this
+sidebar, a full Claude Code cockpit, theming, and more. To keep this
 README readable, the complete, detailed feature reference now lives in
 **[docs/features.md](docs/features.md)**:
 
 - [Tabs & panes — the browser model](docs/features.md#tabs--panes--tabs-live-on-the-pane)
 - [Files, search & navigation](docs/features.md#files-search--navigation)
 - [Claude Code cockpit](docs/features.md#claude-code-cockpit)
-- [Autopilot](docs/features.md#autopilot)
 - [Appearance & settings](docs/features.md#appearance--settings)
 - [Themes](docs/features.md#themes)
 - [Safety](docs/features.md#safety)
@@ -210,8 +206,8 @@ live in **[docs/development.md](docs/development.md)**.
 
 - **macOS 14+**
 - **Xcode Command Line Tools** (`swiftc`) — no full Xcode or SwiftPM required
-- **`gh`** (optional) — for PR creation and Autopilot
-- **Claude Code** (optional) — for the Claude cockpit features and Autopilot
+- **`gh`** (optional) — for PR creation and the Source Control tab's PR actions
+- **Claude Code** (optional) — for the Claude cockpit features
 
 ## Development & contributing
 

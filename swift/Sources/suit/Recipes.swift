@@ -12,7 +12,7 @@ import Foundation
 //
 // The parsing, placeholder substitution, built-in set, and the (dir-scoped) seed
 // / load IO are all here and Foundation-only so scripts/recipe-test.sh can
-// compile and assert them in isolation — the RoadmapParser / FeedbackRouting
+// compile and assert them in isolation — the FeedbackRouting
 // standalone pattern. RecipesStore.shared layers the ~/.suit path + a didUpdate
 // notification on top for the app.
 
@@ -92,7 +92,7 @@ enum RecipeLibrary {
     // as a front-matter file so the seeded set doubles as documentation of the
     // format. The review recipe echoes the reviewer-agent lane — a
     // read-only review pass — but stays a manual, interactive launcher (no
-    // gating, no auto-merge, unlike Autopilot).
+    // gating, no auto-merge).
     static let builtIns: [Recipe] = [
         Recipe(name: "Bug fix", body: """
         Fix this bug: <NAME>

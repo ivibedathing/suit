@@ -5,7 +5,7 @@
 # the one-shot "move an existing install off the old system-monospaced default"
 # migration rule, TTF discovery in both the bundle and the checkout, and that
 # registering actually makes all four Hack faces resolvable instead of letting
-# CoreText silently substitute. Mirrors the Recipes / RoadmapParser pattern.
+# CoreText silently substitute. Mirrors the Recipes / FeedbackRouting pattern.
 #
 # Usage: scripts/bundled-fonts-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.

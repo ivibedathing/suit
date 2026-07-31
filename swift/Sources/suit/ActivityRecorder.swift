@@ -2,7 +2,7 @@ import Cocoa
 
 // The producer side of the activity feed. Watches the session monitor
 // for state transitions and turns each into an ActivityEvent; the other
-// producers (Autopilot merged/blocked, CI failures) call `record(...)` directly
+// producers (CI failures) call `record(...)` directly
 // from their existing transition points. Also drives the once-daily digest
 // notification.
 //
@@ -12,8 +12,8 @@ import Cocoa
 // never records twice.
 final class ActivityRecorder {
     private let store: ActivityStore
-    // Focus/route + Autopilot-log hooks, wired by the AppDelegate. Kept here so
-    // the digest notification's click can route (via the attention center).
+    // The digest hook, wired by the AppDelegate. Kept here so the digest
+    // notification's click can route (via the attention center).
     private let onDigest: (DailyDigest) -> Void
 
     // The last observed state per session. The first pass seeds this without
@@ -81,7 +81,7 @@ final class ActivityRecorder {
         ))
     }
 
-    // MARK: - Direct producers (called by Autopilot / feedback)
+    // MARK: - Direct producers (called by the feedback pass)
 
     // Records `event`; returns whether it was new (the store dedups on id). The
     // caller stamps the timestamp so the store stays deterministic.

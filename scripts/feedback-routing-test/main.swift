@@ -2,7 +2,7 @@ import Foundation
 
 // Standalone logic test for the Phase 29 feedback-routing core. Compiled with
 // only swift/Sources/suit/FeedbackRouting.swift (Foundation-only, no app deps),
-// the RoadmapParser/AutopilotScheduler pattern. Exercises the pure parsers,
+// the FeedbackRouting pattern. Exercises the pure parsers,
 // the session-attribution rule, and the composed prompts against fixtures with
 // known answers. Prints PASS/FAIL lines and exits non-zero on any failure.
 

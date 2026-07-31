@@ -8,7 +8,7 @@ import Foundation
 //
 // The pure decision logic lives here — Foundation-only, no AppKit — so the
 // target resolution and confirm rule are verifiable without a running app,
-// matching the RoadmapParser/FeedbackRouting/DiffReview standalone-test pattern.
+// matching the FeedbackRouting/DiffReview standalone-test pattern.
 // The composer (PromptComposer.swift) is the UI that composes once and, on
 // send, loops over the resolved terminals.
 enum Broadcast {

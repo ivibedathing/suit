@@ -186,7 +186,7 @@ final class TabStore {
 
     // Inserts at `index` (nil = append), clamped so pinned tabs stay a prefix.
     // `background: true` joins the MRU order at the tail instead of the head —
-    // for tabs opened without stealing focus (Autopilot's run tab): a quick
+    // for tabs opened without stealing focus: a quick
     // ⌃Tab toggle and the close-tab fallback must never land the user in a
     // tab they have not visited.
     func insert(_ tab: Tab, at index: Int? = nil, background: Bool = false) {

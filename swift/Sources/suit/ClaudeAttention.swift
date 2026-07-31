@@ -18,14 +18,10 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
     // either way; notifications just switch off outside the app bundle.
     private let notificationsAvailable = Bundle.main.bundleIdentifier != nil
 
-    // Autopilot events: click-through routing for
-    // notifications whose identifier carries the "autopilot-" prefix —
-    // AppDelegate focuses the run tab when one is open, else opens the log.
-    var onAutopilotEvent: ((String) -> Void)?
-
     // Activity feed: the once-daily digest notification
     // ("activity-" prefixed identifier) routes here — AppDelegate opens the
-    // Activity panel. Same plumbing rationale as onAutopilotEvent.
+    // Activity panel. Lives here because this class is already the
+    // UNUserNotificationCenter delegate; a second delegate would fight it.
     var onActivityEvent: (() -> Void)?
 
     // Cost budget guardrails: a budget trip notification
@@ -124,13 +120,12 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: session.id, content: content, trigger: nil))
     }
 
-    // Autopilot's notifications: merged / blocked /
-    // idle events with *stable* identifiers ("autopilot-merged",
-    // "autopilot-blocked", "autopilot-idle") — a newer event of the same kind
-    // replaces the previous one instead of piling up. Lives here because this
-    // class is already the UNUserNotificationCenter delegate; a second
-    // delegate would fight it.
-    func postAutopilotEvent(title: String, body: String, identifier: String) {
+    // The activity feed's notifications: events with *stable* identifiers (the
+    // once-daily "activity-digest") — a newer event of the same kind replaces
+    // the previous one instead of piling up. Lives here because this class is
+    // already the UNUserNotificationCenter delegate; a second delegate would
+    // fight it.
+    func postActivityEvent(title: String, body: String, identifier: String) {
         guard notificationsAvailable else { return }
         let center = UNUserNotificationCenter.current()
         if !authorizationRequested {
@@ -165,7 +160,7 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
 
     // Update-available notification: the stable "update-available" identifier
     // means a re-check replaces the banner instead of piling up. Same
-    // lives-here rationale as postAutopilotEvent.
+    // lives-here rationale as postActivityEvent.
     func postUpdateEvent(title: String, body: String) {
         guard notificationsAvailable else { return }
         let center = UNUserNotificationCenter.current()
@@ -190,9 +185,7 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
         let identifier = response.notification.request.identifier
         DispatchQueue.main.async { [weak self] in
             NSApp.activate(ignoringOtherApps: true)
-            if identifier.hasPrefix("autopilot-") {
-                self?.onAutopilotEvent?(identifier)
-            } else if identifier.hasPrefix("activity-") {
+            if identifier.hasPrefix("activity-") {
                 self?.onActivityEvent?()
             } else if identifier.hasPrefix("update-") {
                 self?.onUpdateEvent?()
@@ -209,8 +202,8 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
     }
 
     // While the app is active the in-app signals cover sessions; no banner on
-    // top. The one exception is an Autopilot block (§2.11) — always news, so
-    // it presents even while the app is frontmost.
+    // top. The exceptions — a budget trip and an available update — are always
+    // news, so they present even while the app is frontmost.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -218,8 +211,7 @@ final class ClaudeAttentionCenter: NSObject, UNUserNotificationCenterDelegate {
     ) {
         // An available update is news regardless of focus — without the banner
         // an active-app user would never learn a release shipped.
-        if notification.request.identifier == "autopilot-blocked"
-            || notification.request.identifier.hasPrefix("budget-")
+        if notification.request.identifier.hasPrefix("budget-")
             || notification.request.identifier.hasPrefix("update-") {
             completionHandler([.banner, .sound])
         } else {

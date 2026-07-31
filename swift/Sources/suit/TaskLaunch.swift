@@ -1,8 +1,8 @@
 import Foundation
 
 // The per-task isolation decision, pulled out UI-free and
-// standalone-compilable so the harness can assert it (the RoadmapParser /
-// FeedbackRouting pattern). "New Claude Task" originally always spun a
+// standalone-compilable so the harness can assert it (the FeedbackRouting
+// pattern). "New Claude Task" originally always spun a
 // worktree; it is now a choice — on isolates the task in its own
 // worktree, off runs `claude` in the current checkout.
 enum TaskLaunch {

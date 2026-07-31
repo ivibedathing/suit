@@ -2,7 +2,7 @@ import Foundation
 
 // Standalone assertions for the Phase 38 activity-feed core (Activity.swift).
 // Compiled against that one Foundation-only file by scripts/activity-test.sh —
-// no app, no UI. Mirrors the RoadmapParser / FeedbackRouting / Recipes /
+// no app, no UI. Mirrors the FeedbackRouting / Recipes /
 // FileEdit harness pattern.
 
 var failures = 0
@@ -39,8 +39,8 @@ let events = [
     event("s2", .sessionNeedsInput, at: day2Start + 50,  title: "Need review", repo: "suit", session: "sess-B"),
     event("p1", .prMerged,          at: day2Start + 200, title: "Merge #12",  repo: "suit", pr: 12, prURL: "https://gh/pr/12"),
     event("c1", .ciFail,            at: day2Start + 300, title: "CI red",     repo: "other", session: "sess-C"),
-    event("a1", .autopilotMerged,   at: day2Start + 400, title: "Phase 5",   repo: "suit", pr: 20, prURL: "https://gh/pr/20"),
-    event("a2", .autopilotBlocked,  at: day2Start + 500, title: "Preflight", repo: "suit"),
+    event("p2", .prOpened,          at: day2Start + 400, title: "Open #20",  repo: "suit", pr: 20, prURL: "https://gh/pr/20"),
+    event("t1", .autoCompacted,     at: day2Start + 500, title: "Compacted", repo: "suit"),
     event("s3", .sessionDone,       at: day3Start + 10,  title: "Tomorrow",  repo: "suit", session: "sess-A"),
 ]
 
@@ -63,7 +63,6 @@ check(ActivityFeed.ordered(tie).map { $0.id } == ["second", "first"], "ordered: 
 
 check(event("x", .sessionDone, at: 0, session: "sess-A").route == .session("sess-A"), "route: session id wins")
 check(event("x", .prMerged, at: 0, prURL: "https://gh/pr/12").route == .pr("https://gh/pr/12"), "route: PR url when no session")
-check(event("x", .autopilotBlocked, at: 0).route == .autopilotLog, "route: autopilot row → log")
 check(event("x", .prOpened, at: 0).route == .none, "route: nothing routable → none")
 // A session id takes precedence over a PR url on the same row.
 check(event("x", .ciFail, at: 0, session: "s", prURL: "u").route == .session("s"), "route: session beats PR url")
@@ -83,11 +82,10 @@ let digest = DailyDigest.rollup(events: events, day: Date(timeIntervalSince1970:
 check(digest.sessionsFinished == 0, "digest day2: no session-done rows that day")
 check(digest.prsMerged == 1, "digest day2: one PR merged")
 check(digest.ciFailures == 1, "digest day2: one CI failure")
-check(digest.autopilotMerged == 1, "digest day2: one autopilot merge")
-check(digest.total == 3, "digest day2: total rolls up notable counts")
+check(digest.total == 2, "digest day2: total rolls up notable counts")
 check(!digest.highlights.isEmpty && digest.highlights.count <= 5, "digest day2: highlights present, capped")
-// Highlights are newest-first among notable rows: autopilotBlocked(500) then autopilotMerged(400) then ciFail(300) then prMerged(200).
-check(digest.highlights.first == "Autopilot blocked: Preflight", "digest day2: highlights newest-first")
+// Highlights are newest-first among notable rows: ciFail(300) then prMerged(200).
+check(digest.highlights.first == "CI failed: CI red", "digest day2: highlights newest-first")
 
 let digest1 = DailyDigest.rollup(events: events, day: Date(timeIntervalSince1970: day1Start + 60), calendar: cal)
 check(digest1.sessionsFinished == 1 && digest1.total == 1, "digest day1: only that day's session-done counted")

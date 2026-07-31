@@ -4,7 +4,7 @@
 # deps) with scripts/notification-sound-test/main.swift and runs its
 # assertions — the transition-to-event decision, the two enable-flag gates,
 # dedup across sessions, and the no-transition / first-seen rules. Mirrors the
-# Recipes / RoadmapParser standalone-test pattern.
+# Recipes / FeedbackRouting standalone-test pattern.
 #
 # Usage: scripts/notification-sound-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.

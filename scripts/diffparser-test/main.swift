@@ -2,8 +2,8 @@ import Foundation
 
 // Standalone assertion driver for the unified-diff parser core
 // (swift/Sources/suit/DiffParser.swift, Foundation-only, no app deps), compiled
-// and run by scripts/diffparser-test.sh. Mirrors the RoadmapParser /
-// FeedbackRouting / Recipes standalone-test pattern: no app, no UI — just the
+// and run by scripts/diffparser-test.sh. Mirrors the FeedbackRouting /
+// Recipes standalone-test pattern: no app, no UI — just the
 // pure parser. Covers line classification, old/new line-number tracking across
 // hunks, meta/header handling, context prefix stripping, and changedPaths()
 // (including renames, where the b/ side must win).

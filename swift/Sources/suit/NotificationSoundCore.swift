@@ -1,7 +1,7 @@
 import Foundation
 
 // Notification-sound decision core (Foundation-only, no app deps — mirrors
-// Recipes / RoadmapParser). Given the previous state per session id and the
+// Recipes / FeedbackRouting). Given the previous state per session id and the
 // current states, it decides which sound *events* fire on this update. The
 // AppKit half (NotificationSounds.swift + ClaudeAttentionCenter) maps each
 // event to the user's chosen NSSound and plays it while the app is inactive.

@@ -5,7 +5,7 @@
 # assertions — zsh-history parse/dedup (most-recent-first), the fuzzy ranking
 # the overlay shows, source merging + the missing-$HISTFILE degrade path, the
 # run/edit pty payload (edit-before-run leaves the line unsubmitted), and the
-# destructive-command detection. Mirrors the AutopilotScheduler / FeedbackRouting
+# destructive-command detection. Mirrors the FeedbackRouting
 # standalone-test pattern.
 #
 # Usage: scripts/command-history-test.sh   (run from the repo root)

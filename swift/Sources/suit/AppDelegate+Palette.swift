@@ -454,7 +454,7 @@ extension AppDelegate {
             PaletteCommand(title: "Settings…", shortcut: "⌘,") { [weak self] in self?.showSettings(nil) },
             PaletteCommand(title: "Install Claude Code Integration…", shortcut: nil) { [weak self] in self?.installClaudeIntegration(nil) },
             PaletteCommand(title: "Check for Updates…", shortcut: nil) { [weak self] in self?.checkForUpdates(nil) },
-        ] + autopilotPaletteCommands() + sshHostCommands() + recipeCommands() + promptLibraryCommands()
+        ] + sshHostCommands() + recipeCommands() + promptLibraryCommands()
     }
 
     // Session task recipes: each ~/.suit/recipes/*.md surfaces

@@ -5,7 +5,7 @@
 # (front-matter name / filename fallback), placeholder substitution, the slug,
 # the built-in set + file round-trip, and the dir-scoped seed/load IO (seeds an
 # empty dir, leaves a populated one alone, missing dir → empty). Mirrors the
-# RoadmapParser / FeedbackRouting standalone-test pattern.
+# FeedbackRouting standalone-test pattern.
 #
 # Usage: scripts/recipes-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.

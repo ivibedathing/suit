@@ -80,51 +80,6 @@ extension AppDelegate {
         if defaults.object(forKey: "taskIsolateByDefault") != nil {
             taskIsolateByDefault = defaults.bool(forKey: "taskIsolateByDefault")
         }
-        // Autopilot (§2.9): bare camelCase keys, one per table row.
-        autopilotEnabled = defaults.bool(forKey: "autopilotEnabled")
-        if let root = defaults.string(forKey: "autopilotProjectRoot") {
-            autopilotProjectRoot = root
-        }
-        if let raw = defaults.string(forKey: "autopilotMode"),
-           let mode = AutopilotBudgetMode(rawValue: raw) {
-            autopilotMode = mode
-        }
-        if defaults.object(forKey: "autopilotNightStart") != nil {
-            autopilotNightStart = defaults.integer(forKey: "autopilotNightStart")
-        }
-        if defaults.object(forKey: "autopilotNightEnd") != nil {
-            autopilotNightEnd = defaults.integer(forKey: "autopilotNightEnd")
-        }
-        if defaults.object(forKey: "autopilotFiveHourCeiling") != nil {
-            autopilotFiveHourCeiling = defaults.integer(forKey: "autopilotFiveHourCeiling")
-        }
-        if defaults.object(forKey: "autopilotWeeklyCeiling") != nil {
-            autopilotWeeklyCeiling = defaults.integer(forKey: "autopilotWeeklyCeiling")
-        }
-        if defaults.object(forKey: "autopilotWeeklyHardStop") != nil {
-            autopilotWeeklyHardStop = defaults.integer(forKey: "autopilotWeeklyHardStop")
-        }
-        if defaults.object(forKey: "autopilotPaceTargetPct") != nil {
-            autopilotPaceTargetPct = defaults.integer(forKey: "autopilotPaceTargetPct")
-        }
-        if defaults.object(forKey: "autopilotMaxGateAttempts") != nil {
-            autopilotMaxGateAttempts = defaults.integer(forKey: "autopilotMaxGateAttempts")
-        }
-        if defaults.object(forKey: "autopilotStallMinutes") != nil {
-            autopilotStallMinutes = defaults.integer(forKey: "autopilotStallMinutes")
-        }
-        if let args = defaults.string(forKey: "autopilotExtraArgs") {
-            autopilotExtraArgs = args
-        }
-        if let model = defaults.string(forKey: "autopilotReviewModel") {
-            autopilotReviewModel = model
-        }
-        if defaults.object(forKey: "autopilotModelRouting") != nil {
-            autopilotModelRouting = defaults.bool(forKey: "autopilotModelRouting")
-        }
-        if defaults.object(forKey: "autopilotPreventSleep") != nil {
-            autopilotPreventSleep = defaults.bool(forKey: "autopilotPreventSleep")
-        }
         // Cost budget guardrails.
         if defaults.object(forKey: "budgetSessionCap") != nil {
             budgetSessionCap = defaults.double(forKey: "budgetSessionCap")
@@ -163,21 +118,6 @@ extension AppDelegate {
         defaults.set(goalPrependProvenanceEnabled, forKey: "goalPrependProvenanceEnabled")
         defaults.set(claudeSessionArgs, forKey: "claudeSessionArgs")
         defaults.set(taskIsolateByDefault, forKey: "taskIsolateByDefault")
-        defaults.set(autopilotEnabled, forKey: "autopilotEnabled")
-        defaults.set(autopilotProjectRoot, forKey: "autopilotProjectRoot")
-        defaults.set(autopilotMode.rawValue, forKey: "autopilotMode")
-        defaults.set(autopilotNightStart, forKey: "autopilotNightStart")
-        defaults.set(autopilotNightEnd, forKey: "autopilotNightEnd")
-        defaults.set(autopilotFiveHourCeiling, forKey: "autopilotFiveHourCeiling")
-        defaults.set(autopilotWeeklyCeiling, forKey: "autopilotWeeklyCeiling")
-        defaults.set(autopilotWeeklyHardStop, forKey: "autopilotWeeklyHardStop")
-        defaults.set(autopilotPaceTargetPct, forKey: "autopilotPaceTargetPct")
-        defaults.set(autopilotMaxGateAttempts, forKey: "autopilotMaxGateAttempts")
-        defaults.set(autopilotStallMinutes, forKey: "autopilotStallMinutes")
-        defaults.set(autopilotExtraArgs, forKey: "autopilotExtraArgs")
-        defaults.set(autopilotReviewModel, forKey: "autopilotReviewModel")
-        defaults.set(autopilotModelRouting, forKey: "autopilotModelRouting")
-        defaults.set(autopilotPreventSleep, forKey: "autopilotPreventSleep")
         defaults.set(budgetSessionCap, forKey: "budgetSessionCap")
         defaults.set(budgetTaskCap, forKey: "budgetTaskCap")
         defaults.set(budgetAutoInterrupt, forKey: "budgetAutoInterrupt")

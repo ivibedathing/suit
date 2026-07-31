@@ -15,7 +15,6 @@ app does.
     [Fleet control & spend](#fleet-control--spend) · [Talking to sessions](#talking-to-sessions) ·
     [Steering & review](#steering--review) · [Transcripts & history](#transcripts--history) ·
     [Tasks & recipes](#tasks--recipes)
-- [Autopilot](#autopilot)
 - [Appearance & settings](#appearance--settings)
 - [Themes](#themes)
 - [Safety](#safety)
@@ -158,8 +157,8 @@ app does.
   launch, and the originals are left on disk untouched.
 - **Background** — the sidebar's last tab (also **View ▸ Show Background Tasks**, or "Show
   Background Tasks" in the palette): a live log of the work *Suit itself* does when nobody asked.
-  Every internal `git` and `gh` call, project-index rescan, ctags pass, ripgrep run, `lsof` poll,
-  Autopilot gate and update check lands here with what ran, what triggered it (`file change`,
+  Every internal `git` and `gh` call, project-index rescan, ctags pass, ripgrep run, `lsof` poll
+  and update check lands here with what ran, what triggered it (`file change`,
   `tab shown`, `ref change`, `project opened`, `timer`, `user`, `coalesced`), how long it took, and
   how it ended. Rows are grouped by subsystem glyph and tinted red on failure; a run of identical
   operations collapses to one row with a **×N** and the run's total time, so an FSEvents burst
@@ -515,13 +514,13 @@ app does.
 - **Activity feed / daily digest** — where the fleet dashboard is a live snapshot of *who's
   busy*, "Show Activity Feed" (command palette / View menu) opens a floating panel with the
   chronological record of what *moved* across the fleet: sessions finishing or stalling on
-  input, CI failing, and Autopilot runs merging or blocking — newest-first, each row a
-  tone-colored glyph + title + repo · worktree/PR + relative age. Filter by repo or kind, and
-  click a row to jump to the thing it names (the session's pane, the PR on GitHub, or the
-  Autopilot log). The events persist to `~/.suit/activity.jsonl` (append-only, so history
-  outlives session-file pruning). A header shows a **"what happened today"** recap — sessions
-  finished · PRs merged · autopilot merges · CI failures — and once per day Suit delivers the
-  previous day's digest as a notification (click it to open the feed).
+  input and CI failing — newest-first, each row a tone-colored glyph + title +
+  repo · worktree/PR + relative age. Filter by repo or kind, and click a row to jump to the thing
+  it names (the session's pane or the PR on GitHub). The events persist to
+  `~/.suit/activity.jsonl` (append-only, so history outlives session-file pruning). A header
+  shows a **"what happened today"** recap — sessions finished · PRs merged · CI failures — and
+  once per day Suit delivers the previous day's digest as a notification (click it to open the
+  feed).
 - **Cost budget guardrails** — per-session and per-task (worktree) spend ceilings that watch each
   run's `cost_usd`. Set the defaults in Settings (⌘, ▸ Budget) as dollar caps (blank = off), or
   give one session its own ceiling with **Set Budget…** (right-click a fleet-dashboard row, or the
@@ -529,8 +528,7 @@ app does.
   a worktree — crosses its cap, Suit posts a notification (click it to focus the pane) and logs the
   trip to the activity feed; it never fires more than once per crossing. Tick **"Interrupt the run
   (Esc) when a cap is crossed"** to also send Esc into the offending pty and halt it — never
-  silently. This is the per-run kill-switch that complements Autopilot's global 5h/weekly start
-  gates: an in-flight run that blows a task cap trips here.
+  silently.
 
 ### Talking to sessions
 
@@ -594,8 +592,8 @@ app does.
   name (with the same **Isolate in worktree** toggle), fills `<NAME>` from your input and
   `<SELECTION>`/`<FILE>` from the focused viewer/terminal, spins the worktree + `claude`, and
   sends the substituted prompt in — a bugfix / feature / refactor / review each launching in one
-  keystroke instead of a manual setup ritual. Manual and interactive (no gating or auto-merge,
-  unlike Autopilot).
+  keystroke instead of a manual setup ritual. Manual and interactive (no gating or
+  auto-merge).
 - **Background-task monitor** — long-running jobs Claude Code (or you) background — dev servers,
   test watchers, builds — are invisible from Suit's side until you scroll the shell. Launch one
   through the bundled `suit-bg` wrapper (`suit-bg npm run dev`) and it runs detached with its
@@ -608,126 +606,6 @@ app does.
   scrollback. Records live in `~/.suit/tasks/` (written by `suit-bg`, atomic, no dependencies) and
   are pruned a day after their process ends. The wrapper ships in the app bundle
   (`Suit.app/Contents/Resources/suit-bg.sh`) — symlink it onto your `PATH` to use it as `suit-bg`.
-
-## Autopilot
-
-- **Autonomous roadmap execution** — Autopilot works through a project's `ROADMAP.md` on its
-  own: whenever the token budget allows, it creates a git worktree for the next unshipped
-  phase and opens a visible tab running `claude` in it; the worker implements the phase,
-  builds, updates the docs, pushes, and opens a PR. Suit then gates the PR — `./build.sh` must
-  exit 0 and a headless Claude review must approve — auto-merges it, cleans up the worktree,
-  and loops to the next phase. Gate failures feed the build-log tail or review findings back
-  into the live session for another attempt (capped by the Attempts setting); anything
-  unrecoverable blocks Autopilot with a notification, keeping the worktree, branch, PR and
-  logs for inspection (the palette's Retry resumes). Merged phases post a notification too.
-  Needs the `gh` CLI (installed and authenticated) and the Claude Code integration.
-- **Multiple autopilots at once** — Autopilot is per-repo, and several run concurrently, one
-  per git repository. **`Autopilot: Start Here`** (palette) resolves the active tab's working
-  directory up to its git root, requires a `ROADMAP.md` there, and stands up an autopilot for
-  that repo — so you launch a run from wherever you're looking, no Settings trip needed. The
-  configured project (Settings ▸ Autopilot) still auto-runs on launch as the "primary". Because
-  every worker draws on the *same* Claude budget, only **one instance holds a live run at a
-  time**: the others sit **queued** and take the slot the moment it frees (the budget modes
-  below still decide when the active slot may start a new phase). Each instance keeps its own
-  state, history, and logs, and a running autopilot is re-adopted on the next launch.
-- **Start/stop from the terminal** — a terminal pane's right-click menu carries one Autopilot
-  item that flips with the state of the repo that pane's shell is sitting in: **Start Autopilot
-  Here** when nothing is running on it, **Stop Autopilot (<repo>)** when something is. Start is
-  the palette's `Autopilot: Start Here` aimed at *that pane's* working directory rather than the
-  focused tab's, so it runs the same enable-time checks and reports the same problems (not a git
-  repo, no `ROADMAP.md`); Stop matches the dashboard's — the instance goes away, its worktree and
-  branch stay put. A pane inside a worker's own worktree (`.claude/worktrees/…`) counts as inside
-  the project driving it, so you can stop a run from the shell you're watching it in. The menu
-  answers from paths alone and never shells out to `git`, so right-click stays instant.
-- **Autopilot dashboard** (`Autopilot: Dashboard`, or click the footer row when more than one
-  is active) — a floating panel with one row per running autopilot: the repo, its live status,
-  and per-repo controls — Focus run tab, Pause/Resume, Skip Current Phase, Retry (while
-  blocked), Show Log, and **Stop** (drop that instance without touching its worktree). A
-  **Start Here** button launches a new one on the active tab's repo.
-- **Per-phase model & effort routing** — a phase's `ROADMAP.md` body can carry `model:` and/or
-  `effort:` annotation lines (bare or `- `-led, case-insensitive key, value verbatim — e.g.
-  `model: haiku`, `effort: low`), and Autopilot launches that phase's worker with
-  `ANTHROPIC_MODEL` / `CLAUDE_CODE_EFFORT_LEVEL` set accordingly, so mechanical phases (doc
-  sweeps, renames, migrations) run on a cheaper tier while design-heavy phases keep the session
-  default. The annotations are snapshotted onto the run at spawn (like the spec) and survive
-  `--continue` respawns; the first occurrence per phase wins, and prose mentioning "the model:"
-  mid-sentence never triggers. The in-repo annotation is the explicit, versioned opt-in. A phase
-  with no annotation is routed automatically — see below.
-- **Automatic model routing** — a phase with no `model:` annotation is routed by asking **haiku**
-  which tier the work deserves: it reads the phase's spec text and answers `HAIKU` (mechanical and
-  local — a typo, a rename, a version bump), `SONNET` (ordinary feature work following patterns the
-  codebase already has), or `OPUS` (design decisions, concurrency, migrations, cross-cutting
-  refactors, or a goal stated without a method). The classifier costs a fraction of a cent and runs
-  during the worktree checkout the spawn was already waiting on, so it adds no perceptible delay.
-  Ties break upward on purpose: a rejected review gate costs more than the model ever saved. The
-  decision and its source land in the Autopilot log (`model routing: opus (haiku classifier)`).
-  Precedence is **roadmap `model:` annotation → classifier → heuristic**: an annotation is never
-  overridden or second-guessed (and never pays for a classifier), and if the classifier can't
-  answer — no `claude` binary, a timeout, unparseable output — a local keyword/breadth heuristic
-  picks instead, biased upward and never below `sonnet` unless the request is unmistakably
-  mechanical. Routing is advisory: every failure path lands on a tier, none can block a run.
-  Toggle it with **Settings ▸ Autopilot ▸ "Route each phase to a model tier"** (on by default);
-  off restores the previous behaviour of letting claude pick.
-- **Routed review gate** — the review gate follows the tier the phase's work was routed to, so a
-  haiku-routed typo isn't reviewed by opus, without spending a second classifier call. It never
-  drops below **sonnet**, however cheap the phase was: the review gate is a correctness gate, and a
-  reviewer that rubber-stamps is worse than no gate because it launders a bad change into a merge.
-  An explicit **Reviewer** value in Settings ▸ Autopilot is a standing decision and outranks
-  routing entirely (empty = routed, or claude's default when routing is off).
-- **Unchanged-diff review skip** — every review verdict records a fingerprint of the exact PR
-  diff it judged; if the next review attempt sees a byte-identical diff (the worker pushed
-  nothing real since the rejection), the headless review is skipped — no API spend — and the
-  worker instead gets told plainly that nothing changed and to address the previous findings.
-  The skip still consumes a review attempt, so a worker that never changes anything runs into
-  the attempts cap rather than looping forever.
-- **Budget modes** — three switchable modes decide when a run may *start* (a run in flight
-  always finishes): **Pace to reset** spreads the weekly budget evenly across the rate-limit
-  window, **Max out** runs whenever usage is under the ceilings, **Night shift** is max-out
-  restricted to the configured night hours (default 22–7, wrapping midnight). All modes
-  respect the 5h cap and the weekly hard stop; the weekly cap additionally bounds Max out
-  and Night shift (Pace to reset follows its own pace line instead).
-- **Settings** (⌘, ▸ Autopilot) — the enable checkbox ("Work through ROADMAP.md
-  autonomously"), the project (a git repo containing ROADMAP.md, with a Choose… picker), the
-  mode and night hours, the 5h / Weekly / Hard Stop / Pace To percentages, max gate attempts
-  per phase, the needs-input stall minutes, extra `claude` arguments for worker runs
-  (`--dangerously-skip-permissions` is always set), the review-gate model (empty = default),
-  and "Keep the Mac awake during runs".
-- **Status row** — a one-line status in the sidebar footer, above the usage rows: `Autopilot ·
-  next run ~03:40`, `⚙ Phase 23 · running 41m`, `⚙ Phase 23 · gate: build`, `⚙ Phase 23 ·
-  merging PR #142`, `⚠ Phase 23 blocked — …`, `Autopilot · queued` (waiting behind the active
-  instance). With several autopilots active the row shows the running (or primary) one prefixed
-  with its repo and a `· N autopilots` count. Clicking it opens the dashboard when more than one
-  is active, else focuses the run tab (while running) or the log; the tooltip carries the full
-  reason.
-- **Palette commands** — `Autopilot: Enable`/`Disable` (the title flips) and `Autopilot: Show
-  Log` are always there; while enabled, also `Start Here (active tab's repo)`, `Dashboard`,
-  `Run Next Phase Now` (bypasses the budget gate once), `Pause After Current Run`/`Resume`,
-  `Skip Current Phase`, and `Open Run Tab`, plus `Retry` while blocked. The run-control verbs
-  act on the current instance (running / primary / first active). No new keyboard bindings —
-  palette-reachable is keyboard-complete.
-- **The run tab** — the worker is an ordinary terminal tab titled `⚙ Phase N — <Title>`,
-  opened without stealing focus; watch it, split it, or type into it (the session dot pulses
-  on needs-input as usual). A worker exit never auto-closes the tab, so the scrollback
-  survives for debugging.
-- **Steering = editing ROADMAP.md** — phase priority is document order; `✅` anywhere in a
-  phase heading means shipped, `⏸` means skipped ("Skip Current Phase" appends it — the
-  engine's one write to the file). When every phase is shipped or skipped, Autopilot idles
-  until the roadmap changes again.
-- **On disk** — each autopilot owns a per-repo slot under `~/.suit/autopilot/repos/<slug>/`
-  holding `state.json` (its current run — it survives a relaunch, and Autopilot resumes it at
-  the right stage), `history.jsonl` (one row per finished run: outcome, PR URL, attempts,
-  cost), `autopilot.log` (the human-readable event log Show Log opens as a viewer tab), and
-  `logs/<phase-slug>/build-N.log` / `review-N.log` (gate output). Cross-instance events
-  (enable/disable, Start Here, Stop) go to the top-level `~/.suit/autopilot/autopilot.log`. The
-  old single-autopilot layout (files directly under `~/.suit/autopilot/`) is migrated into the
-  primary repo's slot automatically on first launch. A `~/.suit/autopilot-prompt.md`, when
-  present, overrides the worker prompt template.
-- **What the worker and the review gate are told** — the worker prompt points at `CLAUDE.md`
-  for the repo's conventions and asks for the shipped behavior to be documented in
-  `docs/features.md`, touching `README.md` only when the change belongs in its Highlights
-  summary or shortcuts table. The review gate judges against the same targets, and the repo
-  rules it reads are `CLAUDE.md` from the *main* checkout (never the worker's edit of them),
-  capped at 40 KB with a truncation marker so the gate knows when it judged a prefix.
 
 ## Appearance & settings
 
@@ -746,8 +624,7 @@ app does.
   new tabs run, cursor shape and blinking, bell responses — pane flash, Dock bounce),
   **File Viewer** (word wrap), **Claude** (session arguments, "Set as Goal" provenance, and
   notification sounds), **Themes** (swap the whole color palette — see below),
-  **Autopilot**, **Budget**, and a read-only
-  **Shortcuts** reference. Everything persists across launches.
+  **Budget**, and a read-only **Shortcuts** reference. Everything persists across launches.
 - **Update check** — Suit polls the GitHub releases of its own repo (at most one API hit per day,
   re-evaluated shortly after launch and every 6 h for long uptimes) and, when a release tag newer
   than the running version ships, posts a notification; clicking it opens the offer dialog with

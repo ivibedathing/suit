@@ -4,8 +4,8 @@ import Foundation
 // (worktree) spend ceilings that warn — or, opt-in, interrupt — when a run
 // blows past its budget. Spend is made legible elsewhere; this acts on it.
 //
-// This file is the UI-free, standalone-compilable core (the RoadmapParser /
-// AutopilotScheduler / FeedbackRouting pattern, Foundation-only, no AppKit and
+// This file is the UI-free, standalone-compilable core (the FeedbackRouting
+// pattern, Foundation-only, no AppKit and
 // no app deps), so `scripts/budget-test.sh` can compile it in isolation and
 // assert the trip logic — notify once at the threshold, an Esc reaches the
 // right pty under auto-interrupt, and staying under a cap never trips —
@@ -15,7 +15,7 @@ import Foundation
 
 // Which kind of ceiling a cap measures. A session cap tracks one Claude
 // session's cumulative cost_usd; a task cap tracks the summed cost of every
-// session in one worktree (a New Claude Task / Autopilot run).
+// session in one worktree (a New Claude Task).
 enum BudgetScope: String, Codable, Equatable {
     case session
     case task

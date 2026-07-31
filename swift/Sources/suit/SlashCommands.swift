@@ -4,7 +4,7 @@ import Foundation
 // (built-ins, custom ~/.claude/commands/*.md, and skills) become a discoverable
 // list the command menu dispatches into a session's pty via SessionControl.send,
 // so steering is one tap instead of a typed incantation. Pure and Foundation-only
-// so the discovery is verifiable on its own (the AutopilotScheduler pattern).
+// so the discovery is verifiable on its own (the FeedbackRouting pattern).
 
 struct SlashCommand: Equatable {
     enum Source: String { case builtin, custom, skill }

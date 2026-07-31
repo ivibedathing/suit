@@ -2,18 +2,17 @@ import Foundation
 
 // Fleet activity feed / daily digest: the chronological
 // record of what *moved* across the fleet — sessions finishing, PRs opening/
-// merging, CI passing/failing, Autopilot runs merging/blocking — plus a
-// "what happened today" recap.
+// merging, CI passing/failing — plus a "what happened today" recap.
 //
-// This file is the UI-free, standalone-compilable core (the RoadmapParser /
-// FeedbackRouting / Recipes / FileEdit pattern, Foundation-only, no AppKit and
+// This file is the UI-free, standalone-compilable core (the FeedbackRouting /
+// Recipes / FileEdit pattern, Foundation-only, no AppKit and
 // no app deps), so `scripts/activity-test.sh` can compile it in isolation and
 // assert the feed ordering / routing / daily-digest rollup without any UI. The
 // AppKit halves live in ActivityRecorder.swift (the producers) and
 // ActivityFeedController.swift (the panel).
 //
 //   ~/.suit/activity.jsonl — append-only, one JSON object per line (the
-//   usage-history.jsonl / autopilot history.jsonl pattern), so activity
+//   usage-history.jsonl pattern), so activity
 //   survives session-file pruning and stays greppable/jq-able.
 
 // MARK: - Kinds
@@ -27,8 +26,6 @@ enum ActivityKind: String, Codable, CaseIterable {
     case prMerged = "pr_merged"
     case ciPass = "ci_pass"
     case ciFail = "ci_fail"
-    case autopilotMerged = "autopilot_merged"
-    case autopilotBlocked = "autopilot_blocked"
     // Cost budget guardrails: a session/task crossed its
     // configured spend cap (warned, or auto-interrupted).
     case budgetTripped = "budget_tripped"
@@ -45,8 +42,6 @@ enum ActivityKind: String, Codable, CaseIterable {
         case .prMerged: return "PR merged"
         case .ciPass: return "CI passed"
         case .ciFail: return "CI failed"
-        case .autopilotMerged: return "Autopilot merged"
-        case .autopilotBlocked: return "Autopilot blocked"
         case .budgetTripped: return "Budget tripped"
         case .autoCompacted: return "Auto-compacted"
         }
@@ -62,8 +57,6 @@ enum ActivityKind: String, Codable, CaseIterable {
         case .prMerged: return "arrow.triangle.merge"
         case .ciPass: return "checkmark.seal.fill"
         case .ciFail: return "xmark.octagon.fill"
-        case .autopilotMerged: return "sparkles"
-        case .autopilotBlocked: return "hand.raised.fill"
         case .budgetTripped: return "dollarsign.circle.fill"
         case .autoCompacted: return "rectangle.compress.vertical"
         }
@@ -75,8 +68,8 @@ enum ActivityKind: String, Codable, CaseIterable {
 
     var tone: Tone {
         switch self {
-        case .sessionDone, .prMerged, .ciPass, .autopilotMerged: return .positive
-        case .ciFail, .autopilotBlocked: return .negative
+        case .sessionDone, .prMerged, .ciPass: return .positive
+        case .ciFail: return .negative
         case .sessionNeedsInput, .budgetTripped: return .attention
         case .prOpened, .autoCompacted: return .neutral
         }
@@ -86,12 +79,10 @@ enum ActivityKind: String, Codable, CaseIterable {
 // MARK: - Routing
 
 // Where a row click goes. `.session` focuses the pane hosting that session,
-// `.pr` opens the PR on GitHub, `.autopilotLog` opens the Autopilot log tab,
-// `.none` is inert (nothing to route to).
+// `.pr` opens the PR on GitHub, `.none` is inert (nothing to route to).
 enum ActivityRoute: Equatable {
     case session(String)
     case pr(String)
-    case autopilotLog
     case none
 }
 
@@ -153,15 +144,11 @@ struct ActivityEvent: Codable, Equatable {
     }
 
     // A row click routes to the most specific target it carries: its session
-    // (steer/focus), else its PR (open on GitHub), else — for Autopilot rows —
-    // the log; otherwise nothing.
+    // (steer/focus), else its PR (open on GitHub); otherwise nothing.
     var route: ActivityRoute {
         if let sessionId, !sessionId.isEmpty { return .session(sessionId) }
         if let prURL, !prURL.isEmpty { return .pr(prURL) }
-        switch kind {
-        case .autopilotMerged, .autopilotBlocked: return .autopilotLog
-        default: return .none
-        }
+        return .none
     }
 }
 
@@ -221,10 +208,9 @@ struct DailyDigest: Equatable {
     var sessionsFinished: Int
     var prsMerged: Int
     var ciFailures: Int
-    var autopilotMerged: Int
     var highlights: [String]
 
-    var total: Int { sessionsFinished + prsMerged + ciFailures + autopilotMerged }
+    var total: Int { sessionsFinished + prsMerged + ciFailures }
     var isEmpty: Bool { total == 0 }
 
     // A one-line summary for a notification body / panel header. Empty when
@@ -234,17 +220,14 @@ struct DailyDigest: Equatable {
         var parts: [String] = []
         if sessionsFinished > 0 { parts.append("\(sessionsFinished) session\(sessionsFinished == 1 ? "" : "s") finished") }
         if prsMerged > 0 { parts.append("\(prsMerged) PR\(prsMerged == 1 ? "" : "s") merged") }
-        if autopilotMerged > 0 { parts.append("\(autopilotMerged) autopilot merge\(autopilotMerged == 1 ? "" : "s")") }
         if ciFailures > 0 { parts.append("\(ciFailures) CI failure\(ciFailures == 1 ? "" : "s")") }
         return parts.joined(separator: " · ")
     }
 
     // Rolls up the rows whose timestamp falls on the same calendar day as
-    // `day` (using `calendar`, so the harness can pin a fixed timezone). PR
-    // merges count both plain PR merges and Autopilot merges (an Autopilot run
-    // that merged is also a PR that merged, but they're tracked separately so
-    // the summary can distinguish them). Highlights are the day's most notable
-    // rows (merges + CI failures), newest-first, capped.
+    // `day` (using `calendar`, so the harness can pin a fixed timezone).
+    // Highlights are the day's most notable rows (merges + CI failures),
+    // newest-first, capped.
     static func rollup(
         events: [ActivityEvent],
         day: Date,
@@ -261,18 +244,16 @@ struct DailyDigest: Equatable {
         var sessionsFinished = 0
         var prsMerged = 0
         var ciFailures = 0
-        var autopilotMerged = 0
         for event in today {
             switch event.kind {
             case .sessionDone: sessionsFinished += 1
             case .prMerged: prsMerged += 1
             case .ciFail: ciFailures += 1
-            case .autopilotMerged: autopilotMerged += 1
             default: break
             }
         }
 
-        let notable: Set<ActivityKind> = [.prMerged, .autopilotMerged, .ciFail, .autopilotBlocked]
+        let notable: Set<ActivityKind> = [.prMerged, .ciFail]
         let highlights = ActivityFeed.ordered(today.filter { notable.contains($0.kind) })
             .prefix(maxHighlights)
             .map { "\($0.kind.label): \($0.title)" }
@@ -282,7 +263,6 @@ struct DailyDigest: Equatable {
             sessionsFinished: sessionsFinished,
             prsMerged: prsMerged,
             ciFailures: ciFailures,
-            autopilotMerged: autopilotMerged,
             highlights: Array(highlights)
         )
     }
@@ -290,7 +270,7 @@ struct DailyDigest: Equatable {
 
 // MARK: - Store
 
-// Append-only persistence + an in-memory mirror. FavoritesStore/AutopilotStore
+// Append-only persistence + an in-memory mirror. The FavoritesStore
 // pattern — static shared, didUpdate, $HOME-resolved path, but Foundation-only
 // so the harness compiles it standalone. Dedups on ActivityEvent.id so a
 // producer firing from several call sites records once.

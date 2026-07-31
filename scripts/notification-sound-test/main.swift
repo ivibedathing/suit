@@ -2,7 +2,7 @@ import Foundation
 
 // Standalone assertion driver for the notification-sound core, compiled
 // against swift/Sources/suit/NotificationSoundCore.swift (Foundation-only) by
-// scripts/notification-sound-test.sh. Mirrors the Recipes / RoadmapParser
+// scripts/notification-sound-test.sh. Mirrors the Recipes / FeedbackRouting
 // standalone-test pattern: no app, no UI — only the transition-to-event
 // decision (which events fire, gating by the two enable flags, dedup, and
 // the no-transition / no-repeat rule).

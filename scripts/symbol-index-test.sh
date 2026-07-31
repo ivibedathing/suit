@@ -4,7 +4,7 @@
 # scripts/symbol-index-test/main.swift and runs its assertions — the ctags-tag
 # parser, the identifier-under-caret extraction, the definition lookup and the
 # reference regex, plus an end-to-end pass over a real Swift/Go fixture when a
-# universal-ctags is installed. Mirrors the RoadmapParser/feedback-routing
+# universal-ctags is installed. Mirrors the FeedbackRouting/feedback-routing
 # standalone-test pattern.
 #
 # Usage: scripts/symbol-index-test.sh   (run from the repo root)

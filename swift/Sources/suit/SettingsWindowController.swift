@@ -5,7 +5,7 @@ import Cocoa
 // Appearance (font, default font size, text color, default pane background,
 // opacity, blur), Terminal (shell, cursor, bell responses), File Viewer (word
 // wrap), Claude (default session arguments + task/goal/token toggles),
-// Autopilot (ROADMAP autonomy budget), Budget (cost guardrails), and Shortcuts
+// Budget (cost guardrails), Themes, and Shortcuts
 // (a read-only keyboard reference built from KeyboardShortcuts.groups — the
 // single source of truth README.md and AppDelegate's menu mirror). Only the
 // selected category is shown, so no single scroll dumps every setting at once.
@@ -45,7 +45,6 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         ("Terminal", "terminal"),
         ("File Viewer", "doc.text"),
         ("Claude", "sparkles"),
-        ("Autopilot", "airplane"),
         ("Budget", "dollarsign.circle"),
         ("Themes", "swatchpalette"),
         ("Shortcuts", "keyboard"),
@@ -72,24 +71,6 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     let soundPreviewPlayer = NotificationSoundPlayer()
     let taskIsolateCheckbox = NSButton(checkboxWithTitle: "Isolate new tasks in a worktree by default", target: nil, action: nil)
     let goalProvenanceCheckbox = NSButton(checkboxWithTitle: "Prepend source location to goals (From file:lines:)", target: nil, action: nil)
-
-    // Autopilot: every control writes through
-    // appDelegate.autopilotXChanged(...) and is re-read in show().
-    let autopilotEnabledCheckbox = NSButton(checkboxWithTitle: "Work through ROADMAP.md autonomously", target: nil, action: nil)
-    let autopilotProjectField = NSTextField(string: "")
-    let autopilotModePopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    let autopilotNightStartStepper = LabeledStepper(min: 0, max: 23, suffix: "h")
-    let autopilotNightEndStepper = LabeledStepper(min: 0, max: 23, suffix: "h")
-    let autopilotFiveHourStepper = LabeledStepper(min: 0, max: 100, suffix: "%")
-    let autopilotWeeklyStepper = LabeledStepper(min: 0, max: 100, suffix: "%")
-    let autopilotHardStopStepper = LabeledStepper(min: 0, max: 100, suffix: "%")
-    let autopilotPaceStepper = LabeledStepper(min: 1, max: 100, suffix: "%")
-    let autopilotAttemptsStepper = LabeledStepper(min: 1, max: 9, suffix: "")
-    let autopilotStallStepper = LabeledStepper(min: 5, max: 240, suffix: " min")
-    let autopilotExtraArgsField = NSTextField(string: "")
-    let autopilotReviewModelField = NSTextField(string: "")
-    let autopilotModelRoutingCheckbox = NSButton(checkboxWithTitle: "Route each phase to a model tier", target: nil, action: nil)
-    let autopilotKeepAwakeCheckbox = NSButton(checkboxWithTitle: "Keep the Mac awake during runs", target: nil, action: nil)
 
     // Cost budget guardrails: per-session / per-task dollar
     // ceilings (blank / 0 = no cap) and the opt-in auto-interrupt. The fields
@@ -162,27 +143,9 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             needsInputSoundPopup.selectItem(withTitle: appDelegate.needsInputSoundName)
             taskIsolateCheckbox.state = appDelegate.taskIsolateByDefault ? .on : .off
             goalProvenanceCheckbox.state = appDelegate.goalPrependProvenanceEnabled ? .on : .off
-            autopilotEnabledCheckbox.state = appDelegate.autopilotEnabled ? .on : .off
-            autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot
-            if let index = AutopilotBudgetMode.allCases.firstIndex(of: appDelegate.autopilotMode) {
-                autopilotModePopup.selectItem(at: index)
-            }
-            autopilotNightStartStepper.intValue = appDelegate.autopilotNightStart
-            autopilotNightEndStepper.intValue = appDelegate.autopilotNightEnd
-            autopilotFiveHourStepper.intValue = appDelegate.autopilotFiveHourCeiling
-            autopilotWeeklyStepper.intValue = appDelegate.autopilotWeeklyCeiling
-            autopilotHardStopStepper.intValue = appDelegate.autopilotWeeklyHardStop
-            autopilotPaceStepper.intValue = appDelegate.autopilotPaceTargetPct
-            autopilotAttemptsStepper.intValue = appDelegate.autopilotMaxGateAttempts
-            autopilotStallStepper.intValue = appDelegate.autopilotStallMinutes
-            autopilotExtraArgsField.stringValue = appDelegate.autopilotExtraArgs
-            autopilotReviewModelField.stringValue = appDelegate.autopilotReviewModel
-            autopilotModelRoutingCheckbox.state = appDelegate.autopilotModelRouting ? .on : .off
-            autopilotKeepAwakeCheckbox.state = appDelegate.autopilotPreventSleep ? .on : .off
             budgetSessionCapField.stringValue = Self.dollarString(appDelegate.budgetSessionCap)
             budgetTaskCapField.stringValue = Self.dollarString(appDelegate.budgetTaskCap)
             budgetAutoInterruptCheckbox.state = appDelegate.budgetAutoInterrupt ? .on : .off
-            updateAutopilotNightEnabled()
         }
         reloadThemes()
         window?.makeKeyAndOrderFront(nil)

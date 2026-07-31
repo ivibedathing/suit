@@ -13,9 +13,8 @@
 #                             #  recipes, file-edit, file-watch, activity, pr-review,
 #                             #  diffparser, layouts, file-time-travel, budget,
 #                             #  command-history), ~seconds
-#   scripts/test.sh --all     # also runs the slow harnesses: the autopilot
-#                             #  pipeline (~2 min) and the source-control gate
-#                             #  (~40 s, compiles the whole app)
+#   scripts/test.sh --all     # also runs the slow harnesses: the source-control
+#                             #  gate (~40 s, compiles the whole app)
 #   scripts/test.sh --list    # list the harnesses and exit
 #   scripts/test.sh -h        # this help
 #
@@ -48,9 +47,6 @@ HARNESSES=(
   "budget|scripts/budget-test.sh|fast"
   "command-history|scripts/command-history-test.sh|fast"
   "markdown-html|scripts/markdown-html-test.sh|fast"
-  "roadmap-routing|scripts/roadmap-routing-test.sh|fast"
-  "model-routing|scripts/model-routing-test.sh|fast"
-  "autopilot-paths|scripts/autopilot-paths-test.sh|fast"
   "dictation|scripts/dictation-test.sh|fast"
   "themes|scripts/test-themes.sh|fast"
   "notification-sound|scripts/notification-sound-test.sh|fast"
@@ -58,7 +54,6 @@ HARNESSES=(
   "file-index|scripts/file-index-test.sh|fast"
   "notes|scripts/notes-test.sh|fast"
   "bundled-fonts|scripts/bundled-fonts-test.sh|fast"
-  "autopilot|scripts/autopilot-harness.sh|slow"
   "source-control-gate|scripts/source-control-gate-test.sh|slow"
 )
 

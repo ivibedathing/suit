@@ -3,7 +3,7 @@
 # (swift/Sources/suit/DictationText.swift, Foundation-only, no app deps) with
 # scripts/dictation-test/main.swift and runs its assertions — transcript
 # normalization (whitespace/newline collapse, trimming) and the sendable check
-# that gates SessionControl.send. Mirrors the RoadmapParser / FeedbackRouting /
+# that gates SessionControl.send. Mirrors the FeedbackRouting /
 # Recipes standalone-test pattern; the AVAudioEngine / SFSpeechRecognizer half
 # in Dictation.swift is UI/framework-bound and not covered here.
 #

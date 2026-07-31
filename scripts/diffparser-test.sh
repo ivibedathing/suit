@@ -5,7 +5,7 @@
 # classification (file/hunk headers, meta, context, additions, deletions),
 # old/new line-number tracking across single and multiple hunks, context-prefix
 # stripping, and changedPaths() (multi-file order + rename b/-side). Mirrors the
-# RoadmapParser / FeedbackRouting / Recipes standalone-test pattern.
+# FeedbackRouting / Recipes standalone-test pattern.
 #
 # Usage: scripts/diffparser-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.

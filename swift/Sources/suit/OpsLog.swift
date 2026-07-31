@@ -12,9 +12,9 @@ import Dispatch
 // internal task, with what triggered it, how long it took, and whether it
 // worked. The sidebar's Background tab (OpsLogView) renders it.
 //
-// This file is the UI-free, standalone-compilable core (the RoadmapParser /
-// FeedbackRouting / Activity pattern — Foundation-only, no AppKit and no app
-// deps), so `scripts/ops-log-test.sh` compiles it alone and asserts the argv→
+// This file is the UI-free, standalone-compilable core (the FeedbackRouting /
+// Activity pattern — Foundation-only, no AppKit and no app deps), so
+// `scripts/ops-log-test.sh` compiles it alone and asserts the argv→
 // label derivation, the ring buffer's bound, adjacent-run collapsing, the
 // rolling window stats and the formatters without spinning any UI.
 //
@@ -36,7 +36,6 @@ enum OpsKind: String, CaseIterable {
     case index
     case symbols
     case network
-    case autopilot
     case process
 
     var label: String {
@@ -47,7 +46,6 @@ enum OpsKind: String, CaseIterable {
         case .index: return "File index"
         case .symbols: return "Symbols"
         case .network: return "Network"
-        case .autopilot: return "Autopilot"
         case .process: return "Process"
         }
     }
@@ -62,7 +60,6 @@ enum OpsKind: String, CaseIterable {
         case .index: return "folder"
         case .symbols: return "curlybraces"
         case .network: return "antenna.radiowaves.left.and.right"
-        case .autopilot: return "sparkles"
         case .process: return "terminal"
         }
     }

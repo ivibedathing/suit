@@ -1,7 +1,7 @@
 import Foundation
 
 // Commit-graph layout, the UI-free, standalone-compilable
-// core (the RoadmapParser / FeedbackRouting / SubagentTree pattern,
+// core (the FeedbackRouting / SubagentTree pattern,
 // Foundation-only): parses `git log --all --date-order` output and assigns
 // each commit a lane (column) with edges to its parents, so the pane can draw
 // the DAG as a thing you read and click. The lane assignment is the classic

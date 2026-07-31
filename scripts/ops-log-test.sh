@@ -5,8 +5,8 @@
 # derivation for git/gh/rg/ctags/shell, the ring buffer's bound and monotonic
 # sequence, measure()'s outcome derivation, the scoped ambient trigger,
 # adjacent-run collapsing, the rolling-window rollup, filtering and the
-# duration/age formatters. Mirrors the RoadmapParser / FeedbackRouting /
-# Activity standalone-test pattern.
+# duration/age formatters. Mirrors the FeedbackRouting / Activity
+# standalone-test pattern.
 #
 # Usage: scripts/ops-log-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.

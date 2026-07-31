@@ -4,7 +4,7 @@
 # scripts/update-check-test/main.swift and runs its assertions — GitHub release
 # JSON parsing (.dmg asset pick, draft/prerelease refusal), the lenient version
 # comparison, the offer gate with the Skip This Version override, and the
-# daily-check throttle. Mirrors the RoadmapParser / StoreFile standalone-test
+# daily-check throttle. Mirrors the FeedbackRouting / StoreFile standalone-test
 # pattern.
 #
 # Usage: scripts/update-check-test.sh   (run from the repo root)

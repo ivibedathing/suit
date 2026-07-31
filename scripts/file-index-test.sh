@@ -5,7 +5,7 @@
 # fallback scan behind the Files sidebar: hidden directories (.claude, .github)
 # and dotfiles are indexed, while .git / node_modules / .Trash and Finder
 # droppings (.DS_Store, ._*) are pruned.
-# Mirrors the RoadmapParser / DiffParser / Recipes standalone-test pattern.
+# Mirrors the FeedbackRouting / DiffParser / Recipes standalone-test pattern.
 #
 # OpsLog.swift joins the compile because runProcess (which lives in FileIndex)
 # records every spawn to the operations log; it is Foundation-only too, so the

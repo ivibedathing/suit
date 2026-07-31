@@ -5,8 +5,8 @@
 # track parsing and the sync badge, the git argv each action composes (pull is
 # --ff-only, stash includes untracked, discard is reset + clean, and nothing
 # force-pushes), which actions must carry a destructive confirmation, branch
-# name validation, and the delete-menu exclusions. Mirrors the RoadmapParser /
-# FeedbackRouting / Recipes standalone-test pattern.
+# name validation, and the delete-menu exclusions. Mirrors the FeedbackRouting /
+# Recipes standalone-test pattern.
 #
 # Usage: scripts/git-branch-ops-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.

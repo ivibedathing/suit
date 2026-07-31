@@ -2,7 +2,7 @@ import Foundation
 
 // Standalone assertions for the operations-log core (OpsLog.swift). Compiled
 // against that one Foundation-only file by scripts/ops-log-test.sh — no app, no
-// UI. Mirrors the RoadmapParser / FeedbackRouting / Activity harness pattern.
+// UI. Mirrors the FeedbackRouting / Activity harness pattern.
 //
 // What's asserted: argv→label derivation (the thing that instruments dozens of
 // call sites from one wrapper, so a regression here silently mislabels the
