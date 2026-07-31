@@ -288,8 +288,11 @@ app does.
   Replace does the current match (Return in the replace field) or all of them at once; in regex
   mode `$1` interpolates capture groups, while in plain mode it stays the literal characters `$1`.
   A Replace All is a **single undo step**, not one per match. ⌘E puts the selection on the system
-  find pasteboard, so a query carries between panes and from other apps. Esc closes and hands focus
-  back to the text. Find works everywhere — including read-only buffers like a time-travel revision
+  find pasteboard, so a query carries between panes and from other apps. Stepping moves the wash
+  and the scroll but deliberately leaves the text selection where it was — macOS greys a selection
+  out whenever the text view isn't focused, which it never is while the bar is up, and that grey
+  would paint over the very match you are standing on. Esc closes, selects the match you landed on,
+  and hands focus back to the text. Find works everywhere — including read-only buffers like a time-travel revision
   or a binary placeholder — but replace disables itself wherever the buffer can't be written, so it
   can never fail at save time instead of up front. Terminals keep SwiftTerm's own find bar on the
   same ⌘F.

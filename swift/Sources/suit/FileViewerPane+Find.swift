@@ -92,6 +92,15 @@ extension FileViewerPaneContent {
     }
 
     func closeFindBar() {
+        // The match the user was standing on becomes the selection on the way
+        // out. Stepping deliberately leaves the selection alone (see
+        // revealCurrentMatch), so this is where the caret catches up — and the
+        // text view is about to take focus back, so the selection is drawn
+        // emphasised rather than in the grey that made it useless while the bar
+        // was up.
+        let matches = currentFindMatches()
+        let landing = findMatchIndex < matches.count ? matches[findMatchIndex] : nil
+
         findBar = nil
         container.findOverlay = nil
         findMatches = []
@@ -104,6 +113,9 @@ extension FileViewerPaneContent {
         // focus border is derived from firstResponder by the window controller,
         // so handing it back here is what keeps the border lit.
         textView.window?.makeFirstResponder(textView)
+        if let landing, isRangeInBounds(landing) {
+            textView.setSelectedRange(landing)
+        }
     }
 
     // ⌘E: the selection becomes the query without opening the bar, so a
@@ -170,7 +182,7 @@ extension FileViewerPaneContent {
                        invalidPattern: !FindReplace.isValid(query))
         applyFindHighlights()
         if recenterOnCaret, !matches.isEmpty {
-            revealCurrentMatch(moveSelection: false)
+            revealCurrentMatch()
         }
     }
 
@@ -203,20 +215,25 @@ extension FileViewerPaneContent {
         findMatchIndex = next
         findBar?.showStatus(index: findMatchIndex, count: matches.count, invalidPattern: false)
         applyFindHighlights()
-        revealCurrentMatch(moveSelection: true)
+        revealCurrentMatch()
     }
 
-    // Scroll the current match into view. `moveSelection` is false while the bar
-    // is being retargeted: moving the caret then would fight the field editor for
-    // first responder and yank focus out of the find field mid-typing.
-    private func revealCurrentMatch(moveSelection: Bool) {
+    // Scroll the current match into view.
+    //
+    // Deliberately does *not* select it. AppKit paints a selection in an
+    // unemphasised grey whenever the text view is not first responder, which is
+    // the entire time the find bar is open — the find field holds focus — and
+    // that grey lands on top of the current match's wash, painting out the one
+    // highlight the user is actually looking at. (It is drawn below
+    // NSLayoutManager's fill hook, so the colour can't be substituted there.)
+    // While the bar is up the highlight layer is the cue; closeFindBar() puts the
+    // selection on the match at the end, which is when it becomes visible and
+    // useful again.
+    private func revealCurrentMatch() {
         let matches = currentFindMatches()
         guard findMatchIndex < matches.count else { return }
         let range = matches[findMatchIndex]
         guard isRangeInBounds(range) else { return }
-        if moveSelection {
-            textView.setSelectedRange(range)
-        }
         textView.scrollRangeToVisible(range)
     }
 
@@ -265,10 +282,10 @@ extension FileViewerPaneContent {
         for (index, range) in matches.prefix(Self.maxPaintedHighlights).enumerated() {
             // The current match gets the stronger fill, so "which one am I on" is
             // answerable without reading the counter.
-            paint(range, index == findMatchIndex ? Theme.accent.withAlphaComponent(0.55) : Theme.selection)
+            paint(range, index == findMatchIndex ? Theme.findMatchCurrent : Theme.findMatch)
         }
         if findMatchIndex >= Self.maxPaintedHighlights, findMatchIndex < matches.count {
-            paint(matches[findMatchIndex], Theme.accent.withAlphaComponent(0.55))
+            paint(matches[findMatchIndex], Theme.findMatchCurrent)
         }
     }
 
@@ -303,7 +320,7 @@ extension FileViewerPaneContent {
         let after = range.location + (replacement as NSString).length
         findMatchIndex = FindReplace.initialIndex(for: currentFindMatches(), caret: after) ?? 0
         refreshFindStatusAfterReplace()
-        revealCurrentMatch(moveSelection: false)
+        revealCurrentMatch()
     }
 
     private func replaceAllMatches() {

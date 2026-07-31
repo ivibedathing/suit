@@ -75,6 +75,17 @@ enum Theme {
     /// The minimap tick for the same hits — full strength, since it is 2px tall.
     static var searchHitMark: NSColor { sessionNeedsInput }
 
+    /// The ⌘F bar's matches in an open file. Deliberately *not* `selection`: that
+    /// is a list-row tint sitting behind flat sidebar text, and at 22% behind
+    /// syntax-coloured code it reads as no highlight at all — the wash and a
+    /// keyword's own colour are within a few percent of each other. Find has to
+    /// survive whatever hue the token underneath it happens to be, so it gets its
+    /// own weight (derived, like `searchHit`, rather than a 27th palette token).
+    static var findMatch: NSColor { accent.withAlphaComponent(0.38) }
+    /// The one you are standing on. Far enough from `findMatch` to answer "which
+    /// of these am I on" without reading the counter.
+    static var findMatchCurrent: NSColor { accent.withAlphaComponent(0.62) }
+
     static var sessionBusy: NSColor { current.sessionBusy }
     static var sessionNeedsInput: NSColor { current.sessionNeedsInput }
     static var sessionDone: NSColor { current.sessionDone }
