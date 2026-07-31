@@ -2,7 +2,7 @@ import Foundation
 
 // Standalone logic test for the Phase 33 symbol-index core. Compiled with only
 // swift/Sources/suit/SymbolIndexCore.swift (Foundation-only, no app deps), the
-// RoadmapParser/FeedbackRouting pattern. Exercises the pure ctags-tag parser,
+// FeedbackRouting pattern. Exercises the pure ctags-tag parser,
 // the identifier-under-caret extraction, the definition lookup and the
 // reference regex against fixtures with known answers — and, when a universal
 // ctags is present, an end-to-end pass over a real Swift/Go fixture asserting

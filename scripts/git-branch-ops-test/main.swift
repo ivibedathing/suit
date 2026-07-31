@@ -3,7 +3,7 @@ import Foundation
 // Standalone assertion driver for the branch-actions core
 // (swift/Sources/suit/GitBranchOps.swift, Foundation-only, no app deps),
 // compiled and run by scripts/git-branch-ops-test.sh. Mirrors the
-// RoadmapParser / FeedbackRouting / Recipes standalone-test pattern: no app,
+// FeedbackRouting / Recipes standalone-test pattern: no app,
 // no UI, no repo on disk — just the argv composition and the guard rails.
 //
 // What matters here is that the argv can't drift into something destructive by

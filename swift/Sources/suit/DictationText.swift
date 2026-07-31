@@ -3,7 +3,7 @@ import Foundation
 // UI-free core for the push-to-talk dictation feature (see Dictation.swift for
 // the AVAudioEngine / SFSpeechRecognizer + HUD half). Kept Foundation-only and
 // app-independent so it compiles against a standalone assertion driver, the
-// RoadmapParser / FeedbackRouting / Recipes pattern (see scripts/dictation-test.sh).
+// FeedbackRouting / Recipes pattern (see scripts/dictation-test.sh).
 //
 // The one piece of dictation logic worth testing without a microphone: turning
 // the recognizer's raw transcript into something safe to paste into a terminal

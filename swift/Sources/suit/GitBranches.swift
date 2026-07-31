@@ -126,7 +126,7 @@ struct GitPRInfo {
 }
 
 // One PR's detail from `gh pr view` (see GitHubCLI.prState): its state plus
-// the merge timestamp and body the Autopilot flow reads trailers from.
+// the merge timestamp and body.
 struct GitPRDetail {
     let state: GitPRInfo.State
     let mergedAt: Date?

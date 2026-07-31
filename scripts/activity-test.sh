@@ -2,10 +2,10 @@
 # Activity-feed logic test (ROADMAP Phase 38): compiles the UI-free core
 # (swift/Sources/suit/Activity.swift, Foundation-only, no app deps) with
 # scripts/activity-test/main.swift and runs its assertions — newest-first feed
-# ordering (incl. deterministic ties), row routing (session > PR > autopilot
-# log > none), repo/session/kind filtering, the daily-digest rollup across
+# ordering (incl. deterministic ties), row routing (session > PR > none),
+# repo/session/kind filtering, the daily-digest rollup across
 # calendar days, and the append-only store's dedup + round-trip. Mirrors the
-# RoadmapParser / FeedbackRouting / Recipes / FileEdit standalone-test pattern.
+# FeedbackRouting / Recipes / FileEdit standalone-test pattern.
 #
 # Usage: scripts/activity-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.

@@ -105,7 +105,7 @@ enum WorktreeTasks {
         return nil
     }
 
-    // Cleanup after a *remote* merge (Autopilot's PR flow):
+    // Cleanup after a *remote* merge (the PR flow):
     // the branch already landed via gh, so nothing merges locally — just
     // remove the worktree (--force: the build gate leaves an untracked build/
     // dir that a plain remove refuses; safe post-merge), delete the local
@@ -133,8 +133,8 @@ enum WorktreeTasks {
         return nil
     }
 
-    // Bring the main checkout up to its already-fetched upstream (Autopilot's
-    // preflight and post-merge cleanup — the caller fetches first). Fast-forwards
+    // Bring the main checkout up to its already-fetched upstream (post-merge
+    // cleanup — the caller fetches first). Fast-forwards
     // when local main is a strict ancestor of @{u} — the clean, common case.
     // When local main has *diverged* from origin it reconciles with a real merge
     // commit instead of failing: this repo runs a local-first `main` alongside an

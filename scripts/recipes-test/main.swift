@@ -2,7 +2,7 @@ import Foundation
 
 // Standalone assertion driver for the session-recipes core (ROADMAP Phase 36),
 // compiled against swift/Sources/suit/Recipes.swift (Foundation-only) by
-// scripts/recipes-test.sh. Mirrors the RoadmapParser / FeedbackRouting
+// scripts/recipes-test.sh. Mirrors the FeedbackRouting
 // standalone-test pattern: no app, no UI — the recipe parser, placeholder
 // substitution, slug, the built-in set, and the dir-scoped seed/load IO
 // (single- and multi-run, round-trip, missing dir).

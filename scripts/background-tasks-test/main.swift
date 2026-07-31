@@ -2,7 +2,7 @@ import Foundation
 
 // Standalone logic test for the Phase 30 background-task monitor core. Compiled
 // with only swift/Sources/suit/BackgroundTasks.swift (Foundation-only, no app
-// deps) — the RoadmapParser / AutopilotScheduler / FeedbackRouting pattern.
+// deps) — the FeedbackRouting pattern.
 // Exercises the pure reconciliation (record → status crossed with liveness),
 // the strip-attention transition signal, the lsof port parser, process-subtree
 // membership, and the incremental log tail against fixtures with known answers.

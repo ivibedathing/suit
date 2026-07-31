@@ -3,7 +3,7 @@ import Foundation
 // The UI-free core of the viewer's editing intelligence: auto-indent, bracket
 // auto-close, comment toggling, indent/outdent, and the range math behind
 // multi-cursor (⌘D add-next-occurrence) and column selection. Foundation-only
-// with no app deps — the FindReplace / FileEdit / RoadmapParser pattern — so
+// with no app deps — the FindReplace / FileEdit / FeedbackRouting pattern — so
 // scripts/editor-ops-test.sh compiles it standalone and asserts the rules.
 // FileViewerPane+SmartTyping.swift and +MultiCursor.swift are the thin AppKit
 // halves that turn these decisions into NSTextView edits.

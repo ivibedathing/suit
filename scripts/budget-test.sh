@@ -4,7 +4,7 @@
 # scripts/budget-test/main.swift and runs its assertions — cap resolution
 # (per-session override vs default), the fires-once-at-the-threshold trip logic,
 # auto-interrupt targeting the right pty, fall-back-and-re-cross, and a ≤ 0 cap
-# never tripping. Mirrors the AutopilotScheduler / FeedbackRouting standalone-test
+# never tripping. Mirrors the FeedbackRouting standalone-test
 # pattern.
 #
 # Usage: scripts/budget-test.sh   (run from the repo root)

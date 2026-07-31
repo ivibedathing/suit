@@ -1,7 +1,7 @@
 import Foundation
 
 // File time-travel scrubber. The UI-free core (the
-// RoadmapParser / CommitGraph / Recipes pattern, Foundation-only so
+// FeedbackRouting / CommitGraph / Recipes pattern, Foundation-only so
 // scripts/file-time-travel-test.sh can compile it standalone): it builds the
 // ordered timeline of a file's revisions from its history, maps each scrubber
 // position to the revision it renders and the older neighbour it diffs against,

@@ -2,7 +2,7 @@ import Foundation
 
 // Standalone assertion driver for StoreFile (swift/Sources/suit/StoreFile.swift,
 // Foundation-only, no app deps), compiled and run by scripts/storefile-test.sh.
-// Mirrors the RoadmapParser / DiffParser / Recipes standalone-test pattern.
+// Mirrors the FeedbackRouting / DiffParser / Recipes standalone-test pattern.
 //
 // StoreFile is the shared load helper for the ~/.suit JSON stores. The bug it
 // fixes: the stores used to load with `try?` and start empty on *any* failure,

@@ -332,17 +332,6 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.usageFooter.onOpenSettings = { [weak self] in
             self?.appDelegate.installClaudeIntegration(nil)
         }
-        // The Autopilot status row: running → the run tab,
-        // idle/blocked → the log (a regular viewer tab).
-        sidebar.usageFooter.onAutopilotFocusRunTab = { [weak self] in
-            self?.appDelegate.focusAutopilotRunTab()
-        }
-        sidebar.usageFooter.onAutopilotOpenLog = { [weak self] in
-            self?.appDelegate.openAutopilotLog()
-        }
-        sidebar.usageFooter.onAutopilotOpenDashboard = { [weak self] in
-            self?.appDelegate.showAutopilotDashboard()
-        }
         // Restore a previously pinned root (one key across windows, like
         // sidebarWidth); a vanished directory silently unpins.
         if let pinned = UserDefaults.standard.string(forKey: "sidebarPinnedRoot") {

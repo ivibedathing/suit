@@ -1,7 +1,7 @@
 import Foundation
 
 // The find/replace engine behind the file viewer's ⌘F bar, factored out of the
-// Cocoa pane so it can be unit-tested standalone (the FileEdit / RoadmapParser /
+// Cocoa pane so it can be unit-tested standalone (the FileEdit / FeedbackRouting /
 // Recipes pattern — Foundation-only, no app or UI dependencies).
 //
 // This owns every decision the find bar renders: which ranges match, which match

@@ -2,7 +2,7 @@ import Cocoa
 
 // The settings window's view construction: a category sidebar (left) driving a
 // detail scroll (right) that shows one category's form at a time — Appearance /
-// Terminal / File Viewer / Claude / Autopilot / Budget panes plus the read-only
+// Terminal / File Viewer / Claude / Budget / Themes panes plus the read-only
 // Shortcuts reference. Split out of SettingsWindowController.swift; the stored
 // controls these builders wire up (and the `categories` list / `panels` cache)
 // live there.
@@ -16,7 +16,6 @@ extension SettingsWindowController {
             wrap(terminalPane()),
             wrap(viewerPane()),
             wrap(claudePane()),
-            wrap(autopilotPane()),
             wrap(budgetPane()),
             wrap(themesPane()),
             buildDocsView(),
@@ -317,86 +316,6 @@ extension SettingsWindowController {
         return stack
     }
 
-    // Autopilot: ROADMAP autonomy + budget pacing.
-    private func autopilotPane() -> NSStackView {
-        autopilotEnabledCheckbox.target = self
-        autopilotEnabledCheckbox.action = #selector(autopilotEnabledToggled)
-        let autopilotEnabledRow = row(label: "", controls: [autopilotEnabledCheckbox])
-
-        autopilotProjectField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        autopilotProjectField.placeholderString = "git repo containing ROADMAP.md"
-        autopilotProjectField.delegate = self
-        autopilotProjectField.translatesAutoresizingMaskIntoConstraints = false
-        autopilotProjectField.widthAnchor.constraint(equalToConstant: 200).isActive = true
-        let autopilotChooseButton = NSButton(title: "Choose…", target: self, action: #selector(autopilotChooseProject))
-        let autopilotProjectRow = row(label: "Project:", controls: [autopilotProjectField, autopilotChooseButton])
-
-        autopilotModePopup.removeAllItems()
-        autopilotModePopup.addItems(withTitles: AutopilotBudgetMode.allCases.map(\.displayName))
-        autopilotModePopup.target = self
-        autopilotModePopup.action = #selector(autopilotModePicked)
-        let autopilotModeRow = row(label: "Mode:", controls: [autopilotModePopup])
-
-        let nightToLabel = NSTextField(labelWithString: "to")
-        nightToLabel.font = .systemFont(ofSize: 12)
-        nightToLabel.textColor = Theme.textDim
-        let autopilotNightRow = row(
-            label: "Night:",
-            controls: autopilotNightStartStepper.views + [nightToLabel] + autopilotNightEndStepper.views
-        )
-
-        for labeled in autopilotSteppers {
-            labeled.stepper.target = self
-            labeled.stepper.action = #selector(autopilotStepperChanged)
-        }
-        let autopilotFiveHourRow = row(label: "5h Cap:", controls: autopilotFiveHourStepper.views)
-        let autopilotWeeklyRow = row(label: "Weekly Cap:", controls: autopilotWeeklyStepper.views)
-        let autopilotHardStopRow = row(label: "Hard Stop:", controls: autopilotHardStopStepper.views)
-        let autopilotPaceRow = row(label: "Pace To:", controls: autopilotPaceStepper.views)
-        let attemptsHint = NSTextField(labelWithString: "max attempts per phase")
-        attemptsHint.font = .systemFont(ofSize: 10)
-        attemptsHint.textColor = Theme.textDim
-        let autopilotAttemptsRow = row(label: "Attempts:", controls: autopilotAttemptsStepper.views + [attemptsHint])
-        let autopilotStallRow = row(label: "Stall:", controls: autopilotStallStepper.views)
-
-        autopilotExtraArgsField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        autopilotExtraArgsField.delegate = self
-        autopilotExtraArgsField.translatesAutoresizingMaskIntoConstraints = false
-        autopilotExtraArgsField.widthAnchor.constraint(equalToConstant: 220).isActive = true
-        let autopilotArgsRow = row(label: "Arguments:", controls: [autopilotExtraArgsField])
-        let autopilotArgsHintRow = hintRow("Appended to claude for Autopilot runs (--dangerously-skip-permissions is always set)")
-
-        autopilotReviewModelField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        autopilotReviewModelField.placeholderString = "empty = default model"
-        autopilotReviewModelField.delegate = self
-        autopilotReviewModelField.translatesAutoresizingMaskIntoConstraints = false
-        autopilotReviewModelField.widthAnchor.constraint(equalToConstant: 220).isActive = true
-        let autopilotReviewModelRow = row(label: "Reviewer:", controls: [autopilotReviewModelField])
-
-        autopilotModelRoutingCheckbox.target = self
-        autopilotModelRoutingCheckbox.action = #selector(autopilotModelRoutingChanged)
-        let autopilotModelRoutingRow = row(label: "", controls: [autopilotModelRoutingCheckbox])
-        let autopilotModelRoutingHintRow = hintRow("Asks haiku which tier each phase needs. A roadmap “model:” line, or a Reviewer above, wins.")
-
-        autopilotKeepAwakeCheckbox.target = self
-        autopilotKeepAwakeCheckbox.action = #selector(autopilotKeepAwakeChanged)
-        let autopilotKeepAwakeRow = row(label: "", controls: [autopilotKeepAwakeCheckbox])
-
-        let stack = NSStackView(views: [
-            paneTitle("Autopilot"),
-            autopilotEnabledRow, autopilotProjectRow, autopilotModeRow, autopilotNightRow,
-            autopilotFiveHourRow, autopilotWeeklyRow, autopilotHardStopRow, autopilotPaceRow,
-            autopilotAttemptsRow, autopilotStallRow,
-            autopilotArgsRow, autopilotArgsHintRow,
-            autopilotReviewModelRow,
-            autopilotModelRoutingRow, autopilotModelRoutingHintRow,
-            autopilotKeepAwakeRow,
-        ])
-        stack.setCustomSpacing(4, after: autopilotArgsRow)
-        stack.setCustomSpacing(4, after: autopilotModelRoutingRow)
-        return stack
-    }
-
     // Budget: per-session / per-task dollar caps + interrupt.
     private func budgetPane() -> NSStackView {
         for field in [budgetSessionCapField, budgetTaskCapField] {
@@ -607,12 +526,6 @@ extension SettingsWindowController {
             check.widthAnchor.constraint(equalToConstant: 12),
         ])
         return cell
-    }
-
-    var autopilotSteppers: [LabeledStepper] {
-        [autopilotNightStartStepper, autopilotNightEndStepper, autopilotFiveHourStepper,
-         autopilotWeeklyStepper, autopilotHardStopStepper, autopilotPaceStepper,
-         autopilotAttemptsStepper, autopilotStallStepper]
     }
 
     // The Shortcuts pane: a read-only reference of every keyboard shortcut,

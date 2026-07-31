@@ -4,8 +4,8 @@ import Foundation
 // native and cross-pane: search past commands from any pane, pick one, and
 // re-run it in a pane of your choice.
 //
-// This file is the UI-free, standalone-compilable core (the RoadmapParser /
-// FeedbackRouting / Recipes / Activity pattern, Foundation-only, no AppKit and
+// This file is the UI-free, standalone-compilable core (the FeedbackRouting /
+// Recipes / Activity pattern, Foundation-only, no AppKit and
 // no app deps), so scripts/command-history-test.sh can compile it in isolation
 // (alongside FuzzyMatch.swift, the shared scorer the overlay ranks with) and
 // assert the parse/dedup, the fuzzy ranking, the destructive-command detection,

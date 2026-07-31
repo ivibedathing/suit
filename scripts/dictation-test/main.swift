@@ -2,7 +2,7 @@ import Foundation
 
 // Standalone assertion driver for the dictation text core, compiled against
 // swift/Sources/suit/DictationText.swift (Foundation-only) by
-// scripts/dictation-test.sh. Mirrors the RoadmapParser / FeedbackRouting /
+// scripts/dictation-test.sh. Mirrors the FeedbackRouting /
 // Recipes standalone-test pattern: no app, no UI, no microphone — just the
 // transcript normalization that feeds SessionControl.send.
 

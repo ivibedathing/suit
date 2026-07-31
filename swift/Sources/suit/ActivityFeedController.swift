@@ -3,8 +3,8 @@ import Cocoa
 // The feed panel: a floating, window-spanning "Activity"
 // panel — the chronological record of what moved across the fleet, newest-first,
 // filterable by repo / kind, with a "what happened today" digest header. A row
-// click routes to the thing it names (session pane / PR on GitHub / Autopilot
-// log). Same floating-panel shape as the Fleet dashboard.
+// click routes to the thing it names (session pane / PR on GitHub). Same
+// floating-panel shape as the Fleet dashboard.
 
 // Tone → Theme color, kept out of the Foundation-only core.
 private extension ActivityKind.Tone {
@@ -101,7 +101,6 @@ final class ActivityFeedController: NSObject, NSWindowDelegate, NSTableViewDataS
     // Routing hooks, wired by the AppDelegate.
     var onFocusSession: ((String) -> Void)?
     var onOpenPR: ((String) -> Void)?
-    var onOpenAutopilotLog: (() -> Void)?
 
     private let panel: ActivityPanel
     private let digestLabel = NSTextField(labelWithString: "")
@@ -317,7 +316,6 @@ final class ActivityFeedController: NSObject, NSWindowDelegate, NSTableViewDataS
         switch rows[clicked].route {
         case .session(let id): onFocusSession?(id)
         case .pr(let url): onOpenPR?(url)
-        case .autopilotLog: onOpenAutopilotLog?()
         case .none: NSSound.beep()
         }
     }

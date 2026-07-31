@@ -2,7 +2,7 @@ import Foundation
 
 // The UI-free core of the viewer's syntax highlighting: the language table and
 // the scanner that turns text into `SyntaxSpan`s. Foundation-only with no app
-// deps — the EditorOps / RoadmapParser pattern — so
+// deps — the EditorOps / FeedbackRouting pattern — so
 // scripts/syntax-highlight-test.sh compiles it standalone and asserts what each
 // language classifies. SyntaxHighlighter.swift is the thin AppKit half: it maps
 // a token kind to an NSColor and nothing else.

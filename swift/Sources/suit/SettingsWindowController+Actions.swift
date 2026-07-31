@@ -2,9 +2,9 @@ import Cocoa
 import UniformTypeIdentifiers
 
 // The settings window's control-action handlers: cursor-style mapping, the
-// @objc targets every control fires, the NSTextFieldDelegate commit logic, and
-// the Autopilot section's numeric-stepper dispatch. Split out of
-// SettingsWindowController.swift; the stored controls they read/write live there.
+// @objc targets every control fires, and the NSTextFieldDelegate commit logic.
+// Split out of SettingsWindowController.swift; the stored controls they
+// read/write live there.
 extension SettingsWindowController {
     // MARK: - Cursor style <-> popup + checkbox
 
@@ -57,28 +57,6 @@ extension SettingsWindowController {
         if (notification.object as? NSTextField) === claudeArgsField {
             appDelegate.claudeSessionArgsChanged(claudeArgsField.stringValue)
             claudeArgsField.stringValue = appDelegate.claudeSessionArgs
-            return
-        }
-        // Autopilot fields: the project path is validated like the shell path
-        // (git repo with a ROADMAP.md — invalid beeps and snaps back), the
-        // extra args and review model are free-form (args get newline-stripped).
-        if (notification.object as? NSTextField) === autopilotProjectField {
-            let entered = autopilotProjectField.stringValue.trimmingCharacters(in: .whitespaces)
-            if entered != appDelegate.autopilotProjectRoot,
-               !appDelegate.autopilotProjectRootChanged(entered) {
-                NSSound.beep()
-            }
-            autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot
-            return
-        }
-        if (notification.object as? NSTextField) === autopilotExtraArgsField {
-            appDelegate.autopilotExtraArgsChanged(autopilotExtraArgsField.stringValue)
-            autopilotExtraArgsField.stringValue = appDelegate.autopilotExtraArgs
-            return
-        }
-        if (notification.object as? NSTextField) === autopilotReviewModelField {
-            appDelegate.autopilotReviewModelChanged(autopilotReviewModelField.stringValue)
-            autopilotReviewModelField.stringValue = appDelegate.autopilotReviewModel
             return
         }
         // Budget caps: a dollar amount, or blank/0 for off.
@@ -149,99 +127,6 @@ extension SettingsWindowController {
 
     @objc func taskIsolateChanged(_ sender: NSButton) {
         appDelegate?.taskIsolateByDefaultChanged(sender.state == .on)
-    }
-
-    // MARK: - Autopilot actions
-
-    // Enabling runs the §2.3 enable-time checks in AppDelegate (Claude
-    // integration installed, gh hint); a refusal snaps the checkbox back.
-    @objc func autopilotEnabledToggled(_ sender: NSButton) {
-        guard let appDelegate else { return }
-        if !appDelegate.autopilotEnabledChanged(sender.state == .on) {
-            sender.state = appDelegate.autopilotEnabled ? .on : .off
-        }
-    }
-
-    @objc func autopilotChooseProject(_ sender: Any?) {
-        guard let appDelegate else { return }
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Choose"
-        panel.message = "Choose a git repository containing ROADMAP.md"
-        if !appDelegate.autopilotProjectRoot.isEmpty {
-            panel.directoryURL = URL(fileURLWithPath: appDelegate.autopilotProjectRoot)
-        }
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        if appDelegate.autopilotProjectRootChanged(url.path) {
-            autopilotProjectField.stringValue = appDelegate.autopilotProjectRoot
-        } else {
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = "Not an Autopilot project"
-            alert.informativeText = "\(url.path) isn’t usable: Autopilot needs a git repository whose root contains ROADMAP.md."
-            alert.runModal()
-        }
-    }
-
-    @objc func autopilotModePicked(_ sender: Any?) {
-        let modes = AutopilotBudgetMode.allCases
-        let index = autopilotModePopup.indexOfSelectedItem
-        guard modes.indices.contains(index) else { return }
-        appDelegate?.autopilotModeChanged(modes[index])
-        updateAutopilotNightEnabled()
-    }
-
-    // The night-hours steppers only matter in night mode.
-    func updateAutopilotNightEnabled() {
-        let night = appDelegate?.autopilotMode == .nightShift
-        autopilotNightStartStepper.isEnabled = night
-        autopilotNightEndStepper.isEnabled = night
-    }
-
-    // One selector for all eight numeric settings, dispatched by identity;
-    // the label re-reads the (clamped) value AppDelegate actually took.
-    @objc func autopilotStepperChanged(_ sender: NSStepper) {
-        guard let appDelegate else { return }
-        let value = Int(sender.doubleValue)
-        switch sender {
-        case autopilotNightStartStepper.stepper:
-            appDelegate.autopilotNightStartChanged(value)
-            autopilotNightStartStepper.intValue = appDelegate.autopilotNightStart
-        case autopilotNightEndStepper.stepper:
-            appDelegate.autopilotNightEndChanged(value)
-            autopilotNightEndStepper.intValue = appDelegate.autopilotNightEnd
-        case autopilotFiveHourStepper.stepper:
-            appDelegate.autopilotFiveHourCeilingChanged(value)
-            autopilotFiveHourStepper.intValue = appDelegate.autopilotFiveHourCeiling
-        case autopilotWeeklyStepper.stepper:
-            appDelegate.autopilotWeeklyCeilingChanged(value)
-            autopilotWeeklyStepper.intValue = appDelegate.autopilotWeeklyCeiling
-        case autopilotHardStopStepper.stepper:
-            appDelegate.autopilotWeeklyHardStopChanged(value)
-            autopilotHardStopStepper.intValue = appDelegate.autopilotWeeklyHardStop
-        case autopilotPaceStepper.stepper:
-            appDelegate.autopilotPaceTargetChanged(value)
-            autopilotPaceStepper.intValue = appDelegate.autopilotPaceTargetPct
-        case autopilotAttemptsStepper.stepper:
-            appDelegate.autopilotMaxGateAttemptsChanged(value)
-            autopilotAttemptsStepper.intValue = appDelegate.autopilotMaxGateAttempts
-        case autopilotStallStepper.stepper:
-            appDelegate.autopilotStallMinutesChanged(value)
-            autopilotStallStepper.intValue = appDelegate.autopilotStallMinutes
-        default:
-            break
-        }
-    }
-
-    @objc func autopilotModelRoutingChanged(_ sender: NSButton) {
-        appDelegate?.autopilotModelRouting = sender.state == .on
-        appDelegate?.saveSettings()
-    }
-
-    @objc func autopilotKeepAwakeChanged(_ sender: NSButton) {
-        appDelegate?.autopilotPreventSleepChanged(sender.state == .on)
     }
 
     @objc func budgetAutoInterruptChanged(_ sender: NSButton) {

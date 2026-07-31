@@ -5,7 +5,7 @@
 # fallback scan behind the Files sidebar: hidden directories (.claude, .github)
 # and dotfiles are indexed, while .git / node_modules / .Trash and Finder
 # droppings (.DS_Store, ._*) are pruned.
-# Mirrors the RoadmapParser / DiffParser / Recipes standalone-test pattern.
+# Mirrors the FeedbackRouting / DiffParser / Recipes standalone-test pattern.
 #
 # Usage: scripts/file-index-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.

@@ -203,10 +203,10 @@ final class ClaudeSessionMonitor {
         return usage
     }
 
-    // The ungated reader: the Autopilot scheduler applies
-    // its own staleness policy (a stale snapshot still carries resets_at, which
-    // tells it *when* the window rolls over), so it reads the raw values +
-    // capturedAt and decides for itself. The UI keeps the gated `usage`.
+    // The ungated reader: a caller that applies its own staleness policy (a
+    // stale snapshot still carries resets_at, which tells it *when* the window
+    // rolls over) reads the raw values + capturedAt and decides for itself.
+    // The UI keeps the gated `usage`.
     func readUsageSnapshot() -> ClaudeUsage? {
         Self.parseUsage(path: statusFile)
     }

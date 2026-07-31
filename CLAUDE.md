@@ -4,7 +4,7 @@ Guidance for Claude Code (claude.ai/code) working in this repository.
 
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app: a native AppKit bundle
 whose windows host split trees of panes showing browser-style tabs — terminals (`/bin/zsh -l -i`
-on SwiftTerm's pty), file viewers, diffs, transcripts, dashboards. One module, 215 Swift files,
+on SwiftTerm's pty), file viewers, diffs, transcripts, dashboards. One module, 192 Swift files,
 nothing beyond AppKit, vendored SwiftTerm, and the bundled Hack font.
 
 `README.md` is the pitch, `docs/features.md` the shipped-behavior reference, `docs/development.md`
@@ -82,8 +82,8 @@ link even an empty manifest; plain `swiftc` is unaffected. So SwiftTerm is vendo
 Vendor new Swift dependencies the same way.
 
 ```sh
-scripts/test.sh                 # 31 fast harnesses, ~seconds
-scripts/test.sh --all           # + the autopilot pipeline harness (~2 min)
+scripts/test.sh                 # 29 fast harnesses, ~seconds
+scripts/test.sh --all           # + the slow source-control gate (~40 s)
 scripts/test.sh --list          # names, scripts, speed
 scripts/editor-ops-test.sh      # one harness directly — the inner loop
 ```
@@ -92,7 +92,7 @@ There is no XCTest target. UI-free logic is verified by **standalone harnesses**
 `scripts/<name>-test.sh` (compiles the relevant file(s) against a driver and runs it under a
 scratch `$HOME`) and `scripts/<name>-test/main.swift` (the assertions, printing `ok:` / `FAIL:`).
 New logic follows the same shape — a Foundation-only core with no app dependencies, plus a thin
-AppKit half wiring it in (`RoadmapParser`, `FeedbackRouting`, `EditorOps`, `ThemeStore`) — adds a
+AppKit half wiring it in (`FeedbackRouting`, `EditorOps`, `ThemeStore`) — adds a
 harness, and registers it in `HARNESSES` in `scripts/test.sh`. `.github/workflows/swift.yml` runs
 `./build.sh` and `scripts/test.sh` on every PR to `main`, so an unwired or broken harness blocks
 the merge.
@@ -129,7 +129,7 @@ terminal under a light theme, a control that never drew.
   surface was following the theme" from "the user picked this color". **Anything you cache from a
   token at init is a bug** — read tokens at draw time, or re-read them in `reapplyTheme`.
 - **`~/.suit/` is the state directory** (favorites, notes, recipes, layouts, sessions, tasks,
-  markers, ssh hosts, themes, autopilot). Stores follow the `FavoritesStore` pattern: `$HOME`
+  markers, ssh hosts, themes). Stores follow the `FavoritesStore` pattern: `$HOME`
   resolved through `ProcessInfo` so harnesses can sandbox it, atomic writes via `StoreFile.swift`,
   a `didUpdate` notification. Decoders tolerate missing and unknown keys — a state file written by
   an older or newer Suit must still load.
@@ -137,11 +137,6 @@ terminal under a light theme, a control that never drew.
   statusline and hook scripts write session/usage JSON under `~/.suit/`; the app watches those
   files, maps sessions to panes, and talks back into the pty via `SessionControl.send` (bracketed
   paste, delayed `\r`). Scripts install through the in-app installer, never by hand.
-- **Autopilot** (`AutopilotEngine.swift` + `AutopilotScheduler` / `RoadmapParser` / `AutopilotStore`
-  / `AutopilotGates` / `AutopilotPrompts`) works `ROADMAP.md` phases autonomously: worktree →
-  worker session → verify against world state (never trust the Stop hook) → build gate → review
-  gate → merge PR → cleanup. `ROADMAP.md`'s heading grammar is load-bearing; `RoadmapParser.swift`
-  defines it. Budget math and roadmap parsing are pure, harness-tested files.
 - **State restoration** (`StateRestoration.swift`) snapshots each window's tabs, split tree, and
   viewer scrolls at quit and replays them at launch; `Layouts.swift` reuses the machinery for named
   workspaces. A new `PaneContent` that carries state should encode into that snapshot.
@@ -152,7 +147,7 @@ Everything is in `swift/Sources/suit/`, flat, no subdirectories. Files are named
 do, so `rg` finds a subsystem faster than any map — and each file opens with a dense doc comment
 explaining the *why*, which is the real reference. A multi-file subsystem splits as `Foo.swift` +
 `Foo+Aspect.swift` (`AppDelegate+*`, `TerminalWindowController+*`, `FileViewerPane+*`,
-`AutopilotEngine+*`, `DiffPane+*`, `GitView+*`); start at the base file.
+`DiffPane+*`, `GitView+*`); start at the base file.
 
 | Area | Entry points |
 | --- | --- |
@@ -162,9 +157,9 @@ explaining the *why*, which is the real reference. A multi-file subsystem splits
 | Sidebar | `ActivityBarView.swift` (icon strip, laid out by `WindowRootView` *outside* the sidebar split so it survives ⌘B), `SidebarView.swift`, `FileBrowserView.swift`, `SearchView.swift` + `SearchReplace.swift` (the Search tab's find/replace), `RipgrepSearch.swift` |
 | Viewer & editing | `FileViewerPane.swift`, `EditorOps.swift`, `FindReplace.swift`, `CodeFolding.swift`, `SymbolIndex.swift`, `SyntaxHighlighter.swift` + `SyntaxLanguages.swift`, `MarkdownPane.swift` |
 | Git & GitHub | `GitStatus.swift`, `GitView.swift` (the Source Control tab) + `GitView+Commit.swift` (staging, commit box, actions menu), `GitBranchOps.swift` (the UI-free argv for every git action), `DiffPane.swift`, `DiffParser.swift`, `GitBranches.swift` (gh wrapper, degrades without gh), `CommitGraph.swift`, `WorktreeTasks.swift` |
-| Claude | `ClaudeSessions.swift`, `ClaudeIntegration.swift`, `TranscriptPane.swift`, `ModelRouting.swift`, `Recipes.swift`, `Dictation.swift`, `GoalComposition.swift` |
-| Autopilot & fleet | `AutopilotEngine.swift`, `AutopilotManager.swift`, `FleetDashboard.swift`, `BudgetGuardrails.swift` |
-| Repo root | `build.sh`, `ROADMAP.md` (Autopilot steers off it), `scripts/claude/` (bundled hooks), `scripts/*.sh` (harnesses), `design/`, `Resources/Info.plist` (bundle id `dev.kosych.suit`) |
+| Claude | `ClaudeSessions.swift`, `ClaudeIntegration.swift`, `TranscriptPane.swift`, `Recipes.swift`, `Dictation.swift`, `GoalComposition.swift` |
+| Fleet | `FleetDashboard.swift`, `FleetModel.swift`, `Activity.swift`, `BudgetGuardrails.swift` |
+| Repo root | `build.sh`, `scripts/claude/` (bundled hooks), `scripts/*.sh` (harnesses), `design/`, `Resources/Info.plist` (bundle id `dev.kosych.suit`) |
 
 ## 6. Conventions
 

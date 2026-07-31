@@ -5,7 +5,7 @@
 # ~/.suit JSON-store load helper's data-loss guard: a valid file decodes and is
 # left in place, a present-but-corrupt file is quarantined (bytes preserved)
 # rather than wiped by the next save, and an absent file is a clean empty start.
-# Mirrors the RoadmapParser / DiffParser / Recipes standalone-test pattern.
+# Mirrors the FeedbackRouting / DiffParser / Recipes standalone-test pattern.
 #
 # Usage: scripts/storefile-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.

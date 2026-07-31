@@ -3,7 +3,7 @@ import Foundation
 // Standalone assertion driver for the command-history core (ROADMAP Phase 43),
 // compiled against swift/Sources/suit/CommandHistory.swift + FuzzyMatch.swift
 // (Foundation-only) by scripts/command-history-test.sh. Mirrors the
-// AutopilotScheduler / FeedbackRouting standalone-test pattern: no app, no UI.
+// FeedbackRouting standalone-test pattern: no app, no UI.
 // Asserts the phase's verification points — a seeded history parses/dedups
 // most-recent-first, the overlay filters (ranks) to the right entries, picking
 // one sends the exact command into the pty (edit-before-run leaves it

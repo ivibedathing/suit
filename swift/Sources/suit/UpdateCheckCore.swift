@@ -4,7 +4,7 @@ import Foundation
 // response, compares versions, and decides whether a release is worth
 // offering to the user. Foundation-only with no app dependencies so
 // scripts/update-check-test.sh can compile it standalone (the
-// RoadmapParser / Recipes pattern); UpdateChecker.swift is the AppKit half
+// FeedbackRouting / Recipes pattern); UpdateChecker.swift is the AppKit half
 // that does the actual network fetch, notification, and download hand-off.
 
 // One published release, reduced to what the update flow needs.

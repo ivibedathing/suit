@@ -3,7 +3,7 @@ import Foundation
 // Standalone assertion driver for UpdateCheckCore
 // (swift/Sources/suit/UpdateCheckCore.swift, Foundation-only, no app deps),
 // compiled and run by scripts/update-check-test.sh. Mirrors the
-// RoadmapParser / StoreFile standalone-test pattern.
+// FeedbackRouting / StoreFile standalone-test pattern.
 //
 // Pins the update flow's decisions: GitHub release JSON parsing (including
 // the .dmg asset pick and the draft/prerelease refusal), the lenient version

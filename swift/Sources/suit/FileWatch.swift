@@ -1,7 +1,7 @@
 import Foundation
 
 // The decisions behind live file watching, factored out of the Cocoa watcher so
-// they can be unit-tested standalone (the FileEdit / RoadmapParser pattern —
+// they can be unit-tested standalone (the FileEdit / FeedbackRouting pattern —
 // Foundation-only, no app or UI dependencies).
 //
 // A pane that displays a file wants to notice when something else rewrites it:

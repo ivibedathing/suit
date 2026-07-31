@@ -1,7 +1,7 @@
 import Foundation
 
 // The UI-free core of go-to-definition / find-references,
-// the RoadmapParser/FeedbackRouting pattern: Foundation-only, no app deps, so
+// the FeedbackRouting pattern: Foundation-only, no app deps, so
 // scripts/symbol-index-test can compile it standalone and assert the parsing
 // and lookup rules. The app-side SymbolIndex.swift wraps this with the ctags
 // process, per-root caching and FileIndex refresh; the references pane feeds an

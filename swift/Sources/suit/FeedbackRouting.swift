@@ -8,7 +8,7 @@ import Foundation
 // its session. The IO (running `gh`/`git`) lives in `FeedbackInbox` and the UI
 // (the Git-tab section, the route action) in `GitView+Feedback` / `AppDelegate`;
 // keeping this layer Foundation-only makes it standalone-compilable for the
-// logic tests, exactly like `RoadmapParser` / `AutopilotScheduler` / `DiffReview`.
+// logic tests, exactly like `EditorOps` / `DiffReview`.
 
 // The three kinds of machine feedback Suit routes.
 enum FeedbackEventKind: String {
@@ -175,7 +175,7 @@ enum FeedbackRouting {
     // The structured prompt routed into the originating session's pty. Frames
     // the event so Claude knows what came back and what to do, then embeds the
     // machine detail verbatim (fenced so bracketed paste keeps it one input
-    // unit — mirrors the Autopilot feedback messages).
+    // unit).
     static func composePrompt(for event: FeedbackEvent) -> String {
         let where_ = event.branch.map { "branch `\($0)`" } ?? "this worktree"
         let pr = event.prNumber.map { " (PR #\($0))" } ?? ""

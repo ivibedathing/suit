@@ -12,7 +12,7 @@ enum SessionControl {
     // the payload keeps embedded newlines as literal input-box newlines
     // instead of submitting at the first \n.
     // submitDelay: how long the TUI gets to consume the paste before the CR;
-    // Autopilot passes 0.5 s for its multi-KB worker prompts.
+    // a multi-KB payload wants a longer beat than the default.
     static func send(text: String, to terminal: TerminalPaneContent, submit: Bool, submitDelay: TimeInterval = 0.15) {
         terminal.terminalView.send(txt: "\u{1b}[200~" + text + "\u{1b}[201~")
         if submit {

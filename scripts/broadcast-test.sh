@@ -3,7 +3,7 @@
 # (swift/Sources/suit/Broadcast.swift, Foundation-only, no app deps) with
 # scripts/broadcast-test/main.swift and runs its assertions — the pure target
 # resolution (scope × hosted × fleet order, dedup, orphan drop) and the fan-out
-# confirm rule. Mirrors the feedback-routing / RoadmapParser standalone-test
+# confirm rule. Mirrors the feedback-routing / FeedbackRouting standalone-test
 # pattern.
 #
 # Usage: scripts/broadcast-test.sh   (run from the repo root)

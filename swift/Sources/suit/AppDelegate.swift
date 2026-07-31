@@ -56,28 +56,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // the goal carries where the selection came from. Off by default — the
     // selection alone is usually the directive.
     var goalPrependProvenanceEnabled = false
-    // Autopilot — the §2.9 config table. The engine reads
-    // these live through its weak appDelegate reference; the Settings window's
-    // Autopilot section writes them through autopilotXChanged(...).
-    var autopilotEnabled = false
-    var autopilotProjectRoot = ""             // git repo containing ROADMAP.md
-    var autopilotMode: AutopilotBudgetMode = .paceToReset
-    var autopilotNightStart = 22              // hour, night-shift window start
-    var autopilotNightEnd = 7                 // hour, exclusive; wraps midnight
-    var autopilotFiveHourCeiling = 85         // %, hard gate in all modes
-    var autopilotWeeklyCeiling = 95           // %, maxOut/nightShift ceiling
-    var autopilotWeeklyHardStop = 98          // %, hard gate in all modes
-    var autopilotPaceTargetPct = 100          // %, where the pace line ends
-    var autopilotMaxGateAttempts = 3          // build/review attempts per phase
-    var autopilotStallMinutes = 60            // needs-input stall before blocking
-    var autopilotExtraArgs = ""               // appended to the worker's claude
-    var autopilotReviewModel = ""             // review gate --model; empty = default
-    // Model routing: ask haiku which tier each unannotated phase deserves,
-    // instead of running everything on the session default. A roadmap
-    // `model:` annotation and a non-empty autopilotReviewModel both outrank
-    // it; off restores the pick-nothing behaviour. See ModelRouting.swift.
-    var autopilotModelRouting = true
-    var autopilotPreventSleep = true          // hold .idleSystemSleepDisabled across runs
     // Cost budget guardrails: per-session / per-task spend
     // ceilings in dollars (0 = no ceiling), whether crossing one auto-interrupts
     // the run (Esc over the pty) or only warns, and the per-session "Set Budget…"
@@ -100,17 +78,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // Fleet-supervision dashboard: a floating cross-window
     // view of every live Claude session, sorted needs-you-first, with per-row
     // steering routed through the same paths as the palette's session verbs.
-    // Autopilot dashboard: the multi-run supervision panel — one row per active
-    // autopilot instance with its status and per-repo controls (focus / pause /
-    // resume / skip / retry / log / stop).
-    lazy var autopilotDashboard: AutopilotDashboardController = {
-        let controller = AutopilotDashboardController()
-        controller.onFocusRunTab = { [weak self] engine in self?.focusAutopilotRunTab(engine: engine) }
-        controller.onOpenLog = { [weak self] engine in self?.openAutopilotLog(engine: engine) }
-        controller.onStartHere = { [weak self] in self?.startAutopilotHere() }
-        return controller
-    }()
-
     lazy var fleetDashboard: FleetDashboardController = {
         let controller = FleetDashboardController()
         controller.hostedIds = { [weak self] in self?.hostedSessionIds() ?? [] }
@@ -123,10 +90,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return controller
     }()
     // Fleet activity feed / daily digest: a floating
-    // cross-window timeline of what *moved* — sessions finishing, PRs/CI,
-    // Autopilot runs — with a "what happened today" recap. The recorder is the
-    // producer side (session transitions + the once-daily digest); the panel is
-    // the reader. A row click routes to the thing it names.
+    // cross-window timeline of what *moved* — sessions finishing, PRs/CI — with
+    // a "what happened today" recap. The recorder is the producer side (session
+    // transitions + the once-daily digest); the panel is the reader. A row
+    // click routes to the thing it names.
     lazy var activityFeed: ActivityFeedController = {
         let controller = ActivityFeedController()
         controller.onFocusSession = { [weak self] id in self?.focusSession(withId: id) }
@@ -134,11 +101,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             guard let link = URL(string: url) else { NSSound.beep(); return }
             NSWorkspace.shared.open(link)
         }
-        controller.onOpenAutopilotLog = { [weak self] in self?.openAutopilotLog() }
         return controller
     }()
     lazy var activityRecorder: ActivityRecorder = ActivityRecorder { [weak self] digest in
-        self?.attentionCenter?.postAutopilotEvent(
+        self?.attentionCenter?.postActivityEvent(
             title: "What happened today",
             body: digest.summary,
             identifier: "activity-digest"
@@ -242,7 +208,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             } else {
                 self.remapClaudeSessions()
             }
-            AutopilotManager.shared.tick()
             // Background-task monitor: a job that crashed
             // without the wrapper's exit trap firing changes no record file, so
             // the same heartbeat re-runs the liveness sweep that catches it.
@@ -263,16 +228,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // opened. The recorder is lazily created here (its first didUpdate seeds
         // the baseline without recording the already-live sessions).
         _ = activityRecorder
-        // Autopilot notification click-through (§2.11): a live run tab is the
-        // interesting surface, otherwise the log — the footer row's routing.
-        attentionCenter?.onAutopilotEvent = { [weak self] _ in
-            guard let self else { return }
-            if AutopilotManager.shared.allEngines.contains(where: { $0.workerTabId != nil }) {
-                self.focusAutopilotRunTab()
-            } else {
-                self.openAutopilotLog()
-            }
-        }
         // Activity digest click-through: open the feed.
         attentionCenter?.onActivityEvent = { [weak self] in
             self?.activityFeed.show(relativeTo: self?.activeWindowController()?.window)
@@ -292,12 +247,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self?.updateChecker?.presentPendingUpdate()
         }
         updateChecker?.startAutomaticChecks()
-
-        // Autopilot: the engine hangs off the same 3 s
-        // timer (tick added in the closure above) and needs the session
-        // monitor, which the observers above have already instantiated.
-        AutopilotManager.shared.appDelegate = self
-        AutopilotManager.shared.adoptOnLaunch()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
