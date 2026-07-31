@@ -12,8 +12,12 @@ extension GitView {
     // map from the branch pass so gh isn't re-listed. Runs even without gh —
     // merge-conflict detection is pure git — so a conflicted worktree still
     // shows when GitHub is unreachable.
-    func loadFeedbackData() {
-        guard let root = gitRoot else { return }
+    // Drawn only in this tab, and the gather shells out to git once per
+    // worktree — so like the branch pass it stays idle while the tab is hidden
+    // and catches up on reveal. `force` is the palette's "show me the feedback
+    // inbox", which reveals the tab and expects fresh data in the same gesture.
+    func loadFeedbackData(force: Bool = false) {
+        guard let root = gitRoot, isShowing || force else { return }
         let prs = prByBranch
         // Session snapshot read here on the main thread; the gather attributes
         // events against it without touching the monitor off-thread.
@@ -28,7 +32,7 @@ extension GitView {
                 guard let self, token == self.feedbackToken, root == self.gitRoot else { return }
                 self.feedbackEvents = events
                 self.recordCIFailures(events, root: root)
-                self.reload()
+                self.setNeedsReload()
             }
         }
     }

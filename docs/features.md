@@ -372,6 +372,15 @@ app does.
   a **Branches** list — every local branch with a remote cloud, its ahead/behind vs upstream
   (green ↑ / amber ↓), a worktree glyph, and a dirty dot, the current one highlighted. Click a
   branch to check it out (or switch the sidebar to its worktree).
+- **When the tab refreshes** — the working-tree half (the Staged/Changes rows and the activity
+  bar's count badge) follows the repo and stays right even while the tab is hidden. The half that
+  shells out — the branch list, the feedback gather, and the `gh` PR/review-inbox passes — runs
+  only when something happened that could have changed it: the tab was revealed, the shown repo or
+  branch changed, or you ran an action here (commit, push, create PR, submit a review). There is no
+  polling and no refresh interval. That matters when several sessions work different worktrees at
+  once: previously every file a build or an agent wrote re-ran the whole set, which kept `gh`
+  network calls permanently in flight. If PR data looks stale, switch away and back, or use the ⋯
+  actions menu — both re-list it.
 - **Is this branch on the remote?** — each branch row carries a cloud: **filled** when a remote has
   it, **hollow** when it has only ever lived here, and a **red struck-through** cloud when the
   upstream it tracks is gone (merged and deleted on the remote, say). The answer comes from the

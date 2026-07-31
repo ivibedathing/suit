@@ -9,9 +9,14 @@ extension GitView {
     // MARK: - Loading
 
     // Fetches the inbox off the main thread; no-op without gh (the section just
-    // stays hidden). Called from the branch/PR pass and the palette reveal.
-    func loadReviewInbox() {
-        guard let root = gitRoot, GitHubCLI.isAvailable else { return }
+    // stays hidden). Two `gh pr list --search` calls against GitHub, so it runs
+    // behind the tab's remote gate (see GitView's refresh policy) — `force`
+    // is the palette's reveal and the post-review refresh, which have to land
+    // now and are already user-initiated.
+    func loadReviewInbox(force: Bool = false) {
+        guard let root = gitRoot, GitHubCLI.isAvailable,
+              force || mayLoadRemote(force: false) else { return }
+        if !force { markRemoteLoaded() }
         reviewInboxToken += 1
         let token = reviewInboxToken
         DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -19,7 +24,7 @@ extension GitView {
             DispatchQueue.main.async {
                 guard let self, token == self.reviewInboxToken, root == self.gitRoot else { return }
                 self.reviewPRs = prs
-                self.reload()
+                self.setNeedsReload()
             }
         }
     }

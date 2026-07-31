@@ -171,6 +171,8 @@ final class SidebarView: NSView {
         // Same reason: the Source Control tab's header tints and the commit
         // box's layer ground are baked in at init.
         gitView.reapplyTheme()
+        // And the Sessions rows, whose tints are baked in by configure().
+        sessionsView.reapplyTheme()
     }
 
     required init?(coder: NSCoder) {
@@ -227,7 +229,18 @@ final class SidebarView: NSView {
             // the icon and then having to click the field as well.
             searchView.focusSearchField()
         }
+        shownTabDidBecomeVisible()
         moveFocusOutOfHiddenTabs()
+    }
+
+    // The shown tab is now reachable — either it was just selected, or the
+    // whole panel came back with ⌘B (which changes no selection, so the
+    // controller calls this itself). Only Source Control cares today: it skips
+    // the loads only it draws while hidden — its branch list, feedback gather
+    // and gh passes all shell out — so becoming visible is what asks for them.
+    func shownTabDidBecomeVisible() {
+        guard !isHidden, selectedTab == .git else { return }
+        gitView.sidebarTabDidBecomeVisible()
     }
 
     // A hidden view keeps first responder, so a tab switch that leaves the caret

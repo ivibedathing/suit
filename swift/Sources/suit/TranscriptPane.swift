@@ -70,6 +70,10 @@ final class TranscriptPaneContent: NSObject, PaneContent, NSTextViewDelegate {
     // A runaway transcript stops being a conversation view and starts being a
     // memory problem; keep the most recent slice.
     static let maxEntries = 4000
+    // How far past `maxEntries` the list is allowed to run before it is cut
+    // back down. Trimming rebuilds the whole document, so this amortizes that
+    // cost over `trimSlack` appends (see TranscriptPane+Tail.readAppended).
+    static let trimSlack = 1000
 
     var view: NSView { scrollView }
     var focusTarget: NSView { textView }

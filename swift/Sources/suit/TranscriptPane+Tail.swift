@@ -80,7 +80,15 @@ extension TranscriptPaneContent {
         guard !newEntries.isEmpty else { return }
         entries.append(contentsOf: newEntries)
         entrySourceLines.append(contentsOf: newSourceLines)
-        if entries.count > Self.maxEntries {
+        // Trimming means rebuilding the whole document (the dropped prefix's
+        // character length isn't tracked), so it is done in one big bite rather
+        // than one entry at a time. Trimming at exactly maxEntries meant that
+        // every subsequent append — and Claude Code appends constantly — paid a
+        // full re-render of 4000 entries, which is why a long-running session's
+        // transcript pane got slower the longer it ran. Overshooting by `slack`
+        // makes that cost land once per `slack` entries instead of once per
+        // entry: the same ceiling, ~1000× less work.
+        if entries.count > Self.maxEntries + Self.trimSlack {
             let drop = entries.count - Self.maxEntries
             entries.removeFirst(drop)
             entrySourceLines.removeFirst(drop)
