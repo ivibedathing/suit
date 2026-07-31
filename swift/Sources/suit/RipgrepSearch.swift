@@ -76,19 +76,51 @@ final class RipgrepSearcher {
     private var generation = 0
     private let parseQueue = DispatchQueue(label: "dev.kosych.suit.search", qos: .userInitiated)
 
+    // Operations-log timing for the search in flight. rg spawns its own Process
+    // rather than going through runProcess, so it is instrumented here — at the
+    // finish, because "how long the search took" is the number worth having and
+    // rg streams for as long as the tree is big. Nil once recorded, which is
+    // what keeps the several paths that can end a search (truncated, exited,
+    // failed to launch) from logging the same run more than once; all of them
+    // land on the main queue, so the nil-out needs no lock.
+    private var searchWatch: OpsStopwatch?
+    private var searchPattern = ""
+
     func cancel() {
         generation += 1
         if let process, process.isRunning {
             process.terminationHandler = nil
             process.standardOutput.flatMap { ($0 as? Pipe)?.fileHandleForReading.readabilityHandler = nil }
             process.terminate()
+            recordSearch(matches: 0, error: nil, cancelled: true)
         }
         process = nil
     }
 
+    // Records the finished search. `guard let` + nil-out makes it fire once per
+    // start(), whichever of the ending paths gets here first.
+    private func recordSearch(matches: Int, error: String?, cancelled: Bool = false) {
+        guard let watch = searchWatch else { return }
+        searchWatch = nil
+        // A search abandoned because the user typed another character still
+        // cost a spawn and a partial walk — it belongs in the log, labelled for
+        // what it was rather than as a search that found nothing.
+        let note = cancelled ? "cancelled" : "\(matches) match\(matches == 1 ? "" : "es")"
+        OpsLog.shared.record(
+            kind: .search, label: "ripgrep",
+            detail: "\(searchPattern) · \(note)",
+            trigger: "user",
+            startedAt: watch.startedAt, duration: watch.elapsed,
+            outcome: error != nil ? .failed : (cancelled || matches == 0 ? .empty : .ok)
+        )
+    }
+
     func start(_ options: RipgrepOptions) {
         cancel()
+        searchWatch = OpsStopwatch()
+        searchPattern = options.pattern
         guard let rgPath = resolveRipgrepExecutable() else {
+            recordSearch(matches: 0, error: "ripgrep binary not found")
             onFinished?(false, "ripgrep binary not found — rebuild the app or set SUIT_RG_PATH")
             return
         }
@@ -169,6 +201,9 @@ final class RipgrepSearcher {
                 if truncated {
                     DispatchQueue.main.async {
                         guard self.generation == expected else { return }
+                        // Recorded before cancel(), which would otherwise log
+                        // this hit-the-cap finish as an abandoned search.
+                        self.recordSearch(matches: matchCount, error: nil)
                         // Enough results to look at; stop rg rather than
                         // draining (and discarding) the rest of the tree.
                         self.cancel()
@@ -216,6 +251,7 @@ final class RipgrepSearcher {
                 DispatchQueue.main.async {
                     guard self.generation == expected else { return }
                     self.process = nil
+                    self.recordSearch(matches: matchCount, error: errorMessage)
                     self.onFinished?(truncated, errorMessage)
                 }
             }
@@ -227,6 +263,7 @@ final class RipgrepSearcher {
         } catch {
             stdout.fileHandleForReading.readabilityHandler = nil
             self.process = nil
+            recordSearch(matches: 0, error: error.localizedDescription)
             onFinished?(false, "could not launch ripgrep: \(error.localizedDescription)")
         }
     }

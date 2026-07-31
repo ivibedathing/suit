@@ -86,25 +86,41 @@ final class FileIndex {
     }
 
     static func gitRoot(of directory: String) -> String? {
-        let output = runProcess("/usr/bin/git", ["-C", directory, "rev-parse", "--show-toplevel"])
+        // A probe: "not a repo" is an ordinary answer here, not a failure.
+        let output = runProcess(
+            "/usr/bin/git", ["-C", directory, "rev-parse", "--show-toplevel"], probe: true
+        )
         guard let output, !output.isEmpty else { return nil }
         return output.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private init(root: String) {
         self.root = root
-        rescan()
+        rescan(trigger: "project opened")
         startWatching()
     }
 
     // MARK: - Scanning
 
-    func rescan() {
+    // `trigger` is what the operations log reports as the cause, and it is
+    // scoped around the scan so the two `git ls-files` calls underneath inherit
+    // it too — the Background tab then shows the scan and the git work it did
+    // as one attributable group rather than three unexplained rows.
+    func rescan(trigger: String = "manual") {
         isScanning = true
         Self.scanQueue.async { [weak self] in
             guard let self else { return }
-            let scanned = Self.scan(root: self.root)
-            let ignored = Self.scanIgnored(root: self.root)
+            let watch = OpsStopwatch()
+            let (scanned, ignored) = OpsLog.withTrigger(trigger) {
+                (Self.scan(root: self.root), Self.scanIgnored(root: self.root))
+            }
+            OpsLog.shared.record(
+                kind: .index, label: "index scan",
+                detail: "\(scanned.count) files · \((self.root as NSString).lastPathComponent)",
+                trigger: trigger,
+                startedAt: watch.startedAt, duration: watch.elapsed,
+                outcome: scanned.isEmpty ? .empty : .ok
+            )
             DispatchQueue.main.async {
                 let unchanged = scanned == self.files && ignored == self.ignored
                 self.files = scanned
@@ -331,7 +347,7 @@ final class FileIndex {
         guard relevant else { return }
 
         rescanDebounce?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.rescan() }
+        let work = DispatchWorkItem { [weak self] in self?.rescan(trigger: "file change") }
         rescanDebounce = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
@@ -361,7 +377,41 @@ final class FileIndex {
 // Runs a process to completion and returns stdout, or nil on nonzero exit /
 // launch failure. Used for git (here, the diff pane, review tooling);
 // never called on paths derived from file content.
-func runProcess(_ executable: String, _ arguments: [String]) -> String? {
+//
+// Every internal subprocess Suit spawns of its own accord goes through here,
+// which makes this the one place worth instrumenting: the operations log
+// (OpsLog) derives the row's name and kind from argv, so a `git` call added
+// anywhere in the app shows up in the Background tab without its author writing
+// a line of logging. `trigger` names *why* the call is being made — pass it at
+// sites that know (the status monitor knows an FSEvents burst asked); anything
+// else inherits the ambient trigger its caller scoped with OpsLog.withTrigger.
+// `probe` marks a call whose *job* is to ask a yes/no question — "is this
+// directory in a repo", "does this ref exist" — where a nonzero exit is the
+// answer "no", not a fault. Without it those rows log red, and a log where the
+// commonest routine call is red is a log whose red stops meaning anything.
+func runProcess(
+    _ executable: String, _ arguments: [String], trigger: String? = nil, probe: Bool = false
+) -> String? {
+    let derived = OpsLabel.derive(executable: executable, arguments: arguments)
+    let watch = OpsStopwatch()
+    let output = spawnProcess(executable, arguments)
+    OpsLog.shared.record(
+        kind: derived.kind,
+        label: derived.label,
+        detail: derived.detail,
+        trigger: trigger ?? OpsLog.currentTrigger,
+        startedAt: watch.startedAt,
+        duration: watch.elapsed,
+        // A command that ran fine and printed nothing (`git status` in a clean
+        // tree) is `.empty`, not a failure.
+        outcome: output.map { $0.isEmpty ? .empty : .ok } ?? (probe ? .empty : .failed)
+    )
+    return output
+}
+
+// The uninstrumented spawn. Split out so the timing wrapper above reads as one
+// thing and the process plumbing as another.
+private func spawnProcess(_ executable: String, _ arguments: [String]) -> String? {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: executable)
     process.arguments = arguments

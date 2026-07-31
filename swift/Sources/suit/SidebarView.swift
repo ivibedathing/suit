@@ -38,6 +38,7 @@ final class SidebarView: NSView {
         case bookmarks
         case sessions
         case search
+        case ops
 
         // The activity bar's top-to-bottom icon order, independent of rawValue.
         // Files leads (the primary surface) with Search directly under it — the
@@ -51,7 +52,10 @@ final class SidebarView: NSView {
         // viewer gutter where they are made, so the list is a palette
         // destination ("Show Bookmarks" / showBookmarks()) rather than a
         // permanent icon.
-        static let railOrder: [Tab] = [.files, .search, .git, .sessions, .ssh, .notes]
+        // Background is last: it is the only tab that shows the *app's* work
+        // rather than the user's, so it belongs at the end of the strip — a
+        // place you go to ask a question, not one you work out of.
+        static let railOrder: [Tab] = [.files, .search, .git, .sessions, .ssh, .notes, .ops]
 
         // Tooltip / accessibility label; the activity bar shows only the icon.
         var label: String {
@@ -63,6 +67,7 @@ final class SidebarView: NSView {
             case .ssh: return "SSH Hosts"
             case .bookmarks: return "Bookmarks"
             case .sessions: return "Sessions"
+            case .ops: return "Background"
             }
         }
 
@@ -75,6 +80,7 @@ final class SidebarView: NSView {
             case .ssh: return "server.rack"
             case .bookmarks: return "bookmark"
             case .sessions: return "rectangle.stack"
+            case .ops: return "waveform.path.ecg"
             }
         }
 
@@ -105,6 +111,7 @@ final class SidebarView: NSView {
     let sshHostsView = SSHHostsView(frame: .zero)
     let bookmarksView = BookmarksView(frame: .zero)
     let sessionsView = SessionsView(frame: .zero)
+    let opsLogView = OpsLogView(frame: .zero)
     let recentFolders = RecentFoldersView(frame: .zero)
     let usageFooter = ClaudeUsageFooterView(frame: .zero)
 
@@ -135,6 +142,7 @@ final class SidebarView: NSView {
         addSubview(sshHostsView)
         addSubview(bookmarksView)
         addSubview(sessionsView)
+        addSubview(opsLogView)
 
         // The project switcher sits below the tab content, on every tab, and
         // the Claude Code usage footer sits at the very bottom below it.
@@ -173,6 +181,8 @@ final class SidebarView: NSView {
         gitView.reapplyTheme()
         // And the Sessions rows, whose tints are baked in by configure().
         sessionsView.reapplyTheme()
+        // Same for the Background tab's rows and its header controls.
+        opsLogView.reapplyTheme()
     }
 
     required init?(coder: NSCoder) {
@@ -207,6 +217,7 @@ final class SidebarView: NSView {
         sshHostsView.frame = contentFrame
         bookmarksView.frame = contentFrame
         sessionsView.frame = contentFrame
+        opsLogView.frame = contentFrame
     }
 
     private func updateTabContent() {
@@ -217,6 +228,7 @@ final class SidebarView: NSView {
         sshHostsView.isHidden = selectedTab != .ssh
         bookmarksView.isHidden = selectedTab != .bookmarks
         sessionsView.isHidden = selectedTab != .sessions
+        opsLogView.isHidden = selectedTab != .ops
         // Notes and Bookmarks are keyboard-navigable lists: selecting the tab
         // should land on the list so ↑↓/Return work without a click. (Notes no
         // longer holds an editor — a note opens as its own file tab.)

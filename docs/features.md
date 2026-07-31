@@ -155,6 +155,22 @@ app does.
   terminal selection captures it as a new note (titled after its first line) and opens it. Notes
   kept in the older `notes.json` / `notes.txt` are imported into the directory once, at first
   launch, and the originals are left on disk untouched.
+- **Background** — the sidebar's last tab (also **View ▸ Show Background Tasks**, or "Show
+  Background Tasks" in the palette): a live log of the work *Suit itself* does when nobody asked.
+  Every internal `git` and `gh` call, project-index rescan, ctags pass, ripgrep run, `lsof` poll
+  and update check lands here with what ran, what triggered it (`file change`,
+  `tab shown`, `ref change`, `project opened`, `timer`, `user`, `coalesced`), how long it took, and
+  how it ended. Rows are grouped by subsystem glyph and tinted red on failure; a run of identical
+  operations collapses to one row with a **×N** and the run's total time, so an FSEvents burst
+  reads as `git status ×6 · 720ms` rather than six rows. The footer keeps a rolling
+  "N runs · time · failures in 1m" — the line that makes a runaway cascade obvious at a glance.
+  The kind popup filters to one subsystem (remembered across launches), **⏸** stops recording
+  without clearing what's there, and **🗑** empties the log. Read-only: rows aren't clickable, but
+  each carries its full record as a tooltip. The log is the last 800 operations, in memory only —
+  it is deliberately never written to disk, since appending every `git status` to a file would
+  recreate exactly the churn the tab exists to expose — so it starts empty at each launch. A
+  routine probe ("is this a git repo", "does `main` exist") answering *no* logs as an ordinary
+  empty result, not a failure.
 
 ### File viewer & navigation
 
