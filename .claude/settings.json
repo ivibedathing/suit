@@ -9,7 +9,6 @@
       "Bash(./scripts/test.sh:*)",
       "Bash(scripts/feedback-routing-test.sh)",
       "Bash(scripts/mode-plan-harness.sh)",
-      "Bash(scripts/autopilot-harness.sh)",
       "Bash(design/render-reference.sh)",
       "Bash(./design/render-reference.sh)",
       "Bash(git status:*)",

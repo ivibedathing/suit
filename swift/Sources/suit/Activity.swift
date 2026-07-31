@@ -5,7 +5,7 @@ import Foundation
 // merging, CI passing/failing — plus a "what happened today" recap.
 //
 // This file is the UI-free, standalone-compilable core (the FeedbackRouting /
-// FeedbackRouting / Recipes / FileEdit pattern, Foundation-only, no AppKit and
+// Recipes / FileEdit pattern, Foundation-only, no AppKit and
 // no app deps), so `scripts/activity-test.sh` can compile it in isolation and
 // assert the feed ordering / routing / daily-digest rollup without any UI. The
 // AppKit halves live in ActivityRecorder.swift (the producers) and
