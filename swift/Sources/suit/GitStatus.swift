@@ -76,13 +76,13 @@ final class GitStatusMonitor {
             self, selector: #selector(indexUpdated(_:)),
             name: FileIndex.didScan, object: nil
         )
-        refresh()
+        refresh(trigger: "project opened")
         startWatchingGitDir()
     }
 
     @objc private func indexUpdated(_ note: Notification) {
         guard let index = note.object as? FileIndex, index.root == root else { return }
-        scheduleRefresh(after: Self.indexDebounce)
+        scheduleRefresh(after: Self.indexDebounce, trigger: "file change")
     }
 
     // Debounce with a ceiling. A plain cancel-and-reschedule starves under
@@ -92,7 +92,7 @@ final class GitStatusMonitor {
     // and refuses to slide past it, so a burst still resolves within
     // maxRefreshDelay. It is not a poll: with nothing changing, nothing is
     // scheduled and nothing runs.
-    private func scheduleRefresh(after delay: TimeInterval) {
+    private func scheduleRefresh(after delay: TimeInterval, trigger: String) {
         let now = Date()
         let deadline = refreshDeadline ?? now.addingTimeInterval(Self.maxRefreshDelay)
         refreshDeadline = deadline
@@ -100,7 +100,7 @@ final class GitStatusMonitor {
         refreshDebounce?.cancel()
         let work = DispatchWorkItem { [weak self] in
             self?.refreshDeadline = nil
-            self?.refresh()
+            self?.refresh(trigger: trigger)
         }
         refreshDebounce = work
         DispatchQueue.main.asyncAfter(
@@ -108,7 +108,12 @@ final class GitStatusMonitor {
         )
     }
 
-    func refresh() {
+    // `trigger` is what the operations log names as the cause. It is scoped
+    // around the whole pass rather than passed to each call, so all six git
+    // processes below carry it — the Background tab can then show that one
+    // FSEvents burst cost six spawns, which is the shape of the problem the
+    // debounce above exists to contain.
+    func refresh(trigger: String = "manual") {
         guard !isRefreshing else {
             refreshQueued = true
             return
@@ -116,15 +121,19 @@ final class GitStatusMonitor {
         isRefreshing = true
         let root = self.root
         Self.queue.async { [weak self] in
-            let parsed = Self.readStatus(root: root)
-            let shape = Self.readRepoShape(root: root)
+            let (parsed, shape) = OpsLog.withTrigger(trigger) {
+                (Self.readStatus(root: root), Self.readRepoShape(root: root))
+            }
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.isRefreshing = false
                 self.apply(parsed: parsed, shape: shape)
                 if self.refreshQueued {
                     self.refreshQueued = false
-                    self.scheduleRefresh(after: Self.indexDebounce)
+                    // A pass that was requested while another was in flight is
+                    // attributed to the coalescing, not to whatever asked —
+                    // several different causes may have collapsed into it.
+                    self.scheduleRefresh(after: Self.indexDebounce, trigger: "coalesced")
                 }
             }
         }
@@ -271,7 +280,10 @@ final class GitStatusMonitor {
     private func startWatchingGitDir() {
         let root = self.root
         Self.queue.async { [weak self] in
-            guard let output = runProcess("/usr/bin/git", ["-C", root, "rev-parse", "--git-common-dir"]) else { return }
+            guard let output = runProcess(
+                "/usr/bin/git", ["-C", root, "rev-parse", "--git-common-dir"],
+                trigger: "project opened", probe: true
+            ) else { return }
             var gitDir = output.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !gitDir.isEmpty else { return }
             if !gitDir.hasPrefix("/") {
@@ -322,7 +334,7 @@ final class GitStatusMonitor {
                 || path.hasSuffix("/packed-refs") || path.contains("/worktrees/")
         }
         guard relevant else { return }
-        scheduleRefresh(after: 0.5)
+        scheduleRefresh(after: 0.5, trigger: "ref change")
     }
 
     // The colour a porcelain letter reads as, shared by the browser's status

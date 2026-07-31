@@ -262,6 +262,12 @@ extension AppDelegate {
         let activityItem = viewMenu.addItem(withTitle: "Show Activity Feed", action: #selector(showActivityFeed(_:)), keyEquivalent: "")
         activityItem.target = self
 
+        // The sidebar's Background tab: Suit's own operations log. Next to the
+        // activity feed because the two answer adjacent questions — that one is
+        // "what moved across the fleet", this one is "what is the app doing".
+        let backgroundItem = viewMenu.addItem(withTitle: "Show Background Tasks", action: #selector(showBackgroundLog(_:)), keyEquivalent: "")
+        backgroundItem.target = self
+
         // Command history search: ⌃R, the shell's reverse-i-
         // search made native and cross-pane. A menu key equivalent, so it's
         // caught app-wide (in place of the terminal's own ⌃R) whenever a pane

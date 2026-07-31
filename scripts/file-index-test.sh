@@ -7,6 +7,10 @@
 # droppings (.DS_Store, ._*) are pruned.
 # Mirrors the RoadmapParser / DiffParser / Recipes standalone-test pattern.
 #
+# OpsLog.swift joins the compile because runProcess (which lives in FileIndex)
+# records every spawn to the operations log; it is Foundation-only too, so the
+# harness stays app-free.
+#
 # Usage: scripts/file-index-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.
 set -euo pipefail
@@ -19,6 +23,7 @@ trap 'rm -f "$DRIVER"' EXIT
 echo "==> Compiling FileIndex logic test"
 if ! swiftc -O \
     "$ROOT/swift/Sources/suit/FileIndex.swift" \
+    "$ROOT/swift/Sources/suit/OpsLog.swift" \
     "$ROOT/scripts/file-index-test/main.swift" \
     -o "$DRIVER"; then
     echo "COMPILE FAILED"

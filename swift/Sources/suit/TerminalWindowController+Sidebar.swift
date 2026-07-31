@@ -291,6 +291,16 @@ extension TerminalWindowController {
         window.makeFirstResponder(sidebar.gitView.commitTextView)
     }
 
+    // Reveal the Background tab — Suit's own operations log (rail icon, palette).
+    func showBackgroundLog() {
+        if sidebar.isHidden {
+            sidebar.isHidden = false
+            layoutSidebarSplit()
+            UserDefaults.standard.set(true, forKey: "sidebarVisible")
+        }
+        sidebar.select(tab: .ops)
+    }
+
     // Reveal the Bookmarks tab (palette).
     func showBookmarks() {
         if sidebar.isHidden {
