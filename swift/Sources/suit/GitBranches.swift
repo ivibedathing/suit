@@ -213,12 +213,16 @@ enum GitHubCLI {
 
     // The repo's default branch ("main"/"master"), from origin/HEAD when set.
     static func defaultBranch(root: String) -> String? {
-        if let head = runProcess("/usr/bin/git", ["-C", root, "symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"])?
-            .trimmingCharacters(in: .whitespacesAndNewlines), !head.isEmpty {
+        // Both of these are probes — an unset origin/HEAD and a repo with no
+        // `main` are ordinary answers, so they don't log as failures.
+        if let head = runProcess(
+            "/usr/bin/git", ["-C", root, "symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"],
+            probe: true
+        )?.trimmingCharacters(in: .whitespacesAndNewlines), !head.isEmpty {
             return (head as NSString).lastPathComponent
         }
         for candidate in ["main", "master"] {
-            if runProcess("/usr/bin/git", ["-C", root, "rev-parse", "--verify", "-q", candidate]) != nil {
+            if runProcess("/usr/bin/git", ["-C", root, "rev-parse", "--verify", "-q", candidate], probe: true) != nil {
                 return candidate
             }
         }
@@ -397,6 +401,29 @@ enum GitHubCLI {
     // gh has no `-C` flag (that's a git-ism) — it's pointed at a repo by its
     // working directory instead.
     private static func run(_ executable: String, cwd: String, _ arguments: [String]) -> Result<String, WorktreeTaskError> {
+        let derived = OpsLabel.derive(executable: executable, arguments: arguments)
+        let watch = OpsStopwatch()
+        let result = spawn(executable, cwd: cwd, arguments)
+        OpsLog.shared.record(
+            kind: derived.kind, label: derived.label,
+            // gh has no -C, so argv carries no repo — the cwd is what says
+            // which checkout the call was about.
+            detail: derived.detail ?? (cwd as NSString).lastPathComponent,
+            trigger: OpsLog.currentTrigger,
+            startedAt: watch.startedAt, duration: watch.elapsed,
+            outcome: {
+                switch result {
+                case .success(let output): return output.isEmpty ? .empty : .ok
+                case .failure: return .failed
+                }
+            }()
+        )
+        return result
+    }
+
+    // The uninstrumented spawn — see runProcess in FileIndex.swift for why the
+    // timing wrapper sits above rather than inside.
+    private static func spawn(_ executable: String, cwd: String, _ arguments: [String]) -> Result<String, WorktreeTaskError> {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments

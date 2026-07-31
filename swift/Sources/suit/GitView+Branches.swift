@@ -9,8 +9,13 @@ extension GitView {
     // Loads local branches (ahead/behind, worktree, dirty) off the main thread,
     // then — if `gh` is installed — layers PR badges on in a second pass so the
     // branch list never waits on the network.
-    func loadBranchData() {
-        guard let root = gitRoot else { return }
+    //
+    // Nothing this loads is drawn anywhere but the Source Control tab, so a
+    // hidden tab loads nothing at all: `sidebarTabDidBecomeVisible` runs it on
+    // reveal. `force` is for the actions that must not wait — a repo switch, or
+    // a branch the user just deleted or opened a PR for.
+    func loadBranchData(force: Bool = false) {
+        guard let root = gitRoot, isShowing || force else { return }
         let current = monitor?.currentBranch
         loadToken += 1
         let token = loadToken
@@ -19,18 +24,22 @@ extension GitView {
             DispatchQueue.main.async {
                 guard let self, token == self.loadToken, root == self.gitRoot else { return }
                 self.branches = list
-                self.reload()
+                self.setNeedsReload()
                 // Conflicts need no gh, so gather feedback now; the PR pass
                 // below refreshes it once CI/review data is available.
                 self.loadFeedbackData()
-                // The PR review inbox is its own gh pass.
-                self.loadReviewInbox()
+                // The two gh passes are network round trips. They run only when
+                // the cached data isn't about this repo/branch, or a caller
+                // forced it — never off a plain file change.
+                guard self.mayLoadRemote(force: force) else { return }
+                self.markRemoteLoaded()
+                self.loadReviewInbox(force: true)
                 self.loadPullRequests(root: root, token: token)
             }
         }
     }
 
-    private func loadPullRequests(root: String, token: Int) {
+    func loadPullRequests(root: String, token: Int) {
         guard GitHubCLI.isAvailable else { return }
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let prs = GitHubCLI.pullRequests(root: root)
@@ -38,7 +47,7 @@ extension GitView {
             DispatchQueue.main.async {
                 guard let self, token == self.loadToken, root == self.gitRoot else { return }
                 self.prByBranch = prs
-                self.reload()
+                self.setNeedsReload()
                 // Now that PRs are known, re-gather so CI failures and review
                 // comments join the conflict events already shown.
                 self.loadFeedbackData()
@@ -108,7 +117,7 @@ extension GitView {
         // Deleting a branch moves no file, so the status monitor may never fire
         // — reload the list off the action's own completion instead.
         run(.deleteBranch(name: name, force: false)) { [weak self] _ in
-            self?.loadBranchData()
+            self?.loadBranchData(force: true)
         }
     }
 
@@ -141,7 +150,7 @@ extension GitView {
                 switch result {
                 case .success(let url):
                     self.monitor?.refresh()
-                    self.loadBranchData()
+                    self.loadBranchData(force: true)
                     let alert = NSAlert()
                     alert.messageText = "Pull Request Created"
                     alert.informativeText = url.isEmpty ? "The PR was created." : url

@@ -190,7 +190,23 @@ final class BackgroundTaskStore {
         return BackgroundTasks.parseListeningPort(lsof: output)
     }
 
+    // Instrumented like the rest of Suit's unbidden work: this runs on the
+    // monitor's reconcile pass, once per tracked task, and a stalled `lsof`
+    // (a hung NFS mount is the classic) is invisible without a row saying so.
     private static func runLsof(_ args: [String]) -> String? {
+        let watch = OpsStopwatch()
+        let output = spawnLsof(args)
+        OpsLog.shared.record(
+            kind: .process, label: "lsof",
+            detail: args.firstIndex(of: "-p").flatMap { args.indices.contains($0 + 1) ? "pid \(args[$0 + 1])" : nil },
+            trigger: "task monitor",
+            startedAt: watch.startedAt, duration: watch.elapsed,
+            outcome: output.map { $0.isEmpty ? .empty : .ok } ?? .failed
+        )
+        return output
+    }
+
+    private static func spawnLsof(_ args: [String]) -> String? {
         let candidates = ["/usr/sbin/lsof", "/usr/bin/lsof"]
         guard let path = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { return nil }
         let process = Process()

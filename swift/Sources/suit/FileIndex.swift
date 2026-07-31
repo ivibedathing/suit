@@ -7,6 +7,11 @@ import Foundation
 // list and one watcher.
 final class FileIndex {
     static let didUpdate = Notification.Name("dev.kosych.suit.FileIndexDidUpdate")
+    // Posted after every completed scan, whether or not the file list moved —
+    // see the two-signal note in rescan(). Observers that care about file
+    // *contents* rather than the set of paths (the git status monitor) want
+    // this one; everything else wants didUpdate.
+    static let didScan = Notification.Name("dev.kosych.suit.FileIndexDidScan")
 
     // Marker file → badge shown on that directory in the Files sidebar. What
     // makes the browser "multi-project-aware": sub-project roots read as projects,
@@ -31,6 +36,11 @@ final class FileIndex {
     // The gitignored rows, kept *out* of `files` on purpose: the Files tree
     // draws them greyed, while ⌘P and project search stay ignore-clean.
     private(set) var ignored: [IgnoredEntry] = []
+
+    // Absolute paths of the ignored *directories* above, without a trailing
+    // slash — the FSEvents filter's lookup table, rebuilt whenever a scan lands
+    // so the event handler never has to touch git or the filesystem to decide.
+    private var ignoredDirectoryPrefixes: [String] = []
 
     // One ignored row. Collapsed at the shallowest ignored directory (see
     // scanIgnored), so `node_modules/` is a single entry rather than the
@@ -76,30 +86,68 @@ final class FileIndex {
     }
 
     static func gitRoot(of directory: String) -> String? {
-        let output = runProcess("/usr/bin/git", ["-C", directory, "rev-parse", "--show-toplevel"])
+        // A probe: "not a repo" is an ordinary answer here, not a failure.
+        let output = runProcess(
+            "/usr/bin/git", ["-C", directory, "rev-parse", "--show-toplevel"], probe: true
+        )
         guard let output, !output.isEmpty else { return nil }
         return output.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private init(root: String) {
         self.root = root
-        rescan()
+        rescan(trigger: "project opened")
         startWatching()
     }
 
     // MARK: - Scanning
 
-    func rescan() {
+    // `trigger` is what the operations log reports as the cause, and it is
+    // scoped around the scan so the two `git ls-files` calls underneath inherit
+    // it too — the Background tab then shows the scan and the git work it did
+    // as one attributable group rather than three unexplained rows.
+    func rescan(trigger: String = "manual") {
         isScanning = true
         Self.scanQueue.async { [weak self] in
             guard let self else { return }
-            let scanned = Self.scan(root: self.root)
-            let ignored = Self.scanIgnored(root: self.root)
+            let watch = OpsStopwatch()
+            let (scanned, ignored) = OpsLog.withTrigger(trigger) {
+                (Self.scan(root: self.root), Self.scanIgnored(root: self.root))
+            }
+            OpsLog.shared.record(
+                kind: .index, label: "index scan",
+                detail: "\(scanned.count) files · \((self.root as NSString).lastPathComponent)",
+                trigger: trigger,
+                startedAt: watch.startedAt, duration: watch.elapsed,
+                outcome: scanned.isEmpty ? .empty : .ok
+            )
             DispatchQueue.main.async {
+                let unchanged = scanned == self.files && ignored == self.ignored
                 self.files = scanned
                 self.ignored = ignored
+                self.ignoredDirectoryPrefixes = ignored
+                    .filter { $0.isDirectory }
+                    .map { self.root + "/" + $0.path }
                 self.subprojectBadges = Self.detectSubprojects(in: scanned)
                 self.isScanning = false
+                // Two signals, because two kinds of observer want two different
+                // questions answered:
+                //
+                //   didScan   — a scan finished. Always posted. Editing a file
+                //               git already tracks changes no path here, but it
+                //               absolutely changes `git status`, so the status
+                //               monitor has to hear about it. (Suppressing this
+                //               is what stopped Source Control noticing
+                //               ordinary edits.)
+                //   didUpdate — the file list itself changed. The Files tree,
+                //               the symbol index and ⌘P rebuild from it, and a
+                //               rescan that found the same paths gives them
+                //               nothing to do.
+                //
+                // The first scan posts both: `files` starts empty, so any real
+                // project differs from it.
+                NotificationCenter.default.post(name: Self.didScan, object: self)
+                guard !unchanged else { return }
                 NotificationCenter.default.post(name: Self.didUpdate, object: self)
             }
         }
@@ -288,21 +336,82 @@ final class FileIndex {
         // would make the index thrash during normal git use. Only .git-internal
         // events are skipped — a checkout that changes the worktree also
         // reports the changed worktree directories, which do trigger a rescan.
-        let gitDir = root + "/.git"
-        let relevant = paths.contains { !$0.hasPrefix(gitDir) }
+        //
+        // Ignored trees are skipped for the same reason and it matters more:
+        // `build/`, `node_modules/`, and `.claude/worktrees/` (whole checkouts
+        // other agents are actively building in) generate near-continuous
+        // events, and not one of them can change what `git ls-files` returns.
+        // Left unfiltered they kept a full rescan — and everything downstream
+        // of didUpdate — running for as long as anything was compiling.
+        let relevant = paths.contains { !isIgnoredEventPath($0) }
         guard relevant else { return }
 
         rescanDebounce?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.rescan() }
+        let work = DispatchWorkItem { [weak self] in self?.rescan(trigger: "file change") }
         rescanDebounce = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    // Whether an FSEvents path is one a rescan could not possibly learn from:
+    // inside .git, or inside a directory git already reported as ignored.
+    //
+    // `ignoredDirectoryPrefixes` is rebuilt from the last scan's collapsed
+    // ignored entries, which is why a *newly* created ignored directory still
+    // costs one rescan — it isn't known to be ignored until a scan says so.
+    // That is the correct trade: one rescan to learn it, silence afterwards.
+    //
+    // The stream is created without kFSEventStreamCreateFlagFileEvents, so what
+    // arrives are *directory* paths — "…/build", not "…/build/obj1.o", and with
+    // no consistent trailing slash. Matching has to accept the directory itself
+    // as well as anything under it; a plain hasPrefix on a slash-terminated
+    // string silently matches nothing.
+    private func isIgnoredEventPath(_ path: String) -> Bool {
+        let normalized = path.hasSuffix("/") ? String(path.dropLast()) : path
+        if normalized == root + "/.git" || normalized.hasPrefix(root + "/.git/") { return true }
+        return ignoredDirectoryPrefixes.contains {
+            normalized == $0 || normalized.hasPrefix($0 + "/")
+        }
     }
 }
 
 // Runs a process to completion and returns stdout, or nil on nonzero exit /
 // launch failure. Used for git (here, the diff pane, review tooling);
 // never called on paths derived from file content.
-func runProcess(_ executable: String, _ arguments: [String]) -> String? {
+//
+// Every internal subprocess Suit spawns of its own accord goes through here,
+// which makes this the one place worth instrumenting: the operations log
+// (OpsLog) derives the row's name and kind from argv, so a `git` call added
+// anywhere in the app shows up in the Background tab without its author writing
+// a line of logging. `trigger` names *why* the call is being made — pass it at
+// sites that know (the status monitor knows an FSEvents burst asked); anything
+// else inherits the ambient trigger its caller scoped with OpsLog.withTrigger.
+// `probe` marks a call whose *job* is to ask a yes/no question — "is this
+// directory in a repo", "does this ref exist" — where a nonzero exit is the
+// answer "no", not a fault. Without it those rows log red, and a log where the
+// commonest routine call is red is a log whose red stops meaning anything.
+func runProcess(
+    _ executable: String, _ arguments: [String], trigger: String? = nil, probe: Bool = false
+) -> String? {
+    let derived = OpsLabel.derive(executable: executable, arguments: arguments)
+    let watch = OpsStopwatch()
+    let output = spawnProcess(executable, arguments)
+    OpsLog.shared.record(
+        kind: derived.kind,
+        label: derived.label,
+        detail: derived.detail,
+        trigger: trigger ?? OpsLog.currentTrigger,
+        startedAt: watch.startedAt,
+        duration: watch.elapsed,
+        // A command that ran fine and printed nothing (`git status` in a clean
+        // tree) is `.empty`, not a failure.
+        outcome: output.map { $0.isEmpty ? .empty : .ok } ?? (probe ? .empty : .failed)
+    )
+    return output
+}
+
+// The uninstrumented spawn. Split out so the timing wrapper above reads as one
+// thing and the process plumbing as another.
+private func spawnProcess(_ executable: String, _ arguments: [String]) -> String? {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: executable)
     process.arguments = arguments

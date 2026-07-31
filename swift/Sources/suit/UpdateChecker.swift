@@ -73,7 +73,18 @@ final class UpdateChecker {
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 15
+        // The only network call Suit makes on its own — a 6 h timer nobody sees
+        // until it hangs. Recorded like every other unbidden operation.
+        let watch = OpsStopwatch()
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            OpsLog.shared.record(
+                kind: .network, label: "update check",
+                detail: error?.localizedDescription ?? "HTTP \(status)",
+                trigger: userInitiated ? "user" : "timer",
+                startedAt: watch.startedAt, duration: watch.elapsed,
+                outcome: error == nil && status == 200 ? .ok : .failed
+            )
             DispatchQueue.main.async {
                 self?.handleResult(data: data, response: response, error: error, userInitiated: userInitiated)
             }

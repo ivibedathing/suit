@@ -59,6 +59,11 @@ extension AppDelegate {
         activeWindowController()?.showBookmarks()
     }
 
+    // Suit's own operations log — the work the app does unbidden.
+    @objc func showBackgroundLog(_ sender: Any?) {
+        activeWindowController()?.showBackgroundLog()
+    }
+
     // "what changed while I was away" markers.
     @objc func markAwayPoint(_ sender: Any?) {
         activeWindowController()?.markAwayPoint()
@@ -436,6 +441,7 @@ extension AppDelegate {
             PaletteCommand(title: "Show Source Control", shortcut: "⌃⌘G") { [weak self] in self?.showGit(nil) },
             PaletteCommand(title: "Commit Changes…", shortcut: nil) { [weak self] in self?.focusCommitMessage(nil) },
             PaletteCommand(title: "Show Bookmarks", shortcut: nil) { [weak self] in self?.showBookmarks(nil) },
+            PaletteCommand(title: "Show Background Tasks", shortcut: nil) { [weak self] in self?.showBackgroundLog(nil) },
             PaletteCommand(title: "Mark Now (checkpoint for “what changed”)", shortcut: nil) { [weak self] in self?.markAwayPoint(nil) },
             PaletteCommand(title: "What Changed Since Mark", shortcut: nil) { [weak self] in self?.showCatchUpDiff(nil) },
             PaletteCommand(title: "Toggle Bookmark", shortcut: "⇧⌘L") { [weak self] in self?.toggleBookmark(nil) },

@@ -95,12 +95,16 @@ final class SymbolIndex {
 
     private init(root: String) {
         self.root = root
-        // Rebuild whenever this root's file list changes (FSEvents → FileIndex).
+        // Rebuild whenever this root is rescanned (FSEvents → FileIndex).
+        // didScan rather than didUpdate: symbols come out of file *contents*, so
+        // editing a file git already tracks changes them while leaving the
+        // index's list of paths identical — gating on the list would leave
+        // go-to-definition pointing at the previous version of every edit.
         NotificationCenter.default.addObserver(
             self, selector: #selector(fileIndexChanged(_:)),
-            name: FileIndex.didUpdate, object: nil
+            name: FileIndex.didScan, object: nil
         )
-        rebuild()
+        rebuild(trigger: "project opened")
     }
 
     @objc private func fileIndexChanged(_ note: Notification) {
@@ -108,7 +112,7 @@ final class SymbolIndex {
         // Debounce: a burst of FSEvents (a branch switch, a build) shouldn't
         // launch a ctags pass per event.
         refreshDebounce?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.rebuild() }
+        let work = DispatchWorkItem { [weak self] in self?.rebuild(trigger: "file change") }
         refreshDebounce = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
     }
@@ -121,7 +125,10 @@ final class SymbolIndex {
 
     // MARK: - Building
 
-    func rebuild() {
+    // `trigger` names the cause in the operations log — a ctags pass over a
+    // monorepo is one of the more expensive things Suit does unbidden, and
+    // "which file save set this off" is the question the Background tab answers.
+    func rebuild(trigger: String = "manual") {
         guard Self.hasCtags, let ctagsPath = resolveCtagsExecutable() else {
             byName = [:]
             return
@@ -134,7 +141,15 @@ final class SymbolIndex {
         let files = FileIndex.shared(forDirectory: root).files
         let root = self.root
         Self.indexQueue.async { [weak self] in
+            let watch = OpsStopwatch()
             let parsed = Self.runCtags(ctagsPath: ctagsPath, root: root, files: files)
+            OpsLog.shared.record(
+                kind: .symbols, label: "ctags",
+                detail: "\(files.count) files → \(parsed.count) symbols",
+                trigger: trigger,
+                startedAt: watch.startedAt, duration: watch.elapsed,
+                outcome: parsed.isEmpty ? .empty : .ok
+            )
             DispatchQueue.main.async {
                 guard let self, self.generation == expected else { return }
                 self.byName = parsed

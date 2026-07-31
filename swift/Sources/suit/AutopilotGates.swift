@@ -198,10 +198,33 @@ private enum AutopilotGateProcess {
         return FileHandle(forWritingAtPath: path)
     }
 
+    // Timing wrapper over spawn(). A gate is the longest-running thing Suit
+    // does unattended — a build or a review pass, minutes at a time — so it is
+    // exactly what the Background tab should show still going, rather than the
+    // user wondering whether Autopilot is stuck. (The runProcess pattern.)
     static func run(executable: String, arguments: [String], cwd: String,
                     stdin stdinData: Data?, logHandle: FileHandle,
                     timeout: TimeInterval, captureStdout: Bool,
                     handle: AutopilotGateHandle? = nil) -> (AutopilotGateOutcome, String) {
+        let watch = OpsStopwatch()
+        let result = spawn(executable: executable, arguments: arguments, cwd: cwd,
+                           stdin: stdinData, logHandle: logHandle,
+                           timeout: timeout, captureStdout: captureStdout, handle: handle)
+        let derived = OpsLabel.derive(executable: executable, arguments: arguments)
+        OpsLog.shared.record(
+            kind: .autopilot, label: "gate: " + derived.label,
+            detail: (cwd as NSString).lastPathComponent,
+            trigger: "autopilot",
+            startedAt: watch.startedAt, duration: watch.elapsed,
+            outcome: result.0.cleanExit ? .ok : .failed
+        )
+        return result
+    }
+
+    private static func spawn(executable: String, arguments: [String], cwd: String,
+                              stdin stdinData: Data?, logHandle: FileHandle,
+                              timeout: TimeInterval, captureStdout: Bool,
+                              handle: AutopilotGateHandle? = nil) -> (AutopilotGateOutcome, String) {
         defer { try? logHandle.close() }
 
         let process = Process()

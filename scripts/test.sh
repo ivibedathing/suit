@@ -13,7 +13,9 @@
 #                             #  recipes, file-edit, file-watch, activity, pr-review,
 #                             #  diffparser, layouts, file-time-travel, budget,
 #                             #  command-history), ~seconds
-#   scripts/test.sh --all     # also runs the autopilot pipeline harness (~2 min)
+#   scripts/test.sh --all     # also runs the slow harnesses: the autopilot
+#                             #  pipeline (~2 min) and the source-control gate
+#                             #  (~40 s, compiles the whole app)
 #   scripts/test.sh --list    # list the harnesses and exit
 #   scripts/test.sh -h        # this help
 #
@@ -36,6 +38,7 @@ HARNESSES=(
   "editor-nav|scripts/editor-nav-test.sh|fast"
   "syntax-highlight|scripts/syntax-highlight-test.sh|fast"
   "activity|scripts/activity-test.sh|fast"
+  "ops-log|scripts/ops-log-test.sh|fast"
   "pr-review|scripts/pr-review-test.sh|fast"
   "diffparser|scripts/diffparser-test.sh|fast"
   "git-branch-ops|scripts/git-branch-ops-test.sh|fast"
@@ -56,6 +59,7 @@ HARNESSES=(
   "notes|scripts/notes-test.sh|fast"
   "bundled-fonts|scripts/bundled-fonts-test.sh|fast"
   "autopilot|scripts/autopilot-harness.sh|slow"
+  "source-control-gate|scripts/source-control-gate-test.sh|slow"
 )
 
 run_slow=0

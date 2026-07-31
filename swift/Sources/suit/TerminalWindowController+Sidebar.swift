@@ -11,6 +11,9 @@ extension TerminalWindowController {
         sidebar.isHidden.toggle()
         layoutSidebarSplit()
         UserDefaults.standard.set(!sidebar.isHidden, forKey: "sidebarVisible")
+        // ⌘B changes no selection, so the shown tab has to be told the panel is
+        // back — Source Control defers its loads while hidden.
+        sidebar.shownTabDidBecomeVisible()
         // Collapsing the panel with the caret in it (the Search tab's fields,
         // Notes) leaves a hidden view holding first responder, which then eats
         // every keystroke; hand focus back to a pane instead.
@@ -288,6 +291,16 @@ extension TerminalWindowController {
         window.makeFirstResponder(sidebar.gitView.commitTextView)
     }
 
+    // Reveal the Background tab — Suit's own operations log (rail icon, palette).
+    func showBackgroundLog() {
+        if sidebar.isHidden {
+            sidebar.isHidden = false
+            layoutSidebarSplit()
+            UserDefaults.standard.set(true, forKey: "sidebarVisible")
+        }
+        sidebar.select(tab: .ops)
+    }
+
     // Reveal the Bookmarks tab (palette).
     func showBookmarks() {
         if sidebar.isHidden {
@@ -301,7 +314,7 @@ extension TerminalWindowController {
     // Reveal the Git tab's Feedback inbox and refresh it (palette).
     func showFeedbackInbox() {
         showGit()
-        sidebar.gitView.loadFeedbackData()
+        sidebar.gitView.loadFeedbackData(force: true)
     }
 
     // The active window's gathered feedback events, for palette routing.
@@ -312,11 +325,11 @@ extension TerminalWindowController {
     // Reveal the Git tab's PR review inbox and refresh it (palette).
     func showPRReviewInbox() {
         showGit()
-        sidebar.gitView.loadReviewInbox()
+        sidebar.gitView.loadReviewInbox(force: true)
     }
 
     // Re-fetch the inbox after a review is submitted, so the row reflects it.
     func reloadPRInbox() {
-        sidebar.gitView.loadReviewInbox()
+        sidebar.gitView.loadReviewInbox(force: true)
     }
 }
