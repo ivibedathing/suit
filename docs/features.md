@@ -35,10 +35,16 @@ app does.
   shuts it. Session dots (busy / pulsing needs-input / done) and red failure dots show right
   in the list.
 - **Panes are viewports** — split screen puts a tab in a new viewport beside the active one
-  (⌘D takes the most recent background tab, or right-click a tab ▸ Split Screen, or drag a tab
+  (⌘D / ⇧⌘D open a fresh terminal there, or right-click a tab ▸ Split Screen, or drag a tab
   to a screen edge); the split-out tab becomes the new pane's own. Unsplit with ⌥⌘W (its tabs
   fold back into a neighbor), walk splits with ⌥⌘arrows. Closing the active tab falls back to
   another tab the same pane owns; background tabs keep their processes running.
+- **⌘D splits look like the pane they came from** — the new terminal starts in the focused
+  terminal's working directory *and* wears its background color, so a pane recolored from the
+  title bar's Background Color menu splits into a matching pair instead of snapping back to the
+  global default. Splitting off a non-terminal pane (a viewer, diff, transcript) still gives the
+  new shell the normal terminal background — a viewer's chrome ground would leave the shell
+  unreadable.
 - **Drag a tab into its own pane** — grab a chip from a pane's in-pane tab bar and drag it onto
   any viewport; it shows the same split-zone preview a pane drag does: drop on an outer half
   (left / right / top / bottom) to split it out into its own new pane on that edge, or drop on
