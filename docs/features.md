@@ -204,6 +204,17 @@ app does.
   pane header marks unsaved edits; pending edits also flush when you close the tab or quit.
   Binary, over-8 MB, and unreadable files stay read-only. Editing stays a deliberate, bounded
   slice — Suit is still viewer-first, with Claude doing the heavy code-writing.
+- **The standard editing commands** — **⌘Z** / **⇧⌘Z** undo and redo, **⌘X** / **⌘C** / **⌘V** cut,
+  copy and paste, **⌘A** selects all, and right-clicking the text offers the same four. They live
+  in the Edit menu and route through the responder chain, so they follow the focus: the file
+  viewer, a terminal's scrollback (⌘A selects it, ⌘C copies the selection), the commit box, or a
+  find field.
+- **Home and End move the caret**, not the scroll position — to the start and end of the line the
+  caret is on, wrapped lines included. Home is *sticky about indentation*: it lands on the line's
+  first non-whitespace character, and pressing it again goes to the true column zero (and again
+  back to the text), so an indented line's text is one keystroke away. **⇧Home** / **⇧End** extend
+  the selection, and **⌘Home** / **⌘End** keep the jump-to-the-file's-ends meaning that the bare
+  keys have on stock macOS.
 - **Smart typing** — the editor knows the shape of code. **Return** auto-indents to the enclosing
   block (and opens a body between a just-typed `{`/`}` pair); brackets and quotes **auto-close**,
   with type-over when you type the closer yourself, wrap-the-selection when text is selected, and
@@ -306,7 +317,9 @@ app does.
   Definition, ⌃⌘J) to jump to where it's defined; several definitions open a palette picker,
   each `file:line` with its kind. Find References (⌃⌘R) opens a references pane listing every
   use of the symbol, grouped by file, each row a click into the viewer at that line. Both are on
-  the viewer's right-click menu too. A bundled `universal-ctags` builds the symbol index per git
+  the viewer's right-click menu too — except in a file with no language (a note, a `.txt` log),
+  where ctags has nothing to say and the symbol entries are left out of the menu rather than shown
+  dead. A bundled `universal-ctags` builds the symbol index per git
   root (refreshed as files change); when it isn't installed, navigation degrades to a
   whole-word ripgrep search with a note in the header — set `SUIT_CTAGS_PATH` or rebuild with
   universal-ctags on PATH to enable the index.

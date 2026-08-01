@@ -68,6 +68,43 @@ do {
 }
 
 print("")
+print("== Home key target ==")
+do {
+    // "hello\n    indented\n\n  \nnaked"
+    //  0      6            19 20  23
+    let text = "hello\n    indented\n\n  \nnaked"
+
+    check(EditorOps.homeTarget(text: text, lineStart: 0, caret: 3) == 0,
+          "an unindented line has nothing to toggle to but its start")
+    check(EditorOps.homeTarget(text: text, lineStart: 0, caret: 0) == 0,
+          "Home at the start of an unindented line stays put")
+
+    check(EditorOps.homeTarget(text: text, lineStart: 6, caret: 14) == 10,
+          "Home from inside the text lands on the first non-whitespace character")
+    check(EditorOps.homeTarget(text: text, lineStart: 6, caret: 10) == 6,
+          "pressing Home again toggles through to the true line start")
+    check(EditorOps.homeTarget(text: text, lineStart: 6, caret: 6) == 10,
+          "and a third press toggles back to the text")
+    check(EditorOps.homeTarget(text: text, lineStart: 6, caret: 8) == 10,
+          "from inside the indentation the text still wins")
+
+    check(EditorOps.homeTarget(text: text, lineStart: 19, caret: 19) == 19,
+          "an empty line has one destination")
+    check(EditorOps.homeTarget(text: text, lineStart: 20, caret: 21) == 22,
+          "an all-whitespace line stops at its newline, never on the next line")
+    check(EditorOps.homeTarget(text: text, lineStart: 20, caret: 22) == 20,
+          "and toggles back from there to the line start")
+
+    let noTrailingNewline = "  tail"
+    check(EditorOps.homeTarget(text: noTrailingNewline, lineStart: 0, caret: 5) == 2,
+          "the scan stops at end of text on an unterminated last line")
+    check(EditorOps.homeTarget(text: "", lineStart: 0, caret: 0) == 0,
+          "an empty buffer is a no-op")
+    check(EditorOps.homeTarget(text: text, lineStart: 999, caret: 4) == 4,
+          "a line start past the end of the buffer leaves the caret alone")
+}
+
+print("")
 print("== bracket & quote pairs ==")
 do {
     check(EditorOps.typingAction(text: "foo", offset: 3, character: "(", language: .swift) == .insertPair("()"),

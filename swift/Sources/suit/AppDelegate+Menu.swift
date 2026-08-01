@@ -40,8 +40,30 @@ extension AppDelegate {
         let editMenuItem = NSMenuItem()
         mainMenu.addItem(editMenuItem)
         let editMenu = NSMenu(title: "Edit")
+
+        // The standard editing commands have to be *menu items*, not just
+        // behaviour the focused view implements: on macOS a ⌘-shortcut is
+        // dispatched by NSMenu walking its key equivalents, and the system key
+        // binding table carries no ⌘ entries at all. Without these four items
+        // ⌘Z / ⌘X / ⌘A were dead everywhere in the app — the file viewer set
+        // allowsUndo but nothing could ever reach its undo manager, so an
+        // accidental delete in a note was unrecoverable. Each routes on the
+        // stock selector with no target, so the responder chain hands it to
+        // whatever is focused (viewer, terminal, commit box, find field) and
+        // auto-validation greys it out where that view can't do it.
+        //
+        // undo:/redo: are string selectors because no AppKit *class* declares
+        // them — NSWindow answers them for the first responder's undo manager,
+        // which is exactly the routing we want and is what a nib-built Edit
+        // menu wires up too.
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redoItem = editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        redoItem.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         editMenu.addItem(withTitle: "Copy", action: #selector(PaneTerminalView.copy(_:)), keyEquivalent: "c")
         editMenu.addItem(withTitle: "Paste", action: #selector(PaneTerminalView.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editMenu.addItem(.separator())
 
         // These route through the responder chain to whichever pane is focused, the same

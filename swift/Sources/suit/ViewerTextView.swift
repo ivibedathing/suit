@@ -212,6 +212,96 @@ final class ViewerTextView: NSTextView {
         }
     }
 
+    // MARK: - Home / End
+
+    // AppKit binds Home and End to scrollToBeginningOfDocument: and
+    // scrollToEndOfDocument: — the view jumps to the top or bottom of the file
+    // and the caret never moves. That is defensible in a read-only document and
+    // wrong in an editor: every other platform, and every editor on this one,
+    // moves the caret to the ends of the current line. Pressing Home in a note
+    // and watching the window scroll away from what you were typing reads as the
+    // key being broken, so the two key codes are claimed here.
+    //
+    // Only Home and End are intercepted, and only without ⌥/⌃ — every other key
+    // (including ⌘↑/⌘↓, which are already document-start/end) goes to super
+    // untouched, per this class's rule about not swallowing input it doesn't
+    // understand.
+    override func keyDown(with event: NSEvent) {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        // 115 = Home (fn-← on a laptop), 119 = End (fn-→).
+        guard !flags.contains(.option), !flags.contains(.control),
+              event.keyCode == 115 || event.keyCode == 119 else {
+            super.keyDown(with: event)
+            return
+        }
+        let home = event.keyCode == 115
+
+        // A read-only buffer — a time-travel revision, the binary or too-large
+        // placeholder — keeps AppKit's meaning. There is no caret drawn to move,
+        // so scrolling the document is the only thing these keys can usefully do
+        // there, and it's what the rest of macOS does in a read-only document.
+        guard isEditable else {
+            home ? scrollToBeginningOfDocument(nil) : scrollToEndOfDocument(nil)
+            return
+        }
+
+        let extending = flags.contains(.shift)
+        // ⌘Home / ⌘End keep the document-wide meaning the unmodified keys just
+        // lost, so nothing becomes unreachable.
+        let document = flags.contains(.command)
+
+        switch (home, document) {
+        case (true, true):
+            extending ? moveToBeginningOfDocumentAndModifySelection(nil) : moveToBeginningOfDocument(nil)
+        case (true, false):
+            moveHome(extending: extending)
+        case (false, true):
+            extending ? moveToEndOfDocumentAndModifySelection(nil) : moveToEndOfDocument(nil)
+        case (false, false):
+            extending ? moveToRightEndOfLineAndModifySelection(nil) : moveToRightEndOfLine(nil)
+        }
+        scrollRangeToVisible(selectedRange())
+    }
+
+    // Home, with the indentation toggle (EditorOps.homeTarget decides where).
+    //
+    // The line start is discovered by *asking AppKit* — moveToLeftEndOfLine: is
+    // run first and the offset it lands on is taken as the answer — rather than
+    // by walking line fragments here. Doing it by hand means reimplementing soft
+    // wrap boundaries, selection affinity at those boundaries, and RTL, and
+    // getting any of the three subtly wrong; letting the move happen and then
+    // correcting it inherits all of that for free. It also keeps the anchor
+    // bookkeeping for the extending case in AppKit's hands, which is the only
+    // place it exists — NSTextView never exposes which end of a selection is
+    // live, so the anchor is instead recovered by seeing which end just moved.
+    private func moveHome(extending: Bool) {
+        let before = selectedRange()
+        if extending {
+            moveToLeftEndOfLineAndModifySelection(nil)
+        } else {
+            moveToLeftEndOfLine(nil)
+        }
+        let after = selectedRange()
+
+        // Extending leftward moves the range's start; extending a selection
+        // whose anchor sits *before* this line shortens it from the end instead.
+        // One discriminator answers both "where is the line start" and "where
+        // was the caret", which is what the toggle needs.
+        let startMoved = !extending || after.location != before.location
+        let lineStart = startMoved ? after.location : NSMaxRange(after)
+        let caretBefore = startMoved ? before.location : NSMaxRange(before)
+
+        let target = EditorOps.homeTarget(text: string, lineStart: lineStart, caret: caretBefore)
+        guard target != lineStart else { return }
+
+        guard extending else {
+            setSelectedRange(NSRange(location: target, length: 0))
+            return
+        }
+        let anchor = after.location == lineStart ? NSMaxRange(after) : after.location
+        setSelectedRange(NSRange(location: min(anchor, target), length: abs(anchor - target)))
+    }
+
     // MARK: - Mouse
 
     // The document character index under a mouse event.
@@ -393,9 +483,23 @@ final class ViewerTextView: NSTextView {
         }
         // Editing commands need a writable buffer.
         if item.action == #selector(indentSelection(_:)) || item.action == #selector(outdentSelection(_:))
-            || item.action == #selector(toggleLineComment(_:)) || item.action == #selector(selectNextOccurrence(_:))
+            || item.action == #selector(selectNextOccurrence(_:))
             || item.action == #selector(selectAllOccurrences(_:)) {
             return viewerContent?.smartTypingActive ?? false
+        }
+        // Toggle Comment additionally needs a language that *has* a line
+        // comment: in a note (or JSON, or plain CSS) it can only no-op, and an
+        // enabled menu item that does nothing is worse than a greyed-out one.
+        if item.action == #selector(toggleLineComment(_:)) {
+            guard let content = viewerContent, content.smartTypingActive else { return false }
+            return content.editorLanguage.lineComment != nil
+        }
+        // "Set as Goal" sends the selection to a Claude session, so it needs
+        // one. This lived as a hand-set isEnabled on the context-menu item,
+        // where NSMenu's own validation pass overwrote it before it was ever
+        // seen — the item was always enabled and silently did nothing.
+        if item.action == #selector(setAsGoal(_:)) {
+            return selectedRange().length > 0
         }
         // Folding is a view state, so it works in read-only buffers too — but
         // only where something is actually foldable.
@@ -413,21 +517,39 @@ final class ViewerTextView: NSTextView {
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
-        let copyItem = menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "")
-        copyItem.isEnabled = selectedRange().length > 0
-        menu.addItem(withTitle: "Go to Definition", action: #selector(goToDefinition(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: "Peek Definition", action: #selector(peekDefinition(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: "Find References", action: #selector(findReferences(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: "Go to Symbol in File…", action: #selector(goToSymbolInFile(_:)), keyEquivalent: "")
+        // The clipboard commands come first, because right-click is where people
+        // look for paste when a keyboard shortcut doesn't come to mind — this
+        // menu used to offer Copy and nothing else, so pasting into a note by
+        // mouse was impossible. They are left to auto-validation rather than
+        // hand-set isEnabled: NSMenu re-validates every item as it opens, so an
+        // isEnabled written here is overwritten a moment later, and NSTextView
+        // already answers cut/copy/paste correctly for the current selection and
+        // editability. (Which is why the old Copy item's isEnabled did nothing.)
+        menu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Toggle Comment", action: #selector(toggleLineComment(_:)), keyEquivalent: "")
+
+        // Symbol navigation and comment toggling are omitted — not merely
+        // disabled — for a file with no language, which is what a note is. ctags
+        // has nothing to say about prose, and `.plain` has no comment marker to
+        // insert, so the items could only ever no-op; showing four dead entries
+        // above the ones that work makes the menu read as broken.
+        if EditorLanguage.detect(path: viewerContent?.filePath ?? "") != .plain {
+            menu.addItem(withTitle: "Go to Definition", action: #selector(goToDefinition(_:)), keyEquivalent: "")
+            menu.addItem(withTitle: "Peek Definition", action: #selector(peekDefinition(_:)), keyEquivalent: "")
+            menu.addItem(withTitle: "Find References", action: #selector(findReferences(_:)), keyEquivalent: "")
+            menu.addItem(withTitle: "Go to Symbol in File…", action: #selector(goToSymbolInFile(_:)), keyEquivalent: "")
+            menu.addItem(.separator())
+            menu.addItem(withTitle: "Toggle Comment", action: #selector(toggleLineComment(_:)), keyEquivalent: "")
+        }
         menu.addItem(withTitle: "Select Next Occurrence", action: #selector(selectNextOccurrence(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "Fold Block", action: #selector(foldBlock(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "Unfold Block", action: #selector(unfoldBlock(_:)), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Go to Line…", action: #selector(goToLine(_:)), keyEquivalent: "")
-        let goalItem = menu.addItem(withTitle: "Set as Goal", action: #selector(setAsGoal(_:)), keyEquivalent: "")
-        goalItem.isEnabled = selectedRange().length > 0
+        menu.addItem(withTitle: "Set as Goal", action: #selector(setAsGoal(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "Toggle Bookmark", action: #selector(toggleBookmark(_:)), keyEquivalent: "")
         menu.addItem(.separator())
         let blameItem = menu.addItem(withTitle: "Toggle Blame", action: #selector(toggleBlame(_:)), keyEquivalent: "")
