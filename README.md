@@ -128,6 +128,10 @@ or the command palette (which also offers **Rename Layout…** and **Delete Layo
 | ⌘G | Find next |
 | ⇧⌘G | Find previous |
 | ⌘E | Use selection for find |
+| ⌘Z / ⇧⌘Z | Undo / redo |
+| ⌘X / ⌘C / ⌘V | Cut / copy / paste |
+| ⌘A | Select all |
+| Home / End | Start / end of the line (⇧ extends, ⌘ jumps to the file's ends) |
 | ⌘S | Save the edited file (file viewer) |
 | ⌘L | Go to line (file viewer) |
 | ⇧⌘L | Toggle bookmark on the current line (file viewer) |

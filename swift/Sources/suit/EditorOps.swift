@@ -155,6 +155,37 @@ enum EditorOps {
         String(line.prefix { $0 == " " || $0 == "\t" })
     }
 
+    // MARK: - Home / End
+
+    // Where the Home key should put the caret, given the UTF-16 offset the line
+    // starts at and where the caret currently is.
+    //
+    // Not simply `lineStart`: on an indented line the useful destination is the
+    // first character of the text, not column zero, so Home *toggles* — first
+    // press lands on the text, a second press on the true start. That is what
+    // VS Code, Sublime and Emacs' `back-to-indentation` all do, and it is why
+    // Home is worth intercepting rather than binding straight to
+    // moveToLeftEndOfLine:. On a line with no indentation the two offsets
+    // coincide and the toggle is invisible, which is the common case in a note.
+    //
+    // `lineStart` is the *display* line start (the wrapped fragment the caret is
+    // on), so Home in a soft-wrapped paragraph goes to the start of the visual
+    // line the way the arrow keys move within one.
+    static func homeTarget(text: String, lineStart: Int, caret: Int) -> Int {
+        let ns = text as NSString
+        guard lineStart >= 0, lineStart <= ns.length else { return caret }
+        var indented = lineStart
+        while indented < ns.length {
+            let character = Character(ns.substring(with: NSRange(location: indented, length: 1)))
+            // A newline ends the scan: an all-whitespace line has no text to
+            // stop at, and running past it would land the caret on the *next*
+            // line, which reads as Home doing nothing at all.
+            guard character == " " || character == "\t" else { break }
+            indented += 1
+        }
+        return caret == indented ? lineStart : indented
+    }
+
     // MARK: - Auto-indent
 
     // What to insert for a Return pressed at `offset`.
