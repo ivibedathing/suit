@@ -246,12 +246,24 @@ final class ViewerTextView: NSTextView {
             return
         }
 
+        // Mid-composition (CJK marked text) every key belongs to the input
+        // method: NSTextView's own keyDown hands the event to the input
+        // context first so the IME can claim it, and moving the selection out
+        // from under the marked range here would desync the composition.
+        // Home/End get their meaning back the moment composition ends.
+        guard !hasMarkedText() else {
+            super.keyDown(with: event)
+            return
+        }
+
         // A read-only buffer — a time-travel revision, the binary or too-large
-        // placeholder — keeps AppKit's meaning. There is no caret drawn to move,
-        // so scrolling the document is the only thing these keys can usefully do
-        // there, and it's what the rest of macOS does in a read-only document.
+        // placeholder — keeps AppKit's meaning wholesale: plain Home/End
+        // scroll, and ⇧Home/⇧End still extend the selection toward the
+        // document ends, which is how every selectable read-only document on
+        // macOS behaves. There is no caret drawn, so none of the caret
+        // handling below applies.
         guard isEditable else {
-            home ? scrollToBeginningOfDocument(nil) : scrollToEndOfDocument(nil)
+            super.keyDown(with: event)
             return
         }
 
@@ -279,12 +291,19 @@ final class ViewerTextView: NSTextView {
     // by walking line fragments here. Doing it by hand means reimplementing soft
     // wrap boundaries, selection affinity at those boundaries, and RTL, and
     // getting any of the three subtly wrong; letting the move happen and then
-    // correcting it inherits all of that for free. It also keeps the anchor
-    // bookkeeping for the extending case in AppKit's hands, which is the only
-    // place it exists — NSTextView never exposes which end of a selection is
-    // live, so the anchor is instead recovered by seeing which end just moved.
+    // correcting it inherits all of that for free.
     private func moveHome(extending: Bool) {
         let before = selectedRange()
+        // Which end of the selection the caret is on decides everything below,
+        // and NSTextView never says — so for a live selection it is probed
+        // (caretIsAtStart) *before* the move, while the selection still holds
+        // the answer. Inferring it afterwards from which endpoint changed
+        // fails twice: ⇧Home with the caret already at the line start moves
+        // nothing, and ⇧Home across the anchor moves the *other* endpoint.
+        let caretAtStart = !extending || before.length == 0 || caretIsAtStart(of: before)
+        let caretBefore = caretAtStart ? before.location : NSMaxRange(before)
+        let anchor = caretAtStart ? NSMaxRange(before) : before.location
+
         if extending {
             moveToLeftEndOfLineAndModifySelection(nil)
         } else {
@@ -292,19 +311,23 @@ final class ViewerTextView: NSTextView {
         }
         let after = selectedRange()
 
-        // Extending leftward moves the range's start; extending a selection
-        // whose anchor sits *before* this line shortens it from the end instead.
-        // One discriminator answers both "where is the line start" and "where
-        // was the caret", which is what the toggle needs.
-        let startMoved = !extending || after.location != before.location
-        let lineStart = startMoved ? after.location : NSMaxRange(after)
-        let caretBefore = startMoved ? before.location : NSMaxRange(before)
+        // Wherever the caret landed is the line start. A no-op move means it
+        // was already there; otherwise it is whichever endpoint isn't the
+        // anchor — the caret ends up *as* the start when the move crosses the
+        // anchor, so "which endpoint changed" is not the same question.
+        let lineStart: Int
+        if !extending {
+            lineStart = after.location
+        } else if after == before {
+            lineStart = caretBefore
+        } else {
+            lineStart = after.location == anchor ? NSMaxRange(after) : after.location
+        }
 
         let target = EditorOps.homeTarget(text: string, lineStart: lineStart, caret: caretBefore)
         guard target != lineStart else { return }
 
         if extending {
-            let anchor = startMoved ? NSMaxRange(after) : after.location
             setSelectedRange(NSRange(location: min(anchor, target), length: abs(anchor - target)))
         } else {
             setSelectedRange(NSRange(location: target, length: 0))
@@ -312,6 +335,19 @@ final class ViewerTextView: NSTextView {
         // The move* commands scroll the caret into view themselves;
         // setSelectedRange does not, so the corrected position needs it.
         scrollRangeToVisible(NSRange(location: target, length: 0))
+    }
+
+    // Whether the live (caret) end of a non-empty selection is its start.
+    // NSTextView keeps the anchor private, so the only honest way to ask is
+    // to nudge: extend the selection backward one position, see which
+    // endpoint gave way, and put it back. A no-op nudge means the caret sits
+    // at the document start, which can only be the start end.
+    private func caretIsAtStart(of range: NSRange) -> Bool {
+        moveBackwardAndModifySelection(nil)
+        let probed = selectedRange()
+        guard probed != range else { return true }
+        moveForwardAndModifySelection(nil)
+        return probed.location != range.location
     }
 
     // MARK: - Mouse
@@ -544,21 +580,24 @@ final class ViewerTextView: NSTextView {
         menu.addItem(.separator())
 
         // Symbol navigation and comment toggling are omitted — not merely
-        // disabled — where they could only ever no-op: ctags has nothing to say
-        // about a file with no language (a note, a `.txt` log), and a language
-        // with no line-comment marker (JSON, plain CSS) gives Toggle Comment
-        // nothing to insert — the same test validateUserInterfaceItem greys it
-        // by, so the two surfaces can't disagree. Showing dead entries above
-        // the ones that work makes the menu read as broken.
-        let language = viewerContent?.editorLanguage ?? .plain
-        if language != .plain {
+        // disabled — where they could only ever no-op. For navigation that
+        // means a buffer with no file: the ctags index is *project-wide*, so
+        // a name in any file on disk — a note, a CSS class, an HTML id — can
+        // resolve to a definition elsewhere in the project, and gating on the
+        // file's own EditorLanguage would hide working items (that enum exists
+        // so ⌘/ and auto-indent behave, not to name every language ctags
+        // knows). Toggle Comment needs a line-comment marker — the same tests
+        // validateUserInterfaceItem greys these by, so the two surfaces can't
+        // disagree. Showing dead entries above the ones that work makes the
+        // menu read as broken.
+        if viewerContent?.filePath != nil {
             menu.addItem(withTitle: "Go to Definition", action: #selector(goToDefinition(_:)), keyEquivalent: "")
             menu.addItem(withTitle: "Peek Definition", action: #selector(peekDefinition(_:)), keyEquivalent: "")
             menu.addItem(withTitle: "Find References", action: #selector(findReferences(_:)), keyEquivalent: "")
             menu.addItem(withTitle: "Go to Symbol in File…", action: #selector(goToSymbolInFile(_:)), keyEquivalent: "")
             menu.addItem(.separator())
         }
-        if language.lineComment != nil {
+        if viewerContent?.editorLanguage.lineComment != nil {
             menu.addItem(withTitle: "Toggle Comment", action: #selector(toggleLineComment(_:)), keyEquivalent: "")
         }
         menu.addItem(withTitle: "Select Next Occurrence", action: #selector(selectNextOccurrence(_:)), keyEquivalent: "")
