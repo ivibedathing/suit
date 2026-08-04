@@ -175,12 +175,15 @@ enum EditorOps {
         let ns = text as NSString
         guard lineStart >= 0, lineStart <= ns.length else { return caret }
         var indented = lineStart
+        // A newline ends the scan, same as any other non-space-non-tab unit:
+        // an all-whitespace line has no text to stop at, and running past it
+        // would land the caret on the *next* line, which reads as Home doing
+        // nothing at all. Unichar compares, not Characters — this runs per
+        // keystroke, and a per-column substring would allocate just to ask
+        // "space or tab?".
         while indented < ns.length {
-            let character = Character(ns.substring(with: NSRange(location: indented, length: 1)))
-            // A newline ends the scan: an all-whitespace line has no text to
-            // stop at, and running past it would land the caret on the *next*
-            // line, which reads as Home doing nothing at all.
-            guard character == " " || character == "\t" else { break }
+            let unit = ns.character(at: indented)
+            guard unit == 0x20 || unit == 0x09 else { break }
             indented += 1
         }
         return caret == indented ? lineStart : indented

@@ -85,8 +85,10 @@ enum KeyboardShortcuts {
             Entry("⇧⌘-", "Decrease font size (all panes)"),
         ]),
         Group("Editing", [
-            Entry("⌘C", "Copy"),
-            Entry("⌘V", "Paste"),
+            Entry("⌘Z / ⇧⌘Z", "Undo / redo"),
+            Entry("⌘X / ⌘C / ⌘V", "Cut / copy / paste"),
+            Entry("⌘A", "Select all"),
+            Entry("Home / End", "Start / end of the line (⇧ extends, ⌘ jumps to the file's ends)"),
         ]),
         Group("App & windows", [
             Entry("⌘N", "New window"),

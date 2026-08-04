@@ -226,15 +226,25 @@ final class ViewerTextView: NSTextView {
     // (including ⌘↑/⌘↓, which are already document-start/end) goes to super
     // untouched, per this class's rule about not swallowing input it doesn't
     // understand.
+    //
+    // Claimed by key code, below the selector seam the rest of this file uses,
+    // because the seam can't express these chords: the system table sends
+    // ⇧Home to the same moveToBeginningOfDocumentAndModifySelection: as ⇧⌘↑,
+    // and ⌘ chords never reach the key binding table at all — keyDown is the
+    // only place the full chord is still visible.
     override func keyDown(with event: NSEvent) {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        // 115 = Home (fn-← on a laptop), 119 = End (fn-→).
-        guard !flags.contains(.option), !flags.contains(.control),
-              event.keyCode == 115 || event.keyCode == 119 else {
+        // 115 = Home (fn-← on a laptop), 119 = End (fn-→). Tested before the
+        // modifier flags so the every-keystroke path pays one integer compare.
+        guard event.keyCode == 115 || event.keyCode == 119 else {
             super.keyDown(with: event)
             return
         }
         let home = event.keyCode == 115
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard !flags.contains(.option), !flags.contains(.control) else {
+            super.keyDown(with: event)
+            return
+        }
 
         // A read-only buffer — a time-travel revision, the binary or too-large
         // placeholder — keeps AppKit's meaning. There is no caret drawn to move,
@@ -260,7 +270,6 @@ final class ViewerTextView: NSTextView {
         case (false, false):
             extending ? moveToRightEndOfLineAndModifySelection(nil) : moveToRightEndOfLine(nil)
         }
-        scrollRangeToVisible(selectedRange())
     }
 
     // Home, with the indentation toggle (EditorOps.homeTarget decides where).
@@ -294,12 +303,15 @@ final class ViewerTextView: NSTextView {
         let target = EditorOps.homeTarget(text: string, lineStart: lineStart, caret: caretBefore)
         guard target != lineStart else { return }
 
-        guard extending else {
+        if extending {
+            let anchor = startMoved ? NSMaxRange(after) : after.location
+            setSelectedRange(NSRange(location: min(anchor, target), length: abs(anchor - target)))
+        } else {
             setSelectedRange(NSRange(location: target, length: 0))
-            return
         }
-        let anchor = after.location == lineStart ? NSMaxRange(after) : after.location
-        setSelectedRange(NSRange(location: min(anchor, target), length: abs(anchor - target)))
+        // The move* commands scroll the caret into view themselves;
+        // setSelectedRange does not, so the corrected position needs it.
+        scrollRangeToVisible(NSRange(location: target, length: 0))
     }
 
     // MARK: - Mouse
@@ -491,8 +503,8 @@ final class ViewerTextView: NSTextView {
         // comment: in a note (or JSON, or plain CSS) it can only no-op, and an
         // enabled menu item that does nothing is worse than a greyed-out one.
         if item.action == #selector(toggleLineComment(_:)) {
-            guard let content = viewerContent, content.smartTypingActive else { return false }
-            return content.editorLanguage.lineComment != nil
+            return (viewerContent?.smartTypingActive ?? false)
+                && viewerContent?.editorLanguage.lineComment != nil
         }
         // "Set as Goal" sends the selection to a Claude session, so it needs
         // one. This lived as a hand-set isEnabled on the context-menu item,
@@ -532,16 +544,21 @@ final class ViewerTextView: NSTextView {
         menu.addItem(.separator())
 
         // Symbol navigation and comment toggling are omitted — not merely
-        // disabled — for a file with no language, which is what a note is. ctags
-        // has nothing to say about prose, and `.plain` has no comment marker to
-        // insert, so the items could only ever no-op; showing four dead entries
-        // above the ones that work makes the menu read as broken.
-        if EditorLanguage.detect(path: viewerContent?.filePath ?? "") != .plain {
+        // disabled — where they could only ever no-op: ctags has nothing to say
+        // about a file with no language (a note, a `.txt` log), and a language
+        // with no line-comment marker (JSON, plain CSS) gives Toggle Comment
+        // nothing to insert — the same test validateUserInterfaceItem greys it
+        // by, so the two surfaces can't disagree. Showing dead entries above
+        // the ones that work makes the menu read as broken.
+        let language = viewerContent?.editorLanguage ?? .plain
+        if language != .plain {
             menu.addItem(withTitle: "Go to Definition", action: #selector(goToDefinition(_:)), keyEquivalent: "")
             menu.addItem(withTitle: "Peek Definition", action: #selector(peekDefinition(_:)), keyEquivalent: "")
             menu.addItem(withTitle: "Find References", action: #selector(findReferences(_:)), keyEquivalent: "")
             menu.addItem(withTitle: "Go to Symbol in File…", action: #selector(goToSymbolInFile(_:)), keyEquivalent: "")
             menu.addItem(.separator())
+        }
+        if language.lineComment != nil {
             menu.addItem(withTitle: "Toggle Comment", action: #selector(toggleLineComment(_:)), keyEquivalent: "")
         }
         menu.addItem(withTitle: "Select Next Occurrence", action: #selector(selectNextOccurrence(_:)), keyEquivalent: "")
