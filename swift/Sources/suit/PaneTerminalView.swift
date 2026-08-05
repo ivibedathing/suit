@@ -151,8 +151,38 @@ final class PaneTerminalView: LocalProcessTerminalView {
         if !held.bytes.isEmpty { send(source: self, data: held.bytes[...]) }
     }
 
+    // The Edit menu owns ⌘Z/⇧⌘Z/⌘X/⌘A app-wide — right for text views,
+    // wrong for a TUI that negotiated the kitty keyboard protocol: that
+    // negotiation is precisely a request for modified keys (super included)
+    // as escape codes, and menu dispatch consumes the chord before keyDown
+    // ever runs. Views get performKeyEquivalent ahead of the menu bar, so
+    // the focused terminal claims these chords here and pushes them down the
+    // kitty path. ⌘C/⌘V deliberately stay with the menu: the clipboard is
+    // the terminal emulator's own affordance, the same line kitty and
+    // Ghostty draw. Without kitty flags nothing changes — the menu keeps
+    // every chord, as it should for a plain shell.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.contains(.command), !flags.contains(.option), !flags.contains(.control),
+              !terminal.keyboardEnhancementFlags.isEmpty,
+              window?.firstResponder === self,
+              let key = event.charactersIgnoringModifiers?.lowercased(),
+              key == "z" || key == "x" || key == "a"
+        else {
+            return super.performKeyEquivalent(with: event)
+        }
+        keyDown(with: event)
+        return true
+    }
+
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
+        // The menu is rebuilt on every right-click, so the isEnabled values
+        // below are current — but only with auto-validation off. Left on,
+        // NSMenu's own validation pass re-enables every item whose action the
+        // responder chain answers, overwriting these before they are seen, and
+        // a selection-less Copy would sit enabled and silently do nothing.
+        menu.autoenablesItems = false
 
         let copyItem = menu.addItem(withTitle: "Copy", action: #selector(PaneTerminalView.copy(_:)), keyEquivalent: "")
         copyItem.isEnabled = selectionActive

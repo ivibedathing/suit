@@ -218,7 +218,9 @@ app does.
   copy and paste, **⌘A** selects all, and right-clicking the text offers the same four. They live
   in the Edit menu and route through the responder chain, so they follow the focus: the file
   viewer, a terminal's scrollback (⌘A selects it, ⌘C copies the selection), the commit box, or a
-  find field.
+  find field. One exception: a terminal whose program negotiated the kitty keyboard protocol gets
+  ⌘Z / ⇧⌘Z / ⌘X / ⌘A delivered as super-modified keys instead — that negotiation is a request for
+  exactly those chords — while ⌘C / ⌘V stay with the clipboard.
 - **Home and End move the caret**, not the scroll position — to the start and end of the line the
   caret is on, wrapped lines included. Home is *sticky about indentation*: it lands on the line's
   first non-whitespace character, and pressing it again goes to the true column zero (and again

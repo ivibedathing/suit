@@ -1123,7 +1123,12 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
                 }
             }
 
-            if eventFlags.contains(.control) || (optionAsMetaKey && eventFlags.contains(.option)) {
+            // Command is included alongside control: a ⌘-chord only reaches
+            // keyDown when nothing upstream (menu bar, performKeyEquivalent)
+            // claimed it, and parking it in pendingKittyKeyEvent would drop it
+            // — interpretKeyEvents never delivers command chords to insertText,
+            // so the super-modified key must be encoded here or not at all.
+            if eventFlags.contains(.control) || eventFlags.contains(.command) || (optionAsMetaKey && eventFlags.contains(.option)) {
                 if let kittyEvent = kittyTextEvent(from: event, eventType: repeatEventType),
                    sendKittyEvent(kittyEvent) {
                     return
@@ -1232,7 +1237,7 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     public override func keyUp(with event: NSEvent) {
         let flags = terminal.keyboardEnhancementFlags
         if flags.contains(.reportEvents) {
-            let hasAltOrCtrl = event.modifierFlags.contains(.control) || (optionAsMetaKey && event.modifierFlags.contains(.option))
+            let hasAltOrCtrl = event.modifierFlags.contains(.control) || event.modifierFlags.contains(.command) || (optionAsMetaKey && event.modifierFlags.contains(.option))
             let shouldHandle = flags.contains(.reportAllKeys) || hasAltOrCtrl || kittyFunctionalKey(from: event) != nil
             if shouldHandle, let kittyEvent = kittyKeyEvent(from: event, eventType: .release, text: nil) {
                 if !flags.contains(.reportAllKeys),

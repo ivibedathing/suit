@@ -22,13 +22,24 @@ final class TranscriptTextView: NSTextView {
         transcriptContent?.setSelectionAsGoal()
     }
 
+    // Both items are left to auto-validation rather than hand-set isEnabled:
+    // NSMenu re-validates every item as it opens, so an isEnabled written here
+    // is overwritten before it is ever seen — the item stays enabled and
+    // silently does nothing. NSTextView already answers copy: for the current
+    // selection; setAsGoal(_:) is answered in validateUserInterfaceItem.
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
-        let copyItem = menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "")
-        copyItem.isEnabled = selectedRange().length > 0
-        let goalItem = menu.addItem(withTitle: "Set as Goal", action: #selector(setAsGoal(_:)), keyEquivalent: "")
-        goalItem.isEnabled = selectedRange().length > 0
+        menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Set as Goal", action: #selector(setAsGoal(_:)), keyEquivalent: "")
         return menu
+    }
+
+    // "Set as Goal" sends the selection into a Claude session, so it needs one.
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(setAsGoal(_:)) {
+            return selectedRange().length > 0
+        }
+        return super.validateUserInterfaceItem(item)
     }
 }
 
