@@ -99,10 +99,12 @@ func parseCheckpointLine(_ line: String) -> CheckpointLine? {
 final class CheckpointTextView: NSTextView {
     weak var timelineContent: CheckpointTimelinePaneContent?
 
+    // Left to auto-validation: NSMenu re-validates the item as it opens, so a
+    // hand-set isEnabled would be overwritten before it is seen — and
+    // NSTextView already answers copy: for the current selection.
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
-        let copyItem = menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "")
-        copyItem.isEnabled = selectedRange().length > 0
+        menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "")
         return menu
     }
 }
