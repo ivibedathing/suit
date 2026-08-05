@@ -133,6 +133,10 @@ class TerminalPaneContent: PaneContent, LocalProcessTerminalViewDelegate {
         // override reuses them as-is.
         let shell = appDelegate?.shellPath ?? "/bin/zsh"
         terminalView.startProcess(executable: shell, args: ["-l", "-i"], environment: nil, execName: nil, currentDirectory: directory)
+        // A slow ~/.zshrc leaves a second or so where the pty echoes raw bytes
+        // and nothing edits the line — type into it and backspace comes back as
+        // `^?`. Hold that typing until the shell's line editor is up.
+        terminalView.beginShellWarmup()
         if let style = appDelegate?.cursorStyle {
             applyCursorStyle(style)
         }
@@ -180,6 +184,7 @@ class TerminalPaneContent: PaneContent, LocalProcessTerminalViewDelegate {
     }
 
     func teardown() {
+        terminalView.endShellWarmup(flush: false)
         terminalView.process.terminate()
     }
 
@@ -194,6 +199,9 @@ class TerminalPaneContent: PaneContent, LocalProcessTerminalViewDelegate {
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
 
     func processTerminated(source: TerminalView, exitCode: Int32?) {
+        // Anything held for a shell that never got a line editor has nowhere to
+        // go — a dead pty would swallow it silently.
+        terminalView.endShellWarmup(flush: false)
         // SwiftTerm hands back the raw `waitpid` status word here, not a decoded
         // exit code (see ProcessExitStatus's doc comment) — nil only happens on a
         // dead code path in SwiftTerm that never actually runs.

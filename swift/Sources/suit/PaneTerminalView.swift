@@ -17,6 +17,10 @@ final class PaneTerminalView: LocalProcessTerminalView {
     var outputSniffer: ((ArraySlice<UInt8>) -> Void)?
 
     override func dataReceived(slice: ArraySlice<UInt8>) {
+        // Anything the shell draws can move the cursor off the end of the echo
+        // the warm-up gate is holding, which decides whether that echo is still
+        // ours to erase at handover. Same main queue as the gate's timer.
+        if warmup != nil { warmupShellRedrew = true }
         super.dataReceived(slice: slice)
         outputSniffer?(slice)
     }
@@ -27,6 +31,19 @@ final class PaneTerminalView: LocalProcessTerminalView {
     var userReturnHook: (() -> Void)?
 
     override func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        // Shell still warming up with nobody editing input? Hold the keystrokes
+        // and draw them ourselves rather than let the tty driver echo raw bytes
+        // (see ShellWarmup.swift). Both hooks below run on the flush instead,
+        // when the same bytes come back through this method disarmed.
+        if warmupIsBuffering, let warmup {
+            let response = warmup.accept(data)
+            if !response.echo.isEmpty {
+                feed(byteArray: response.echo[...])
+                warmupShellRedrew = false
+            }
+            if !response.passthrough.isEmpty { super.send(source: source, data: response.passthrough[...]) }
+            return
+        }
         if userReturnHook != nil, data.contains(0x0D) {
             let hook = userReturnHook
             userReturnHook = nil
@@ -70,6 +87,68 @@ final class PaneTerminalView: LocalProcessTerminalView {
         guard !typedLineDirty, !typedLine.isEmpty else { return }
         let command = String(decoding: typedLine, as: UTF8.self)
         CommandHistoryStore.shared.recordPaneCommand(command, cwd: pane?.workingDirectory)
+    }
+
+    // MARK: - Shell warm-up typeahead
+
+    // Live only for the first seconds of a shell's life; see ShellWarmup.swift
+    // for what the window is and why the driver's echo is wrong inside it.
+    private var warmup: ShellWarmupTypeahead?
+    private var warmupTimer: Timer?
+    private var warmupIsBuffering = false
+    // Has the shell drawn anything since we last echoed? See flush(shellRedrew:).
+    private var warmupShellRedrew = false
+
+    // Poll rather than wait for an event: the transition we care about is the
+    // shell calling tcsetattr, which produces no output and no signal. 25ms is
+    // an ioctl per frame for about a second — cheap next to being one redraw
+    // late in handing zle the line.
+    private static let warmupPollInterval: TimeInterval = 0.025
+    // A shell that never reaches a line editor (a login that hangs, a tab
+    // running one long command) shouldn't swallow input forever.
+    private static let warmupDeadline: TimeInterval = 10
+
+    func beginShellWarmup() {
+        endShellWarmup(flush: false)
+        warmup = ShellWarmupTypeahead()
+        warmupShellRedrew = false
+        let started = Date()
+        let timer = Timer(timeInterval: Self.warmupPollInterval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            switch ShellWarmupTTY.mode(of: self.process.childfd) {
+            case .cooked:
+                // Canonical: the driver echoes and erases correctly on its own.
+                self.warmupIsBuffering = false
+            case .rawEcho:
+                self.warmupIsBuffering = true
+            case .lineEditor:
+                self.endShellWarmup(flush: true)
+            case nil:
+                self.endShellWarmup(flush: false)   // the shell is gone
+            }
+            if Date().timeIntervalSince(started) > Self.warmupDeadline {
+                self.endShellWarmup(flush: true)
+            }
+        }
+        // .common so a scroll or a live resize doesn't stall the handover.
+        RunLoop.main.add(timer, forMode: .common)
+        warmupTimer = timer
+    }
+
+    // Ends the window: takes our stand-in echo back off the screen and, when
+    // there is still a shell to receive them, replays the held keystrokes
+    // through send() so the line editor renders them and the history recorder
+    // and Return hook see them exactly as if they had just been typed.
+    func endShellWarmup(flush: Bool) {
+        warmupTimer?.invalidate()
+        warmupTimer = nil
+        warmupIsBuffering = false
+        guard let warmup else { return }
+        self.warmup = nil
+        guard flush else { return warmup.discard() }
+        let held = warmup.flush(shellRedrew: warmupShellRedrew)
+        if !held.erase.isEmpty { feed(byteArray: held.erase[...]) }
+        if !held.bytes.isEmpty { send(source: self, data: held.bytes[...]) }
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
