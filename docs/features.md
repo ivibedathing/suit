@@ -51,6 +51,16 @@ app does.
   the center or the header to just show it in that pane (the displaced tab backgrounds, its
   process untouched). The tab previews as a pane header while you drag, so it's clear it can
   become a pane. Drag a chip clear of every window to tear it off into a new window of its own.
+- **Type into a shell that is still starting** — a new tab's `zsh -l -i` can take a second to
+  reach its line editor, and a Powerlevel10k instant prompt paints a prompt long before then and
+  runs `stty -icanon` while leaving echo on. Type into that gap and the kernel echoes bytes with
+  nothing editing them, so backspace arrives as literal `^?` (`~/Pr/suit ❯ echo hi^?^?^?`). Suit
+  holds those keystrokes instead, draws them itself — backspace erasing properly — and hands the
+  finished line to the shell the moment its line editor takes over, which renders it for real.
+  The hold is scoped to exactly that state: while the tty is still canonical the driver already
+  behaves, and the moment echo goes off (zle, a password prompt, a full-screen app) input passes
+  straight through. ^C keeps its signal throughout, and a shell that never reaches a line editor
+  releases the keystrokes after ten seconds.
 - **Exit status** — a clean shell exit closes its tab; a failure leaves it open with a red dot
   (hover for the signal/exit reason). Bells flash the pane and bounce the Dock icon while the
   app is inactive.

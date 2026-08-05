@@ -33,6 +33,7 @@ HARNESSES=(
   "find-replace|scripts/find-replace-test.sh|fast"
   "search-replace|scripts/search-replace-test.sh|fast"
   "search-highlight|scripts/search-highlight-test.sh|fast"
+  "shell-warmup|scripts/shell-warmup-test.sh|fast"
   "editor-ops|scripts/editor-ops-test.sh|fast"
   "editor-nav|scripts/editor-nav-test.sh|fast"
   "syntax-highlight|scripts/syntax-highlight-test.sh|fast"
