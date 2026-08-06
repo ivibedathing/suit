@@ -53,6 +53,9 @@ enum KeyboardShortcuts {
             Entry("⌥⌘↓", "Focus split below"),
         ]),
         Group("Files, search & navigation", [
+            Entry("⌘N", "New file (opens Untitled-1 in a new pane, ready to type)"),
+            Entry("⌘S", "Save file (a new file is asked where to go)"),
+            Entry("⇧⌘N", "New window"),
             Entry("⌘P", "Open quickly (fuzzy file finder)"),
             Entry("⌘K", "Command palette"),
             Entry("⌃R", "Search command history (Enter runs · ⇧Enter edits first)"),

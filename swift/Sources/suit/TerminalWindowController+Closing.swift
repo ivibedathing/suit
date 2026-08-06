@@ -23,9 +23,17 @@ extension TerminalWindowController {
         // (applicationShouldTerminateAfterLastWindowClosed) — so it confirms
         // even when the shell is idle.
         if store.tabs.count == 1 {
+            // confirmCloseWindow already speaks for any unsaved scratch document
+            // in this window, so this branch must not ask a second time.
             if confirmCloseWindow(processNames: busyPaneProcessNames()) {
                 teardownAndClose()
             }
+            return
+        }
+        let unsaved = unsavedUntitledNames(in: [tab])
+        if !unsaved.isEmpty,
+           !Self.confirmDiscardUntitled(
+                messageText: "Close “\(tab.title)”?", confirmTitle: "Discard", names: unsaved) {
             return
         }
         if let name = tab.runningProcessName,
@@ -33,6 +41,36 @@ extension TerminalWindowController {
             return
         }
         forceCloseTab(tab)
+    }
+
+    // MARK: - Unsaved scratch documents
+
+    // The ⌘N buffers among `tabs` that have text in them and no file yet.
+    //
+    // These are the one kind of work in the window that nothing else recovers.
+    // An edited *file* is safe from any abrupt close — the 1 s autosave has it,
+    // or flushDirtyViewer writes it on the way out — but a scratch buffer has
+    // nowhere to be written to, so the only honest options are to ask or to lose
+    // it. Every close path that can take one away asks.
+    func unsavedUntitledNames(in tabs: [Tab]) -> [String] {
+        tabs.compactMap { tab in
+            guard let viewer = tab.content as? FileViewerPaneContent,
+                  viewer.hasUnsavedUntitledWork else { return nil }
+            return viewer.untitledName
+        }
+    }
+
+    static func confirmDiscardUntitled(messageText: String, confirmTitle: String, names: [String]) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = messageText
+        let list = names.map { "“\($0)”" }.joined(separator: ", ")
+        alert.informativeText = names.count == 1
+            ? "\(list) has never been saved, and its contents will be lost. Cancel and press ⌘S to give it a file."
+            : "\(names.count) new documents have never been saved: \(list). Their contents will be lost."
+        alert.addButton(withTitle: confirmTitle)
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     // Close without confirmation (already confirmed, or the process exited).
@@ -132,6 +170,17 @@ extension TerminalWindowController {
     func confirmCloseWindow(processNames: [String]) -> Bool {
         let quitsApp = appDelegate.isLastWindowController(self)
         let messageText = quitsApp ? "Quit Suit?" : "Close Window?"
+        // An unsaved scratch document outranks a running process in the warning:
+        // a terminated shell can be started again, text that was typed and never
+        // saved cannot be got back.
+        let unsaved = unsavedUntitledNames(in: store.tabs)
+        if !unsaved.isEmpty {
+            return Self.confirmDiscardUntitled(
+                messageText: messageText,
+                confirmTitle: quitsApp ? "Quit" : "Close",
+                names: unsaved
+            )
+        }
         guard processNames.isEmpty else {
             return Self.confirmTermination(
                 messageText: messageText,

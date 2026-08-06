@@ -51,6 +51,21 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     // that's already asking about the same conflict.
     var isPresentingExternalConflict = false
 
+    // MARK: - Untitled (⌘N) documents
+
+    // Non-nil while this buffer is a ⌘N scratch document: editable and
+    // dirty-able, with nothing on disk behind it until the first ⌘S. filePath
+    // stays nil for exactly that window, and that is what holds the whole
+    // path-shaped half of this class dormant — autosave, the file watcher, the
+    // mtime reconciler, blame, time travel and the state snapshot all already
+    // bail on a nil filePath, so none of them needed a second condition adding.
+    var untitledName: String?
+    // Where the save panel should open for this scratch buffer. Handed in at
+    // creation by the window controller, which is what knows the window's cwd —
+    // a content has no route back to its controller, and inventing one for a
+    // starting directory would be the wrong trade.
+    var untitledDirectory: String?
+
     // MARK: - Find
 
     // The ⌘F bar, non-nil only while it's open. The logic is in
@@ -236,6 +251,11 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     func load(path: String, line: Int? = nil) {
         let standardized = (path as NSString).standardizingPath
         filePath = standardized
+        // A file is behind the buffer now, so it is no longer a scratch
+        // document — whatever route got us here (the first ⌘S adopting a path,
+        // or an untitled tab being pointed at a real file).
+        untitledName = nil
+        untitledDirectory = nil
         loadGeneration += 1
 
         let text: String
