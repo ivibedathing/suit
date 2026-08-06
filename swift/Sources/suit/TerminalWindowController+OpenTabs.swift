@@ -57,8 +57,16 @@ extension TerminalWindowController {
         viewer.setWordWrap(appDelegate.wordWrapEnabled)
         let tab = Tab(content: viewer)
         store.insert(tab)
+        // Tab titles alone are not enough to know which numbers are taken: a
+        // renamed scratch tab (Rename Tab sets customTitle, which wins over the
+        // content's title) would hide its index and let the next ⌘N hand the
+        // same name out twice. The live untitledNames are the authority; the
+        // titles are there to keep an ordinary file called Untitled-2 from
+        // colliding with one.
+        let taken = store.tabs.map(\.title)
+            + store.tabs.compactMap { ($0.content as? FileViewerPaneContent)?.untitledName }
         viewer.startUntitled(
-            named: UntitledDocuments.nextName(takenNames: store.tabs.map(\.title)),
+            named: UntitledDocuments.nextName(takenNames: taken),
             directory: focusedPane()?.workingDirectory
         )
         applySearchHighlight(searchHighlightQuery, to: viewer)

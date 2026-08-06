@@ -170,16 +170,30 @@ extension TerminalWindowController {
     func confirmCloseWindow(processNames: [String]) -> Bool {
         let quitsApp = appDelegate.isLastWindowController(self)
         let messageText = quitsApp ? "Quit Suit?" : "Close Window?"
-        // An unsaved scratch document outranks a running process in the warning:
-        // a terminated shell can be started again, text that was typed and never
-        // saved cannot be got back.
+        // An unsaved scratch document is asked about first — a terminated shell
+        // can be started again, text that was typed and never saved cannot. But
+        // it is asked *as well as*, not instead of: agreeing to lose a scratch
+        // buffer is not consent to kill a running build, so when the window
+        // holds both, both get named, one dialog after the other (the shape
+        // contextCloseOthers already uses).
         let unsaved = unsavedUntitledNames(in: store.tabs)
         if !unsaved.isEmpty {
-            return Self.confirmDiscardUntitled(
+            guard Self.confirmDiscardUntitled(
                 messageText: messageText,
                 confirmTitle: quitsApp ? "Quit" : "Close",
                 names: unsaved
-            )
+            ) else { return false }
+            guard processNames.isEmpty else {
+                return Self.confirmTermination(
+                    messageText: messageText,
+                    confirmTitle: quitsApp ? "Quit" : "Close",
+                    processNames: processNames
+                )
+            }
+            // Already confirmed against something specific. The generic
+            // "this closes N tabs" alert below would be a third dialog asking
+            // the same question less precisely.
+            return true
         }
         guard processNames.isEmpty else {
             return Self.confirmTermination(
