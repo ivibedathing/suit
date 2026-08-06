@@ -18,15 +18,16 @@ final class SidebarView: NSView {
     static let minWidth: CGFloat = 180
     static let maxWidth: CGFloat = 420
 
-    // No margin above the tab content. The inset was 16pt back when a tab
-    // opened straight onto its first row — Files' folder name, a search field —
-    // and needed something between that and the window's top edge. Every tab
-    // now opens with a SidebarTitle band (28pt of mostly-empty chrome by
-    // design), which is that separation; keeping the inset as well stacked two
-    // gaps and pushed the actual content a quarter-panel down. ActivityBarView
-    // reads the same value for its own first icon, so the strip and the panel
-    // beside it still start on one line.
-    static let topInset: CGFloat = 0
+    // A hairline of margin above the tab content. The inset was 16pt back when a
+    // tab opened straight onto its first row — Files' folder name, a search
+    // field — and needed something between that and the window's top edge. Every
+    // tab now opens with a SidebarTitle band (28pt of mostly-empty chrome by
+    // design), which is that separation, so the inset went to zero; flush to the
+    // edge read as *too* tight against the window's top. 5pt is the smallest
+    // value that lifts it off without bringing the old stacked-gap problem back.
+    // ActivityBarView reads the same value for its own first icon, so the strip
+    // and the panel beside it still start on one line.
+    static let topInset: CGFloat = 5
 
     enum Tab: Int, CaseIterable {
         case files

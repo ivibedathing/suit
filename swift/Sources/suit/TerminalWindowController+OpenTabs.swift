@@ -41,6 +41,79 @@ extension TerminalWindowController {
         if inNewPane { showInNewPaneOrActivate(tab) } else { activate(tab) }
     }
 
+    // ⌘N: a brand-new empty document in a viewport of its own — the editor twin
+    // of ⌘D, which does the same for a shell.
+    //
+    // It arrives as a scratch buffer rather than a file on disk. Creating
+    // Untitled-1 for real would mean choosing a directory to litter on behalf of
+    // someone who has typed nothing yet, and leaving an empty file behind every
+    // time the thought didn't go anywhere. So the tab is the document until the
+    // first ⌘S asks where it should live.
+    //
+    // The name is derived from what is already on the strip, so two scratch
+    // buffers are always distinguishable, and a closed one gives its number back.
+    func newUntitledFile() {
+        let viewer = FileViewerPaneContent()
+        viewer.setWordWrap(appDelegate.wordWrapEnabled)
+        let tab = Tab(content: viewer)
+        store.insert(tab)
+        // Tab titles alone are not enough to know which numbers are taken: a
+        // renamed scratch tab (Rename Tab sets customTitle, which wins over the
+        // content's title) would hide its index and let the next ⌘N hand the
+        // same name out twice. The live untitledNames are the authority; the
+        // titles are there to keep an ordinary file called Untitled-2 from
+        // colliding with one.
+        let taken = store.tabs.map(\.title)
+            + store.tabs.compactMap { ($0.content as? FileViewerPaneContent)?.untitledName }
+        viewer.startUntitled(
+            named: UntitledDocuments.nextName(takenNames: taken),
+            directory: focusedPane()?.workingDirectory
+        )
+        applySearchHighlight(searchHighlightQuery, to: viewer)
+        showInNewPaneOrActivate(tab)
+    }
+
+    // The other end of the dedupe rule above: a ⌘N buffer saved onto a path this
+    // window already has open arrives at a file that already has a tab, and
+    // would leave two viewports claiming one file.
+    //
+    // Which tab survives is not arbitrary. The established tab owns the scroll
+    // position, folds and bookmarks the reader built up in that file; the tab
+    // being saved was a scratch buffer thirty seconds ago and carries none of
+    // that. So the fresh one goes, the established one reloads to show the text
+    // that was just written over it, and focus lands there — exactly what
+    // opening an already-open file does.
+    //
+    // Matched on FileBackedPaneContent rather than the text viewer, because the
+    // duplicate may be any preview kind: saving a scratch buffer as README.md
+    // collides with the markdown tab, not another viewer.
+    func reconcileDuplicateFileTab(for savedTab: Tab, path: String) {
+        let standardized = (path as NSString).standardizingPath
+        guard let existing = store.tabs.first(where: { other in
+            other !== savedTab
+                && (other.content as? FileBackedPaneContent)?.filePath == standardized
+        }) else { return }
+
+        // An `existing` was found, so the window holds at least two tabs and
+        // this close cannot take the window down with it.
+        forceCloseTab(savedTab)
+
+        if let viewer = existing.content as? FileViewerPaneContent {
+            // From the surviving tab's point of view the save was an outside
+            // rewrite of its file, no different from a Claude edit — so it is
+            // handled by the machinery built for exactly that: adopt the new
+            // text when its buffer is clean, ask when the reader has unsaved
+            // edits of their own. A bare load() here would silently throw those
+            // edits away, which is the one thing this whole path must not do.
+            viewer.reconcileExternalChange()
+        } else {
+            // The other preview kinds are read-only, so there is nothing to lose.
+            (existing.content as? FileBackedPaneContent)?.load(path: standardized, line: nil)
+        }
+        applySearchHighlight(searchHighlightQuery, to: existing.content)
+        activate(existing)
+    }
+
     // MARK: - Project-search highlighting
 
     // The Search tab's pattern reaches every open viewer in this window, not

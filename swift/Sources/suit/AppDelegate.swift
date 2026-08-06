@@ -258,6 +258,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // Closing the last window doesn't double-prompt: its windowWillClose has
     // already removed its controller by the time termination is evaluated.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Unsaved ⌘N documents come first, and are asked about even when every
+        // shell is idle: they are the only work in the app that neither the
+        // autosave flush below nor the restoration snapshot can bring back,
+        // because they have no file to be written to yet.
+        // Asked first, but not *instead of* the running-process warning below:
+        // agreeing to lose a scratch buffer is not consent to kill a build.
+        let unsaved = windowControllers.flatMap { $0.unsavedUntitledNames(in: $0.store.tabs) }
+        if !unsaved.isEmpty {
+            let confirmed = TerminalWindowController.confirmDiscardUntitled(
+                messageText: "Quit Suit?",
+                confirmTitle: "Quit",
+                names: unsaved
+            )
+            guard confirmed else { return .terminateCancel }
+        }
         let names = windowControllers.flatMap { $0.busyPaneProcessNames() }
         guard !names.isEmpty else { return .terminateNow }
         let confirmed = TerminalWindowController.confirmTermination(

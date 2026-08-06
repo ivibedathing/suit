@@ -29,6 +29,10 @@ extension AppDelegate {
         let fileMenuItem = NSMenuItem()
         mainMenu.addItem(fileMenuItem)
         let fileMenu = NSMenu(title: "File")
+        // ⌘N — the editor meaning, as in every editor. New Window keeps the
+        // gesture one modifier away at ⇧⌘N (see the Window menu below).
+        let newFileItem = fileMenu.addItem(withTitle: "New File", action: #selector(newFile(_:)), keyEquivalent: "n")
+        newFileItem.target = self
         let openQuicklyItem = fileMenu.addItem(withTitle: "Open Quickly…", action: #selector(openQuickly(_:)), keyEquivalent: "p")
         openQuicklyItem.target = self
         // ⌘S — responder-chain routed to the focused editable viewer;
@@ -403,7 +407,10 @@ extension AppDelegate {
         mainMenu.addItem(windowMenuItem)
         let windowMenu = NSMenu(title: "Window")
 
-        let newWindowItem = windowMenu.addItem(withTitle: "New Window", action: #selector(newWindow(_:)), keyEquivalent: "n")
+        // ⇧⌘N, not ⌘N: File ▸ New File took the unshifted key, matching the
+        // editors this app is meant to replace.
+        let newWindowItem = windowMenu.addItem(withTitle: "New Window", action: #selector(newWindow(_:)), keyEquivalent: "N")
+        newWindowItem.keyEquivalentModifierMask = [.command, .shift]
         newWindowItem.target = self
 
         windowMenuItem.submenu = windowMenu

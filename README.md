@@ -123,6 +123,8 @@ You can keep the layout of a window with a name, and open it again. Use the Scre
 
 | Shortcut | Action |
 | --- | --- |
+| ⌘N | New file (Untitled-1, in a new pane, ready to type) |
+| ⌘S | Save the file (a new file asks where it goes) |
 | ⌘P | Open a file quickly (a fuzzy search of the names) |
 | ⌘K | Command palette |
 | ⌃R | Search the history of the commands (Enter runs · ⇧Enter edits first) |
@@ -192,7 +194,7 @@ Approve, a Request Changes or a Comment result with `gh pr review`.
 
 | Shortcut | Action |
 | --- | --- |
-| ⌘N | New window |
+| ⇧⌘N | New window |
 | ⌘, | Settings |
 | ⌘C / ⌘V | Copy / paste |
 | ⌘Q | Quit Suit |
