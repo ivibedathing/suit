@@ -73,6 +73,47 @@ extension TerminalWindowController {
         showInNewPaneOrActivate(tab)
     }
 
+    // The other end of the dedupe rule above: a ⌘N buffer saved onto a path this
+    // window already has open arrives at a file that already has a tab, and
+    // would leave two viewports claiming one file.
+    //
+    // Which tab survives is not arbitrary. The established tab owns the scroll
+    // position, folds and bookmarks the reader built up in that file; the tab
+    // being saved was a scratch buffer thirty seconds ago and carries none of
+    // that. So the fresh one goes, the established one reloads to show the text
+    // that was just written over it, and focus lands there — exactly what
+    // opening an already-open file does.
+    //
+    // Matched on FileBackedPaneContent rather than the text viewer, because the
+    // duplicate may be any preview kind: saving a scratch buffer as README.md
+    // collides with the markdown tab, not another viewer.
+    func reconcileDuplicateFileTab(for savedTab: Tab, path: String) {
+        let standardized = (path as NSString).standardizingPath
+        guard let existing = store.tabs.first(where: { other in
+            other !== savedTab
+                && (other.content as? FileBackedPaneContent)?.filePath == standardized
+        }) else { return }
+
+        // An `existing` was found, so the window holds at least two tabs and
+        // this close cannot take the window down with it.
+        forceCloseTab(savedTab)
+
+        if let viewer = existing.content as? FileViewerPaneContent {
+            // From the surviving tab's point of view the save was an outside
+            // rewrite of its file, no different from a Claude edit — so it is
+            // handled by the machinery built for exactly that: adopt the new
+            // text when its buffer is clean, ask when the reader has unsaved
+            // edits of their own. A bare load() here would silently throw those
+            // edits away, which is the one thing this whole path must not do.
+            viewer.reconcileExternalChange()
+        } else {
+            // The other preview kinds are read-only, so there is nothing to lose.
+            (existing.content as? FileBackedPaneContent)?.load(path: standardized, line: nil)
+        }
+        applySearchHighlight(searchHighlightQuery, to: existing.content)
+        activate(existing)
+    }
+
     // MARK: - Project-search highlighting
 
     // The Search tab's pattern reaches every open viewer in this window, not

@@ -173,6 +173,19 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         if caret.location + caret.length <= length {
             textView.setSelectedRange(caret)
         }
+
+        // Saving onto a path the window already has open would leave two tabs
+        // for one file, which the whole open-file path is built to prevent.
+        // Restoring that needs the window's tab list, and a content has no route
+        // to its controller — the app delegate owns them, and finding the one
+        // holding this tab also survives the tab having been dragged to another
+        // window since it was created.
+        //
+        // MUST BE LAST: reconciling can close this very tab, which tears this
+        // content down. Nothing may touch self afterwards.
+        if let tab, let owner = (NSApp.delegate as? AppDelegate)?.windowController(owningTab: tab) {
+            owner.reconcileDuplicateFileTab(for: tab, path: path)
+        }
     }
 
     private func scheduleAutosave() {
