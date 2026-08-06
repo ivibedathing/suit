@@ -85,8 +85,9 @@ final class ActivityBarView: NSView {
     private func layoutContents() {
         let size = RailIconView.size
         // Shared with the sidebar's own top inset so the first icon and the tab
-        // content beside it start on one line — now that both are zero, the
-        // icon's 40pt cell brackets the 28pt title band next to it.
+        // content beside it start on one line — both clear the top edge by the
+        // same 5pt, and the icon's 40pt cell brackets the 28pt title band next
+        // to it.
         let topPadding = SidebarView.topInset
         let gap: CGFloat = 4
         // Unflipped coords: start at the top edge and walk down.
