@@ -77,6 +77,18 @@ extension AppDelegate {
         current.newTerminalTab()
     }
 
+    // ⌘N: a new empty document, in a viewport beside the focused one. With no
+    // window open it makes one first — same fallback as ⌘T, since a shortcut
+    // that silently does nothing is worse than one that opens a window.
+    @objc func newFile(_ sender: Any?) {
+        guard let current = activeWindowController() else {
+            newWindow(sender)
+            activeWindowController()?.newUntitledFile()
+            return
+        }
+        current.newUntitledFile()
+    }
+
     // ⌃⌘C / the strip's ✦: a new terminal tab that immediately runs claude
     // (with the settings-configured default arguments).
     @objc func newClaudeSession(_ sender: Any?) {

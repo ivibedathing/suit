@@ -55,16 +55,124 @@ extension FileViewerPaneContent: NSTextViewDelegate {
         }
     }
 
+    // MARK: - Untitled (⌘N) documents
+
+    // ⌘N: become an empty editable buffer with a name but no file.
+    //
+    // Deliberately not routed through load(). There is nothing to read, and
+    // every path-shaped side effect in there — the mtime baseline, the watcher,
+    // the git changed-line gutter, blame, syntax picked off the extension —
+    // needs a real file and would either no-op noisily or read the wrong thing.
+    // What this does instead is the small subset that makes an empty buffer
+    // coherent: an editable text view, a clean baseline to measure dirt against,
+    // a gutter showing line 1, and a title on the tab.
+    func startUntitled(named name: String, directory: String?) {
+        untitledName = name
+        untitledDirectory = directory
+        isEditableFile = true
+        textView.isEditable = true
+
+        // Nothing carried over from a previous life: a scratch buffer is always
+        // a fresh content object, but the timers and the watcher are the two
+        // things that would keep running against a file if that ever changed.
+        autosaveTimer?.invalidate(); autosaveTimer = nil
+        rehighlightTimer?.invalidate(); rehighlightTimer = nil
+        fileWatcher?.stop(); fileWatcher = nil
+        savedModificationDate = nil
+
+        isLoadingProgrammatically = true
+        textView.string = ""
+        isLoadingProgrammatically = false
+        // The empty buffer is the clean baseline — the first keystroke is what
+        // makes this document dirty, not its creation.
+        editState.markLoaded("")
+        textView.undoManager?.removeAllActions()
+
+        recomputeLineStarts(for: "")
+        ruler.lineStarts = lineStarts
+        ruler.updateThickness()
+        ruler.needsDisplay = true
+        textView.setSelectedRange(NSRange(location: 0, length: 0))
+
+        tab?.contentTitleDidChange(name)
+        tab?.contentDirtyDidChange(false)
+        pane?.refreshChrome()
+    }
+
+    // Whether closing this tab would drop work that exists nowhere else. A saved
+    // file's edits are recoverable — autosave has them, or the next flush will —
+    // but a scratch buffer's only copy is the text view, so the close paths ask
+    // before taking it away.
+    var hasUnsavedUntitledWork: Bool {
+        untitledName != nil && !textView.string.isEmpty
+    }
+
     // MARK: - Saving
 
-    // Whether ⌘S has anything to do — an editable file with unsaved edits.
+    // Whether ⌘S has anything to do. A file-backed buffer needs unsaved edits;
+    // a scratch buffer is always saveable, because "give this a file" is the
+    // point of ⌘S there even when the buffer is still empty.
     // Drives the File ▸ Save menu item's enabled state.
-    var canSave: Bool { isEditableFile && editState.isDirty }
+    var canSave: Bool { isEditableFile && (untitledName != nil || editState.isDirty) }
 
     // ⌘S / palette "Save File": write now, cancelling the pending autosave.
+    // A scratch buffer has no path to write to, so it asks for one first.
     func save() {
-        guard isEditableFile, filePath != nil else { NSSound.beep(); return }
+        guard isEditableFile else { NSSound.beep(); return }
+        if untitledName != nil {
+            presentSavePanelForUntitled()
+            return
+        }
+        guard filePath != nil else { NSSound.beep(); return }
         performSave()
+    }
+
+    // The first ⌘S on a ⌘N buffer: pick a path, write the text there, then
+    // re-enter through load() so the document finishes arriving as an ordinary
+    // file-backed one.
+    private func presentSavePanelForUntitled() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = untitledName ?? "Untitled"
+        panel.canCreateDirectories = true
+        // Start where the window is, not wherever the last save panel in the app
+        // happened to land — a scratch buffer opened from a repo pane almost
+        // always belongs in that repo.
+        if let untitledDirectory {
+            panel.directoryURL = URL(fileURLWithPath: untitledDirectory)
+        }
+
+        let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self, response == .OK, let url = panel.url else { return }
+            self.adoptSavedPath(url.path)
+        }
+        if let window = view.window {
+            panel.beginSheetModal(for: window, completionHandler: finish)
+        } else {
+            finish(panel.runModal())
+        }
+    }
+
+    // Write the scratch text to the chosen path and become that file's viewer.
+    // The re-entry through load() is what wires up everything the buffer went
+    // without — watcher, mtime baseline, syntax for the extension the user just
+    // chose, git gutter, blame — rather than duplicating that setup here.
+    private func adoptSavedPath(_ path: String) {
+        do {
+            try FileEditWriter.write(textView.string, toPath: path)
+        } catch {
+            // Still untitled: the buffer keeps its name and its text, and ⌘S can
+            // be tried again somewhere writable.
+            presentSaveError(error)
+            return
+        }
+        // Where the caret was matters more than where load() would put it (the
+        // top), because the user is mid-edit — they pressed ⌘S, not ⌘O.
+        let caret = textView.selectedRange()
+        load(path: path, line: nil)
+        let length = (textView.string as NSString).length
+        if caret.location + caret.length <= length {
+            textView.setSelectedRange(caret)
+        }
     }
 
     private func scheduleAutosave() {

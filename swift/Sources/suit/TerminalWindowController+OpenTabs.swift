@@ -41,6 +41,38 @@ extension TerminalWindowController {
         if inNewPane { showInNewPaneOrActivate(tab) } else { activate(tab) }
     }
 
+    // ⌘N: a brand-new empty document in a viewport of its own — the editor twin
+    // of ⌘D, which does the same for a shell.
+    //
+    // It arrives as a scratch buffer rather than a file on disk. Creating
+    // Untitled-1 for real would mean choosing a directory to litter on behalf of
+    // someone who has typed nothing yet, and leaving an empty file behind every
+    // time the thought didn't go anywhere. So the tab is the document until the
+    // first ⌘S asks where it should live.
+    //
+    // The name is derived from what is already on the strip, so two scratch
+    // buffers are always distinguishable, and a closed one gives its number back.
+    func newUntitledFile() {
+        let viewer = FileViewerPaneContent()
+        viewer.setWordWrap(appDelegate.wordWrapEnabled)
+        let tab = Tab(content: viewer)
+        store.insert(tab)
+        // Tab titles alone are not enough to know which numbers are taken: a
+        // renamed scratch tab (Rename Tab sets customTitle, which wins over the
+        // content's title) would hide its index and let the next ⌘N hand the
+        // same name out twice. The live untitledNames are the authority; the
+        // titles are there to keep an ordinary file called Untitled-2 from
+        // colliding with one.
+        let taken = store.tabs.map(\.title)
+            + store.tabs.compactMap { ($0.content as? FileViewerPaneContent)?.untitledName }
+        viewer.startUntitled(
+            named: UntitledDocuments.nextName(takenNames: taken),
+            directory: focusedPane()?.workingDirectory
+        )
+        applySearchHighlight(searchHighlightQuery, to: viewer)
+        showInNewPaneOrActivate(tab)
+    }
+
     // MARK: - Project-search highlighting
 
     // The Search tab's pattern reaches every open viewer in this window, not

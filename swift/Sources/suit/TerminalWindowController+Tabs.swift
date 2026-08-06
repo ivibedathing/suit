@@ -302,6 +302,12 @@ extension TerminalWindowController {
     @objc private func contextCloseOthers(_ sender: Any?) {
         guard let keep = contextTab(sender) else { return }
         let others = store.tabs.filter { $0 !== keep && !$0.isPinned }
+        let unsaved = unsavedUntitledNames(in: others)
+        if !unsaved.isEmpty,
+           !Self.confirmDiscardUntitled(
+                messageText: "Close Other Tabs?", confirmTitle: "Discard", names: unsaved) {
+            return
+        }
         let names = others.compactMap { $0.runningProcessName }
         if !names.isEmpty,
            !Self.confirmTermination(messageText: "Close Other Tabs?", confirmTitle: "Close", processNames: names) {

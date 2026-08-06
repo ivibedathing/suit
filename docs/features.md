@@ -214,6 +214,17 @@ app does.
   pane header marks unsaved edits; pending edits also flush when you close the tab or quit.
   Binary, over-8 MB, and unreadable files stay read-only. Editing stays a deliberate, bounded
   slice — Suit is still viewer-first, with Claude doing the heavy code-writing.
+- **New file (⌘N)** — opens an empty document called **Untitled-1** in a viewport of its own,
+  beside the pane you were in, with the caret already in it: the editor twin of ⌘D, which does
+  the same for a shell. (New Window moved to **⇧⌘N** to free the key.) Nothing is written to disk
+  yet — the tab *is* the document, so a thought that goes nowhere leaves no empty file behind.
+  The first **⌘S** asks where it should live, opening in the window's current directory and
+  offering the Untitled name; once saved it becomes an ordinary file tab, and syntax highlighting,
+  autosave, the git gutter and the outside-change watcher all start working from the extension you
+  chose. The number is the lowest free one, so closing Untitled-2 and pressing ⌘N again gives
+  Untitled-2 back rather than climbing forever. Because an unsaved scratch buffer is the one thing
+  here that no autosave can recover, closing its tab, its window, or quitting asks first when you
+  have typed something into it.
 - **The standard editing commands** — **⌘Z** / **⇧⌘Z** undo and redo, **⌘X** / **⌘C** / **⌘V** cut,
   copy and paste, **⌘A** selects all, and right-clicking the text offers the same four. They live
   in the Edit menu and route through the responder chain, so they follow the focus: the file
