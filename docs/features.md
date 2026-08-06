@@ -213,7 +213,10 @@ app does.
   "Save File"). An accent dot on the tab (in place of its close ✕ until you hover) and in the
   pane header marks unsaved edits; pending edits also flush when you close the tab or quit.
   Binary, over-8 MB, and unreadable files stay read-only. Editing stays a deliberate, bounded
-  slice — Suit is still viewer-first, with Claude doing the heavy code-writing.
+  slice — Suit is still viewer-first, with Claude doing the heavy code-writing. macOS's typing
+  substitutions are off in the editor: a quote stays straight, `--` stays two hyphens, and neither
+  the replacement table nor autocorrect fires — `"hi"` is a string literal and `“hi”` is a syntax
+  error, so what you typed is what lands in the file.
 - **New file (⌘N)** — opens an empty document called **Untitled-1** in a viewport of its own,
   beside the pane you were in, with the caret already in it: the editor twin of ⌘D, which does
   the same for a shell. (New Window moved to **⇧⌘N** to free the key.) Nothing is written to disk

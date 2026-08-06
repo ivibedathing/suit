@@ -114,6 +114,16 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         textView.isSelectable = true
         textView.isRichText = false
         textView.allowsUndo = true
+        // macOS rewrites what you type as you type it: straight quotes become
+        // curly ones, -- becomes an em dash, and the text-replacement table
+        // fires. That is right for prose and wrong for every language this
+        // viewer edits — "hi" is a string literal, “hi” is a syntax error, and
+        // the damage is invisible in a proportional-looking glance at the line.
+        // Off for the same reason isRichText is: this is a code editor.
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
         // NSTextView's stock find bar is off: the viewer answers ⌘F with its own
         // themed find/replace widget instead (ViewerTextView.performFindPanelAction
         // → FileViewerPane+Find). isIncrementalSearchingEnabled is NSTextFinder-only
