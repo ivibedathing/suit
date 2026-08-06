@@ -55,6 +55,14 @@ extension AppDelegate {
             ?? windowControllers.last
     }
 
+    // The window controller whose strip holds `tab`, whichever window that is —
+    // the same shape as focusSession's lookup. A content that needs its window's
+    // tab list asks through here rather than keeping a controller reference,
+    // which would go stale the moment the tab was dragged to another window.
+    func windowController(owningTab tab: Tab) -> TerminalWindowController? {
+        windowControllers.first { $0.store.tabs.contains { $0 === tab } }
+    }
+
     // A new window/tab starts wherever the pane it was spawned from currently is,
     // matching how splitting a pane already behaves.
     private func startDirectoryForNewWindowOrTab() -> String {

@@ -225,7 +225,10 @@ app does.
   offering the Untitled name; once saved it becomes an ordinary file tab, and syntax highlighting,
   autosave, the git gutter and the outside-change watcher all start working from the extension you
   chose. The number is the lowest free one, so closing Untitled-2 and pressing ⌘N again gives
-  Untitled-2 back rather than climbing forever. Because an unsaved scratch buffer is the one thing
+  Untitled-2 back rather than climbing forever. Saving onto a file the window already has open
+  keeps the one-tab-per-file rule: the scratch tab gives way to the established one, which owns
+  that file's scroll, folds and bookmarks, and which reloads to show what was just written — or
+  asks first, if you had unsaved edits there. Because an unsaved scratch buffer is the one thing
   here that no autosave can recover, closing its tab, its window, or quitting asks first when you
   have typed something into it.
 - **The standard editing commands** — **⌘Z** / **⇧⌘Z** undo and redo, **⌘X** / **⌘C** / **⌘V** cut,
